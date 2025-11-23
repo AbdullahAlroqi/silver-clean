@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-white">إضافة كود خصم جديد</h2>
+        <a href="{{ url_for('admin.discount_codes') }}" class="text-gray-400 hover:text-white">
+            <i class="fas fa-arrow-right ml-2"></i>عودة
+        </a>
+    </div>
+
+    <div class="bg-primary rounded-lg shadow-lg p-6">
+        <form action="{{ url_for('admin.add_discount_code') }}" method="POST">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-300 mb-2">الكود</label>
+                    <input type="text" name="code" required
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">نوع الخصم</label>
+                    <select name="discount_type" required
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+                        <option value="percentage">نسبة مئوية (%)</option>
+                        <option value="fixed">مبلغ ثابت (ريال)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">القيمة</label>
+                    <input type="number" name="value" step="0.01" required
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">صالح حتى</label>
+                    <input type="date" name="valid_until" required
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">حد الاستخدام الكلي (اختياري)</label>
+                    <input type="number" name="usage_limit"
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+                    <p class="text-xs text-gray-500 mt-1">اتركه فارغاً لعدد غير محدود</p>
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">حد الاستخدام لكل عميل</label>
+                    <input type="number" name="max_uses_per_customer" value="1"
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+                    <p class="text-xs text-gray-500 mt-1">عدد المرات التي يمكن للعميل الواحد استخدام الكود فيها
+                        (الافتراضي 1)</p>
+                </div>
+
+                <div class="pt-4">
+                    <button type="submit"
+                        class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+                        حفظ الكود
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

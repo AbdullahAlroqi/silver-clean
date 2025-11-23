@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">إدارة المدن والأحياء</h2>
+    <a href="{{ url_for('admin.add_city') }}"
+        class="bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+        <i class="fas fa-plus ml-2"></i> إضافة مدينة
+    </a>
+</div>
+
+<div class="space-y-6">
+    {% for city in cities %}
+    <div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-gray-800 p-4 flex justify-between items-center">
+            <h3 class="text-xl font-bold text-white">{{ city.name_ar }} <span class="text-sm text-gray-400">({{
+                    city.name_en }})</span></h3>
+            <div class="flex gap-2">
+                <a href="{{ url_for('admin.add_neighborhood', city_id=city.id) }}"
+                    class="text-sm bg-green-600 hover:bg-green-500 text-white py-1 px-3 rounded transition">
+                    <i class="fas fa-plus"></i> إضافة حي
+                </a>
+                <a href="{{ url_for('admin.edit_city', id=city.id) }}" class="text-blue-400 hover:text-blue-300 px-2"
+                    title="تعديل">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <a href="{{ url_for('admin.delete_city', id=city.id) }}" class="text-red-400 hover:text-red-300 px-2"
+                    title="حذف" onclick="return confirm('هل أنت متأكد من حذف المدينة {{ city.name_ar }}؟')">
+                    <i class="fas fa-trash"></i>
+                </a>
+            </div>
+        </div>
+        <div class="p-4">
+            {% if city.neighborhoods.count() > 0 %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {% for neighborhood in city.neighborhoods %}
+                <div class="bg-darkbg p-3 rounded border border-gray-700 flex justify-between items-center">
+                    <div>
+                        <p class="text-white">{{ neighborhood.name_ar }}</p>
+                        <p class="text-xs text-gray-400">{{ neighborhood.name_en }}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="{{ url_for('admin.edit_neighborhood', id=neighborhood.id) }}"
+                            class="text-blue-400 hover:text-blue-300" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{{ url_for('admin.delete_neighborhood', id=neighborhood.id) }}"
+                            class="text-red-400 hover:text-red-300" title="حذف"
+                            onclick="return confirm('هل أنت متأكد من حذف الحي {{ neighborhood.name_ar }}؟')">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500">لا يوجد أحياء مضافة لهذه المدينة.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center text-gray-500 py-8">
+        لا يوجد مدن مضافة حالياً.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

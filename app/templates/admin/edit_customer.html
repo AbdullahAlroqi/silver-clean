@@ -1,0 +1,97 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-white">تعديل معلومات العميل</h2>
+        <a href="{{ url_for('admin.customers') }}"
+            class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+            <i class="fas fa-arrow-right mr-2"></i>رجوع
+        </a>
+    </div>
+
+    <div class="bg-primary rounded-lg shadow-lg p-6">
+        <form method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Username -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-user ml-2"></i>اسم المستخدم *
+                    </label>
+                    <input type="text" name="username" value="{{ customer.username }}" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-accent">
+                </div>
+
+                <!-- Email -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-envelope ml-2"></i>البريد الإلكتروني *
+                    </label>
+                    <input type="email" name="email" value="{{ customer.email }}" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-accent">
+                </div>
+
+                <!-- Phone -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-phone ml-2"></i>رقم الجوال *
+                    </label>
+                    <input type="text" name="phone" value="{{ customer.phone }}" required pattern="[0-9]{10}"
+                        placeholder="5XXXXXXXX"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-accent">
+                    <p class="text-xs text-gray-400 mt-1">يجب أن يكون 10 أرقام</p>
+                </div>
+
+                <!-- Password (Optional) -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-lock ml-2"></i>كلمة السر الجديدة (اختياري)
+                    </label>
+                    <input type="text" name="password" placeholder="اتركه فارغاً إذا لم ترد تغيير كلمة السر"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-accent">
+                    <p class="text-xs text-gray-400 mt-1">اتركه فارغاً للاحتفاظ بكلمة السر الحالية</p>
+                </div>
+            </div>
+
+            <!-- Customer Stats (Read Only) -->
+            <div class="mt-6 pt-6 border-t border-gray-700">
+                <h3 class="text-lg font-bold text-white mb-4">معلومات إضافية</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-darkbg p-4 rounded text-center">
+                        <i class="fas fa-gift text-green-400 text-2xl mb-2"></i>
+                        <p class="text-2xl font-bold text-white">{{ customer.free_washes or 0 }}</p>
+                        <p class="text-xs text-gray-400">غسلات مجانية</p>
+                    </div>
+                    <div class="bg-darkbg p-4 rounded text-center">
+                        <i class="fas fa-star text-yellow-400 text-2xl mb-2"></i>
+                        <p class="text-2xl font-bold text-white">{{ customer.points or 0 }}</p>
+                        <p class="text-xs text-gray-400">نقاط الولاء</p>
+                    </div>
+                    <div class="bg-darkbg p-4 rounded text-center">
+                        <i class="fas fa-car text-blue-400 text-2xl mb-2"></i>
+                        <p class="text-2xl font-bold text-white">{{ customer.vehicles.count() }}</p>
+                        <p class="text-xs text-gray-400">السيارات</p>
+                    </div>
+                    <div class="bg-darkbg p-4 rounded text-center">
+                        <i class="fas fa-calendar text-purple-400 text-2xl mb-2"></i>
+                        <p class="text-2xl font-bold text-white">{{ customer.bookings.count() }}</p>
+                        <p class="text-xs text-gray-400">الحجوزات</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="mt-6 flex gap-2">
+                <button type="submit"
+                    class="flex-1 bg-accent hover:bg-blue-600 text-white font-bold py-3 rounded transition">
+                    <i class="fas fa-save ml-2"></i>حفظ التعديلات
+                </button>
+                <a href="{{ url_for('admin.customers') }}"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded text-center transition">
+                    <i class="fas fa-times ml-2"></i>إلغاء
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

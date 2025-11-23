@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - {% block title %}{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#303030',
+                        secondary: '#D8D8D8',
+                        accent: '#4DA8DA',
+                        darkbg: '#1F1F1F',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        .sidebar {
+            transition: all 0.3s;
+        }
+
+        .content {
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        .sidebar-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Custom Scrollbar for Sidebar */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: #1F1F1F;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #4DA8DA;
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
+    </style>
+</head>
+
+<body class="bg-darkbg text-white">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <div class="sidebar bg-primary text-white w-64 flex-shrink-0 h-screen overflow-y-auto">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-2xl font-bold text-center">لوحة التحكم</h1>
+            </div>
+            <nav class="mt-6 pb-20">
+                <div>
+                    <a href="{{ url_for('admin.index') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-tachometer-alt ml-3"></i>
+                        <span>الرئيسية</span>
+                    </a>
+                    <a href="{{ url_for('admin.employees') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-users-cog ml-3"></i>
+                        <span>الموظفين</span>
+                    </a>
+                    <a href="{{ url_for('admin.services') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-cut ml-3"></i>
+                        <span>الخدمات</span>
+                    </a>
+                    <a href="{{ url_for('admin.products') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-box ml-3"></i>
+                        <span>المنتجات</span>
+                    </a>
+                    <a href="{{ url_for('admin.bookings') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="far fa-calendar-alt ml-3"></i>
+                        <span>الحجوزات</span>
+                    </a>
+                    <a href="{{ url_for('admin.subscriptions') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-clipboard-list ml-3"></i>
+                        <span>الاشتراكات</span>
+                    </a>
+                    <a href="{{ url_for('admin.packages') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-tags ml-3"></i>
+                        <span>الباقات</span>
+                    </a>
+                    <a href="{{ url_for('admin.locations') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-map-marker-alt ml-3"></i>
+                        <span>المواقع</span>
+                    </a>
+                    <a href="{{ url_for('admin.reports') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-chart-line ml-3"></i>
+                        <span>التقارير</span>
+                    </a>
+                    <a href="{{ url_for('admin.customers') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-users ml-3"></i>
+                        <span>العملاء</span>
+                    </a>
+                    <a href="{{ url_for('admin.admins') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-user-shield ml-3"></i>
+                        <span>المسؤولين</span>
+                    </a>
+                    <a href="{{ url_for('admin.discount_codes') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-percent ml-3"></i>
+                        <span>أكواد الخصم</span>
+                    </a>
+                    <a href="{{ url_for('admin.loyalty_settings') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-star ml-3"></i>
+                        <span>نظام الولاء</span>
+                    </a>
+                    <a href="{{ url_for('admin.send_notification') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-bell ml-3"></i>
+                        <span>الإشعارات</span>
+                    </a>
+                    <a href="{{ url_for('admin.settings') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-cog ml-3"></i>
+                        <span>الإعدادات</span>
+                    </a>
+                    <a href="{{ url_for('auth.logout') }}"
+                        class="flex items-center px-6 py-3 text-red-400 hover:bg-gray-700 sidebar-link mt-4 border-t border-gray-700">
+                        <i class="fas fa-sign-out-alt ml-3"></i>
+                        <span>تسجيل خروج</span>
+                    </a>
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content overflow-y-auto flex-1">
+            <!-- Top Navigation -->
+            <header class="bg-primary shadow-sm border-b border-gray-700">
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex items-center">
+                        <button id="sidebarToggle" class="text-gray-300 focus:outline-none hover:text-white">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <h2 class="text-xl font-semibold text-white mr-4">
+                            {% block header %}{% endblock %}
+                        </h2>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="relative">
+                            <button id="userMenuButton" class="flex items-center focus:outline-none">
+                                <span class="mr-2 text-sm text-white">{{ current_user.username }}</span>
+                                <i class="fas fa-chevron-down text-gray-300 text-xs"></i>
+                            </button>
+                            <!-- Dropdown menu -->
+                            <div id="userMenu"
+                                class="absolute right-0 mt-2 w-48 bg-primary rounded-md shadow-lg py-1 hidden border border-gray-700">
+                                <a href="{{ url_for('admin.edit_admin', id=current_user.id) }}"
+                                    class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                    <i class="fas fa-user-edit ml-2"></i>الملف الشخصي
+                                </a>
+                                <a href="{{ url_for('auth.logout') }}"
+                                    class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">
+                                    <i class="fas fa-sign-out-alt ml-2"></i>تسجيل خروج
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <main class="p-6">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for category, message in messages %}
+                <div
+                    class="mb-4 p-4 rounded-md {% if category == 'success' %}bg-green-900 text-green-200{% elif category == 'error' %}bg-red-900 text-red-200{% else %}bg-blue-900 text-blue-200{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Toggle sidebar on mobile
+        document.getElementById('sidebarToggle').addEventListener('click', function () {
+            document.querySelector('.sidebar').classList.toggle('hidden');
+            document.querySelector('.content').classList.toggle('ml-0');
+            document.querySelector('.content').classList.toggle('md:ml-64');
+        });
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function (event) {
+            const sidebar = document.querySelector('.sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+
+            if (window.innerWidth < 768 &&
+                !sidebar.contains(event.target) &&
+                !sidebarToggle.contains(event.target)) {
+                sidebar.classList.add('hidden');
+                document.querySelector('.content').classList.remove('ml-0');
+                document.querySelector('.content').classList.add('md:ml-64');
+            }
+        });
+
+        // Handle dropdown menu
+        const userMenuButton = document.getElementById('userMenuButton');
+        const userMenu = document.getElementById('userMenu');
+
+        if (userMenuButton && userMenu) {
+            userMenuButton.addEventListener('click', function () {
+                userMenu.classList.toggle('hidden');
+            });
+
+            // Close when clicking outside
+            document.addEventListener('click', function (event) {
+                if (!userMenuButton.contains(event.target) && !userMenu.contains(event.target)) {
+                    userMenu.classList.add('hidden');
+                }
+            });
+        }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

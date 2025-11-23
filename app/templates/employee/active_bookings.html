@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold text-white">الحجوزات الجارية</h2>
+        <p class="text-gray-400">{{ bookings|length }} حجز نشط</p>
+    </div>
+    <a href="{{ url_for('employee.index') }}"
+        class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+        <i class="fas fa-arrow-right ml-2"></i> رجوع
+    </a>
+</div>
+
+{% if bookings %}
+<div class="space-y-4">
+    {% for booking in bookings %}
+    <div class="bg-primary p-6 rounded-lg shadow-lg">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h3 class="text-lg font-bold text-white">حجز #{{ booking.id }}</h3>
+                <span class="inline-block px-3 py-1 rounded text-xs font-bold mt-2
+                    {% if booking.status == 'assigned' %}bg-blue-600
+                    {% elif booking.status == 'en_route' %}bg-yellow-600
+                    {% elif booking.status == 'arrived' %}bg-orange-600
+                    {% elif booking.status == 'in_progress' %}bg-purple-600
+                    {% endif %}">
+                    {% if booking.status == 'assigned' %}تم التعيين
+                    {% elif booking.status == 'en_route' %}في الطريق
+                    {% elif booking.status == 'arrived' %}وصل الموظف
+                    {% elif booking.status == 'in_progress' %}جاري العمل
+                    {% endif %}
+                </span>
+            </div>
+            <div class="text-left">
+                <p class="text-white font-bold">{{ booking.date }}</p>
+                <p class="text-gray-400 text-sm">{{ booking.time.strftime('%H:%M') if booking.time else '' }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+                <p class="text-gray-400 text-sm mb-1">العميل</p>
+                <p class="text-white font-bold">{{ booking.customer.username }}</p>
+                <p class="text-gray-400 text-sm">{{ booking.customer.phone }}</p>
+            </div>
+            <div class="col-span-2">
+                <p class="text-gray-400 text-sm mb-1">الخدمة</p>
+                <div class="flex items-center justify-between bg-gray-800 p-3 rounded">
+                    <p class="text-white">{{ booking.service.name_ar }}</p>
+                    <p class="text-accent font-bold">{{ booking.service.price }} ريال</p>
+                </div>
+            </div>
+            <div class="col-span-2">
+                <p class="text-gray-400 text-sm mb-2">المركبة</p>
+                {% if booking.vehicle %}
+                <div class="flex items-center gap-4 bg-gray-800 p-3 rounded">
+                    <div class="w-16 h-16 bg-white rounded flex items-center justify-center flex-shrink-0 p-2">
+                        {% set brand_lower = booking.vehicle.brand.lower() %}
+                        <img src="{{ url_for('static', filename='img/brands/' ~ brand_lower ~ '.png') }}"
+                            alt="{{ booking.vehicle.brand }}" class="w-full h-full object-contain"
+                            onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 fill=%22%23e5e7eb%22 rx=%2210%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-size=%2236%22 font-weight=%22bold%22 fill=%22%231f2937%22%3E{{ booking.vehicle.brand[:3]|upper }}%3C/text%3E%3C/svg%3E'">
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-white font-bold text-lg">{{ booking.vehicle.brand }}</p>
+                        <p class="text-gray-400 text-sm">{{ booking.vehicle.plate_number }}</p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-gray-800 p-3 rounded">
+                    <p class="text-gray-400 text-center">لم يتم تحديد مركبة</p>
+                </div>
+                {% endif %}
+            </div>
+            {% if booking.neighborhood %}
+            <div>
+                <p class="text-gray-400 text-sm mb-1">الحي</p>
+                <p class="text-white">{{ booking.neighborhood.name_ar }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if booking.products.count() > 0 %}
+        <div class="mb-4 bg-gray-800 p-4 rounded">
+            <p class="text-gray-400 text-sm mb-3 flex items-center">
+                <i class="fas fa-shopping-cart ml-2"></i> منتجات إضافية
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {% for bp in booking.products %}
+                <div class="flex items-center justify-between bg-gray-700 p-2 rounded">
+                    <div class="flex items-center gap-2">
+                        {% if bp.product.image_url %}
+                        <img src="{{ bp.product.image_url }}" alt="{{ bp.product.name_ar }}"
+                            class="w-10 h-10 object-cover rounded">
+                        {% else %}
+                        <div class="w-10 h-10 bg-gray-600 rounded flex items-center justify-center">
+                            <i class="fas fa-box text-gray-400"></i>
+                        </div>
+                        {% endif %}
+                        <div>
+                            <p class="text-white text-sm font-bold">{{ bp.product.name_ar }}</p>
+                            <p class="text-gray-400 text-xs">الكمية: {{ bp.quantity }}</p>
+                        </div>
+                    </div>
+                    <span class="text-accent font-bold text-sm">{{ bp.product.price * bp.quantity }} ر.س</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Free Wash or Discount Code Info -->
+        {% if booking.used_free_wash or booking.discount_code %}
+        <div class="mb-4">
+            {% if booking.used_free_wash %}
+            <div
+                class="bg-gradient-to-r from-green-900/30 to-green-800/20 border-2 border-green-500 rounded-lg p-4 mb-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-green-600 rounded-full p-3">
+                            <i class="fas fa-gift text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-green-300 font-bold text-sm">غسلة مجانية 🎁</p>
+                            <p class="text-white font-bold">تم استخدام غسلة مجانية</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-green-400 font-bold text-2xl">مجاناً</p>
+                        <p class="text-green-300 text-xs">السعر: 0 ر.س</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if booking.discount_code %}
+            <div class="bg-gradient-to-r from-blue-900/30 to-blue-800/20 border-2 border-blue-500 rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-blue-600 rounded-full p-3">
+                            <i class="fas fa-ticket-alt text-white text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-blue-300 font-bold text-sm">كود خصم مطبق</p>
+                            <p class="text-white font-bold text-lg">{{ booking.discount_code.code }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-green-400 font-bold text-2xl">
+                            {% if booking.discount_code.discount_type == 'percentage' %}
+                            {{ booking.discount_code.value }}%
+                            {% else %}
+                            {{ booking.discount_code.value }} ر.س
+                            {% endif %}
+                        </p>
+                        <p class="text-blue-300 text-xs">خصم</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Total Price Summary -->
+        <div class="mb-4 bg-gradient-to-r from-accent/20 to-accent/10 border-2 border-accent/50 p-4 rounded-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-calculator text-accent text-xl"></i>
+                    <span class="text-white font-bold text-lg">المجموع الكلي:</span>
+                </div>
+                <div class="text-left">
+                    {% set products_total = namespace(value=0) %}
+                    {% for bp in booking.products %}
+                    {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
+                    {% endfor %}
+
+                    {% set service_price = booking.service.price %}
+                    {% set discount_amount = 0 %}
+
+                    {# Free wash means service is free #}
+                    {% if booking.used_free_wash %}
+                    {% set service_price = 0 %}
+                    {% elif booking.discount_code %}
+                    {# Calculate discount if code is used #}
+                    {% if booking.discount_code.discount_type == 'percentage' %}
+                    {% set discount_amount = (service_price * booking.discount_code.value / 100) %}
+                    {% else %}
+                    {% set discount_amount = booking.discount_code.value %}
+                    {% endif %}
+                    {% endif %}
+
+                    {% set grand_total = (service_price - discount_amount) + products_total.value %}
+
+                    <span class="text-accent font-bold text-2xl">{{ "%.1f"|format(grand_total) }} ريال</span>
+                    <p class="text-xs text-gray-400 mt-1">
+                        {% if booking.used_free_wash %}
+                        (خدمة: مجاناً
+                        {% else %}
+                        (خدمة: {{ booking.service.price }}
+                        {% if discount_amount > 0 %} - خصم: {{ "%.1f"|format(discount_amount) }}{% endif %}
+                        {% endif %}
+                        {% if products_total.value > 0 %} + منتجات: {{ products_total.value }}{% endif %})
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {% set whatsapp_phone = '966' + booking.customer.phone[1:] if booking.customer.phone.startswith('0') else
+            booking.customer.phone %}
+            <a href="https://wa.me/{{ whatsapp_phone }}?text=مرحبًا أستاذ/أختي العزيز،%0aمعك موظف Silver Clean لغسيل السيارات.%0aياليت ترسل لي عنوانك الوطني أو موقعك الحالي عشان نوجّه الفريق لك مباشرة.%0a%0aشكرًا لك 🌟🚗"
+                target="_blank"
+                class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded text-center transition">
+                <i class="fab fa-whatsapp ml-2"></i> واتساب
+            </a>
+
+            {% if booking.status == 'assigned' %}
+            <a href="{{ url_for('employee.update_status', id=booking.id, status='en_route') }}"
+                class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded text-center transition">
+                في الطريق
+            </a>
+            {% elif booking.status == 'en_route' %}
+            <a href="{{ url_for('employee.update_status', id=booking.id, status='arrived') }}"
+                class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded text-center transition">
+                وصلت للعميل
+            </a>
+            {% elif booking.status == 'arrived' %}
+            <a href="{{ url_for('employee.update_status', id=booking.id, status='in_progress') }}"
+                class="bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded text-center transition">
+                بدء الخدمة
+            </a>
+            {%elif booking.status == 'in_progress' %}
+            <a href="{{ url_for('employee.update_status', id=booking.id, status='completed') }}"
+                class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded text-center transition">
+                إنهاء الخدمة
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-primary p-8 rounded-lg shadow-lg text-center">
+    <i class="fas fa-inbox text-4xl text-gray-500 mb-4"></i>
+    <p class="text-xl text-white">لا يوجد حجوزات جارية</p>
+    <p class="text-gray-400">جميع الحجوزات مكتملة!</p>
+</div>
+{% endif %}
+{% endblock %}

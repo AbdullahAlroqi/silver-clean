@@ -1,0 +1,266 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-white">احصائيات الموظف</h2>
+        <a href="{{ url_for('admin.employees') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">
+            <i class="fas fa-arrow-right mr-2"></i>رجوع
+        </a>
+    </div>
+
+    <!-- Employee Info Card -->
+    <div class="bg-primary rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex items-center gap-4">
+            <div class="bg-accent rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold">
+                {{ employee.username[0].upper() }}
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-white">{{ employee.username }}</h3>
+                <div class="text-gray-300 text-sm mt-1">
+                    <span class="mr-4"><i class="fas fa-phone mr-1"></i>{{ employee.phone or '-' }}</span>
+                    <span><i class="fas fa-envelope mr-1"></i>{{ employee.email or '-' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">إجمالي الحجوزات</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.total_bookings }}</p>
+            </div>
+            <div class="bg-blue-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-calendar-check text-blue-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الحجوزات المكتملة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.completed_bookings }}</p>
+            </div>
+            <div class="bg-green-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-check-circle text-green-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الاشتراكات النشطة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.active_subscriptions }}</p>
+            </div>
+            <div class="bg-yellow-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-briefcase text-yellow-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">المناطق المخصصة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.assigned_neighborhoods }}</p>
+            </div>
+            <div class="bg-purple-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-map-marked-alt text-purple-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الحجوزات المعلقة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.pending_bookings }}</p>
+            </div>
+            <div class="bg-orange-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-clock text-orange-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">إجمالي الاشتراكات</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.total_subscriptions }}</p>
+            </div>
+            <div class="bg-indigo-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-users text-indigo-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">إجمالي الأرباح</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ "%.2f"|format(stats.total_earnings) }} ريال</p>
+            </div>
+            <div class="bg-green-600 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-dollar-sign text-green-600 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Work Schedule -->
+    <div class="bg-primary rounded-lg shadow-lg">
+        <div class="p-6 border-b border-gray-700">
+            <h3 class="text-xl font-bold text-white">جدول العمل</h3>
+        </div>
+        <div class="p-6">
+            {% if schedules %}
+            <div class="space-y-3">
+                {% for schedule in schedules %}
+                <div class="flex justify-between items-center bg-darkbg rounded-lg p-4">
+                    <span class="text-white font-medium">{{ schedule.day }}</span>
+                    <span class="text-gray-300">{{ schedule.start_time }} - {{ schedule.end_time }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-center text-gray-400 py-4">لا يوجد جدول عمل محدد</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Assigned Neighborhoods -->
+    <div class="bg-primary rounded-lg shadow-lg">
+        <div class="p-6 border-b border-gray-700">
+            <h3 class="text-xl font-bold text-white">المناطق المخصصة</h3>
+        </div>
+        <div class="p-6">
+            {% if neighborhoods %}
+            <div class="grid grid-cols-1 gap-3">
+                {% for neighborhood in neighborhoods %}
+                <div class="bg-darkbg rounded-lg p-4 border border-gray-700">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-accent rounded-lg p-3">
+                            <i class="fas fa-map-marker-alt text-white"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-white">{{ neighborhood.name_ar }}</p>
+                            <p class="text-sm text-gray-400">{{ neighborhood.city.name_ar }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-center text-gray-400 py-4">لا يوجد مناطق مخصصة</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Bookings History -->
+<div class="bg-primary rounded-lg shadow-lg mb-6">
+    <div class="p-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold text-white">تاريخ الحجوزات</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-darkbg">
+                <tr>
+                    <th class="px-6 py-3 text-right text-sm font-bold">#</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">العميل</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الخدمة</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">التاريخ</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الحالة</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">السعر</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+                {% for booking in bookings %}
+                <tr class="hover:bg-gray-700 transition">
+                    <td class="px-6 py-4 text-sm">{{ booking.id }}</td>
+                    <td class="px-6 py-4 text-sm">{{ booking.customer.username if booking.customer else '-' }}</td>
+                    <td class="px-6 py-4 text-sm">{{ booking.service.name_ar if booking.service else '-' }}</td>
+                    <td class="px-6 py-4 text-sm">{{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="px-6 py-4 text-sm">
+                        {% if booking.status == 'completed' %}
+                        <span class="bg-green-500 bg-opacity-20 text-green-400 px-2 py-1 rounded text-xs">مكتمل</span>
+                        {% elif booking.status == 'cancelled' %}
+                        <span class="bg-red-500 bg-opacity-20 text-red-400 px-2 py-1 rounded text-xs">ملغي</span>
+                        {% else %}
+                        <span class="bg-blue-500 bg-opacity-20 text-blue-400 px-2 py-1 rounded text-xs">{{
+                            booking.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm">{{ "%.2f"|format(booking.service.price) if booking.service else '-' }}
+                        ريال</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-400">لا يوجد حجوزات</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Subscriptions -->
+<div class="bg-primary rounded-lg shadow-lg">
+    <div class="p-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold text-white">الاشتراكات المخصصة</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-darkbg">
+                <tr>
+                    <th class="px-6 py-3 text-right text-sm font-bold">#</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">العميل</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الباقة</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">تاريخ البدء</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">تاريخ الانتهاء</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الحالة</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+                {% for subscription in subscriptions %}
+                <tr class="hover:bg-gray-700 transition">
+                    <td class="px-6 py-4 text-sm">{{ subscription.id }}</td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.customer.username if subscription.customer else '-' }}
+                    </td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.package.name_ar if subscription.package else
+                        subscription.plan_type }}</td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.start_date.strftime('%Y-%m-%d') if
+                        subscription.start_date else '-' }}</td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.end_date.strftime('%Y-%m-%d') if subscription.end_date
+                        else '-' }}</td>
+                    <td class="px-6 py-4 text-sm">
+                        {% if subscription.status == 'active' %}
+                        <span class="bg-green-500 bg-opacity-20 text-green-400 px-2 py-1 rounded text-xs">نشط</span>
+                        {% elif subscription.status == 'expired' %}
+                        <span class="bg-red-500 bg-opacity-20 text-red-400 px-2 py-1 rounded text-xs">منتهي</span>
+                        {% elif subscription.status == 'pending' %}
+                        <span class="bg-yellow-500 bg-opacity-20 text-yellow-400 px-2 py-1 rounded text-xs">معلق</span>
+                        {% else %}
+                        <span class="bg-gray-500 bg-opacity-20 text-gray-400 px-2 py-1 rounded text-xs">{{
+                            subscription.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-400">لا يوجد اشتراكات</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

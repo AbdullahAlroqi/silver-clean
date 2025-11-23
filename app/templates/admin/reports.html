@@ -1,0 +1,312 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-3xl font-bold text-white flex items-center gap-3">
+        <i class="fas fa-chart-line text-accent"></i>
+        التقارير والإحصائيات
+    </h2>
+    <p class="text-gray-400 mt-2">تحليل شامل لأداء الأعمال والإحصائيات التفصيلية</p>
+</div>
+
+<!-- Date Range Filter Card -->
+<div class="bg-gradient-to-r from-primary to-gray-800 p-6 rounded-xl shadow-2xl mb-8 border border-gray-700">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="bg-accent bg-opacity-20 p-3 rounded-lg">
+            <i class="fas fa-calendar-alt text-accent text-xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-white">تحديد الفترة الزمنية</h3>
+    </div>
+
+    <form method="GET" action="{{ url_for('admin.reports') }}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label class="block text-gray-300 text-sm font-semibold mb-2">
+                <i class="fas fa-calendar-day ml-1"></i> من تاريخ
+            </label>
+            <input type="date" name="from_date" value="{{ from_date }}"
+                class="w-full bg-darkbg text-white border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-accent transition">
+        </div>
+        <div>
+            <label class="block text-gray-300 text-sm font-semibold mb-2">
+                <i class="fas fa-calendar-day ml-1"></i> إلى تاريخ
+            </label>
+            <input type="date" name="to_date" value="{{ to_date }}"
+                class="w-full bg-darkbg text-white border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-accent transition">
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit"
+                class="flex-1 bg-accent hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition shadow-lg hover:shadow-xl transform hover:scale-105">
+                <i class="fas fa-filter ml-2"></i> تطبيق
+            </button>
+            <a href="{{ url_for('admin.reports') }}"
+                class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-lg">
+                <i class="fas fa-redo"></i>
+            </a>
+        </div>
+    </form>
+
+    <div class="mt-4 bg-darkbg bg-opacity-50 rounded-lg p-3 border-r-4 border-accent">
+        <p class="text-gray-300 text-sm flex items-center gap-2">
+            <i class="fas fa-info-circle text-accent"></i>
+            <span>عرض البيانات من <strong class="text-white">{{ from_date }}</strong> إلى <strong class="text-white">{{
+                    to_date }}</strong></span>
+        </p>
+    </div>
+</div>
+
+<!-- Stats Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Bookings Card -->
+    <div
+        class="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-calendar-check text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">إجمالي</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">إجمالي الحجوزات</h3>
+        <p class="text-4xl font-bold text-white">{{ total_bookings }}</p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">في الفترة المحددة</p>
+        </div>
+    </div>
+
+    <!-- Completed Bookings Card -->
+    <div
+        class="bg-gradient-to-br from-green-600 to-green-800 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-check-circle text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">مكتمل</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">الحجوزات المكتملة</h3>
+        <p class="text-4xl font-bold text-white">{{ completed_bookings }}</p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">تم إنجازها بنجاح</p>
+        </div>
+    </div>
+
+    <!-- Total Customers Card -->
+    <div
+        class="bg-gradient-to-br from-purple-600 to-purple-800 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-users text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">كلي</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">إجمالي العملاء</h3>
+        <p class="text-4xl font-bold text-white">{{ total_customers }}</p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">قاعدة العملاء الكاملة</p>
+        </div>
+    </div>
+
+    <!-- Active Subscriptions Card -->
+    <div
+        class="bg-gradient-to-br from-yellow-600 to-orange-700 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-clipboard-list text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">نشط</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">الاشتراكات</h3>
+        <p class="text-4xl font-bold text-white">{{ active_subscriptions }}</p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">بدأت في هذه الفترة</p>
+        </div>
+    </div>
+</div>
+
+<!-- Revenue Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Service Revenue Card -->
+    <div
+        class="bg-gradient-to-br from-cyan-600 to-cyan-800 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-spray-can text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">خدمات</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">إيرادات الخدمات</h3>
+        <p class="text-3xl font-bold text-white">{{ "%.2f"|format(service_revenue) }} <span class="text-lg">ر.س</span>
+        </p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">بعد الخصم والغسلات المجانية</p>
+        </div>
+    </div>
+
+    <!-- Product Revenue Card -->
+    <div
+        class="bg-gradient-to-br from-pink-600 to-pink-800 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-shopping-bag text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">منتجات</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">إيرادات المنتجات</h3>
+        <p class="text-3xl font-bold text-white">{{ "%.2f"|format(product_revenue) }} <span class="text-lg">ر.س</span>
+        </p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">من المبيعات الإضافية</p>
+        </div>
+    </div>
+
+    <!-- Subscription Revenue Card -->
+    <div
+        class="bg-gradient-to-br from-teal-600 to-teal-800 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-box text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">اشتراكات</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">إيرادات الاشتراكات</h3>
+        <p class="text-3xl font-bold text-white">{{ "%.2f"|format(subscription_revenue) }} <span
+                class="text-lg">ر.س</span></p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">من الباقات المباعة</p>
+        </div>
+    </div>
+
+    <!-- Total Revenue Card -->
+    <div
+        class="bg-gradient-to-br from-yellow-500 to-orange-600 p-6 rounded-xl shadow-2xl hover:shadow-3xl transition transform hover:scale-105 border-2 border-yellow-400">
+        <div class="flex items-center justify-between mb-4">
+            <div class="bg-white bg-opacity-20 p-4 rounded-full">
+                <i class="fas fa-dollar-sign text-white text-2xl"></i>
+            </div>
+            <div class="bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                <span class="text-white text-xs font-bold">إجمالي</span>
+            </div>
+        </div>
+        <h3 class="text-white text-sm font-medium mb-2 opacity-90">الإيرادات الكلية</h3>
+        <p class="text-3xl font-bold text-white">{{ "%.2f"|format(total_revenue) }} <span class="text-lg">ر.س</span></p>
+        <div class="mt-3 pt-3 border-t border-white border-opacity-20">
+            <p class="text-white text-xs opacity-75">جميع مصادر الدخل</p>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Top Services Card -->
+    <div class="bg-primary rounded-xl shadow-2xl overflow-hidden border border-gray-700">
+        <div class="bg-gradient-to-r from-yellow-600 to-orange-600 p-6">
+            <h3 class="text-2xl font-bold text-white flex items-center gap-3">
+                <i class="fas fa-star"></i>
+                أكثر الخدمات طلباً
+            </h3>
+            <p class="text-white text-sm opacity-90 mt-1">الخدمات الأعلى حجزاً في هذه الفترة</p>
+        </div>
+
+        <div class="p-6">
+            {% if top_services %}
+            <div class="space-y-3">
+                {% for service in top_services %}
+                <div
+                    class="bg-gradient-to-r from-gray-800 to-gray-700 p-4 rounded-lg hover:from-gray-700 hover:to-gray-600 transition shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="bg-yellow-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold">
+                                {{ loop.index }}
+                            </div>
+                            <span class="text-white font-medium text-lg">{{ service[0] }}</span>
+                        </div>
+                        <div class="bg-accent text-white px-4 py-2 rounded-full font-bold text-lg shadow-lg">
+                            {{ service[1] }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-inbox text-gray-600 text-6xl mb-4"></i>
+                <p class="text-gray-400 text-lg">لا توجد بيانات في هذه الفترة</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Employee Performance Card -->
+    <div class="bg-primary rounded-xl shadow-2xl overflow-hidden border border-gray-700">
+        <div class="bg-gradient-to-r from-green-600 to-teal-600 p-6">
+            <h3 class="text-2xl font-bold text-white flex items-center gap-3">
+                <i class="fas fa-users-cog"></i>
+                أداء الموظفين
+            </h3>
+            <p class="text-white text-sm opacity-90 mt-1">إحصائيات أداء الموظفين في الفترة</p>
+        </div>
+
+        <div class="p-6">
+            {% if employee_stats %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-800">
+                            <th class="text-right p-4 text-gray-300 font-semibold rounded-r-lg">
+                                <i class="fas fa-user ml-2"></i>الموظف
+                            </th>
+                            <th class="text-right p-4 text-gray-300 font-semibold">
+                                <i class="fas fa-list ml-2"></i>المجموع
+                            </th>
+                            <th class="text-right p-4 text-gray-300 font-semibold rounded-l-lg">
+                                <i class="fas fa-check ml-2"></i>المكتمل
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employee_stats %}
+                        <tr class="border-b border-gray-700 hover:bg-gray-800 transition">
+                            <td class="p-4">
+                                <span class="text-white font-medium flex items-center gap-2">
+                                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                                    {{ emp[0] }}
+                                </span>
+                            </td>
+                            <td class="p-4">
+                                <span class="text-white font-bold text-lg">{{ emp[1] }}</span>
+                            </td>
+                            <td class="p-4">
+                                <span
+                                    class="bg-green-900 text-green-200 px-3 py-2 rounded-full font-bold inline-flex items-center gap-2">
+                                    <i class="fas fa-check-circle"></i>
+                                    {{ emp[2] }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-inbox text-gray-600 text-6xl mb-4"></i>
+                <p class="text-gray-400 text-lg">لا توجد بيانات في هذه الفترة</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6" style="background-color: #747070;">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">إدارة المسؤولين</h2>
+        <a href="{{ url_for('admin.add_admin') }}"
+            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            <i class="fas fa-plus ml-2"></i>إضافة مسؤول
+        </a>
+    </div>
+
+    <div class="overflow-x-auto" style="background-color: #6e6b6b;">
+        <table class="min-w-full table-auto">
+            <thead class="bg-gray-200" style="background-color: #3b3535;">
+                <tr>
+                    <th class="px-4 py-2 text-right">ID</th>
+                    <th class="px-4 py-2 text-right">اسم المستخدم</th>
+                    <th class="px-4 py-2 text-right">البريد الإلكتروني</th>
+                    <th class="px-4 py-2 text-center">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for admin in admins %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="px-4 py-2">{{ admin.id }}</td>
+                    <td class="px-4 py-2">{{ admin.username }}</td>
+                    <td class="px-4 py-2">{{ admin.email }}</td>
+                    <td class="px-4 py-2 text-center">
+                        <a href="{{ url_for('admin.edit_admin', id=admin.id) }}"
+                            class="text-blue-500 hover:text-blue-700 mx-2" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if admin.id != current_user.id %}
+                        <a href="{{ url_for('admin.delete_admin', id=admin.id) }}"
+                            class="text-red-500 hover:text-red-700 mx-2"
+                            onclick="return confirm('هل أنت متأكد من حذف هذا المسؤول؟')" title="حذف">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

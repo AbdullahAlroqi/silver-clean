@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-primary rounded-lg shadow-lg p-8">
+    <h1 class="text-3xl font-bold text-accent mb-6 text-center">الشروط والأحكام</h1>
+
+    <div class="prose prose-invert max-w-none text-gray-300 whitespace-pre-wrap">
+        {{ site_settings.terms_content or 'لا توجد شروط وأحكام مضافة حالياً.' }}
+    </div>
+</div>
+{% endblock %}

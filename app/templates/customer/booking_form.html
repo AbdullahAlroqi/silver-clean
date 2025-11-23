@@ -1,0 +1,668 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Back Button -->
+    <div class="mb-6">
+        <a href="{{ url_for('customer.index') }}"
+            class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold transition">
+            <i class="fas fa-arrow-right"></i>
+            رجوع
+        </a>
+    </div>
+
+    <h2 class="text-3xl font-bold text-white mb-8 text-center">حجز خدمة جديدة</h2>
+
+    <!-- Progress Steps (Now 5 steps) -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center">
+            <div class="flex-1 text-center">
+                <div id="step1-indicator"
+                    class="w-10 h-10 bg-accent rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
+                    1</div>
+                <p class="text-xs text-gray-400">الموقع</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-700" id="line1"></div>
+            <div class="flex-1 text-center">
+                <div id="step2-indicator"
+                    class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
+                    2</div>
+                <p class="text-xs text-gray-400">الخدمة</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-700" id="line2"></div>
+            <div class="flex-1 text-center">
+                <div id="step3-indicator"
+                    class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
+                    3</div>
+                <p class="text-xs text-gray-400">السيارة</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-700" id="line3"></div>
+            <div class="flex-1 text-center">
+                <div id="step4-indicator"
+                    class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
+                    4</div>
+                <p class="text-xs text-gray-400">الموعد</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-700" id="line4"></div>
+            <div class="flex-1 text-center">
+                <div id="step5-indicator"
+                    class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
+                    5</div>
+                <p class="text-xs text-gray-400">المراجعة</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary p-8 rounded-lg shadow-lg">
+        <form method="post" id="bookingForm" class="space-y-6">
+            {{ form.hidden_tag() }}
+
+            <!-- Step 1: Location -->
+            <div id="step1" class="step-content">
+                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
+                    <i class="fas fa-map-marker-alt ml-3"></i>
+                    اختر الموقع
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">المدينة</label>
+                        {{ form.city_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
+                        focus:outline-none focus:ring-2 focus:ring-accent", id="city-select") }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">الحي</label>
+                        <select name="neighborhood_id" id="neighborhood-select"
+                            class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                            required>
+                            <option value="">اختر الحي</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="button" onclick="nextStep(2)"
+                        class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        التالي <i class="fas fa-arrow-left mr-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Service & Vehicle -->
+            <div id="step2" class="step-content hidden">
+                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
+                    <i class="fas fa-spray-can ml-3"></i>
+                    اختر الخدمة والسيارة
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">الخدمة</label>
+                        {{ form.service_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3
+                        text-white focus:outline-none focus:ring-2 focus:ring-accent", id="service-select") }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">المركبة</label>
+                        {{ form.vehicle_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3
+                        text-white focus:outline-none focus:ring-2 focus:ring-accent") }}
+                    </div>
+                </div>
+
+                <!-- Free Wash & Discount Code Section -->
+                <div class="mt-6 border-t border-gray-700 pt-6">
+                    <h4 class="text-lg font-bold text-white mb-4">خصومات وعروض</h4>
+
+                    <!-- Free Wash Option -->
+                    {% if current_user.free_washes > 0 %}
+                    <div class="bg-green-900 bg-opacity-20 border border-green-600 rounded-lg p-4 mb-4">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="use_free_wash" name="use_free_wash"
+                                class="w-5 h-5 rounded text-green-600 focus:ring-green-500 ml-3">
+                            <div class="flex-1">
+                                <span class="text-white font-bold flex items-center gap-2">
+                                    <i class="fas fa-gift text-green-500"></i>
+                                    استخدام غسلة مجانية
+                                </span>
+                                <p class="text-gray-400 text-sm mt-1">لديك {{ current_user.free_washes }} غسلة مجانية
+                                    متاحة</p>
+                            </div>
+                        </label>
+                    </div>
+                    {% endif %}
+
+                    <!-- Discount Code Section -->
+                    <div class="bg-purple-900 bg-opacity-20 border border-purple-600 rounded-lg p-4">
+                        <label class="block text-white font-bold mb-2 flex items-center gap-2">
+                            <i class="fas fa-tag text-purple-500"></i>
+                            كود الخصم (اختياري)
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="text" id="discount_code" name="discount_code" placeholder="أدخل كود الخصم"
+                                class="flex-1 bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <button type="button" onclick="verifyDiscount()"
+                                class="bg-purple-600 hover:bg-purple-700 text-white font-bold px-6 rounded-lg transition">
+                                تحقق
+                            </button>
+                        </div>
+                        <div id="discount_message" class="mt-2 text-sm"></div>
+                        <input type="hidden" id="discount_verified" value="0">
+                        <input type="hidden" id="discount_value" value="0">
+                        <input type="hidden" id="discount_type" value="">
+                    </div>
+
+                    <p class="text-yellow-400 text-sm mt-4 flex items-center gap-2">
+                        <i class="fas fa-info-circle"></i>
+                        لا يمكن استخدام غسلة مجانية وكود خصم معاً
+                    </p>
+                </div>
+
+                <div class="mt-6 flex justify-between">
+                    <button type="button" onclick="prevStep(1)"
+                        class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        <i class="fas fa-arrow-right mr-2"></i> السابق
+                    </button>
+                    <button type="button" onclick="nextStep(3)"
+                        class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        التالي <i class="fas fa-arrow-left mr-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Confirmation -->
+            <div id="step3" class="step-content hidden">
+                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
+                    <i class="fas fa-car ml-3"></i>
+                    تأكيد الاختيار
+                </h3>
+                <div class="bg-darkbg p-6 rounded-lg">
+                    <p class="text-gray-300 mb-4">
+                        الخدمة: <span class="text-accent font-bold" id="service-name"></span>
+                    </p>
+                    <p class="text-gray-300">
+                        السيارة: <span class="text-accent font-bold" id="vehicle-name"></span>
+                    </p>
+                </div>
+                <div class="mt-6 flex justify-between">
+                    <button type="button" onclick="prevStep(2)"
+                        class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        <i class="fas fa-arrow-right mr-2"></i> السابق
+                    </button>
+                    <button type="button" onclick="nextStep(4)"
+                        class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        التالي <i class="fas fa-arrow-left mr-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Time & Products -->
+            <div id="step4" class="step-content hidden">
+                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
+                    <i class="fas fa-clock ml-3"></i>
+                    اختر الموعد
+                </h3>
+                <p class="text-gray-400 text-sm mb-4">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    مدة الخدمة: 90 دقيقة
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">التاريخ</label>
+                        {{ form.date(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
+                        focus:outline-none focus:ring-2 focus:ring-accent", type="date", id="date-input") }}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">الوقت</label>
+                        <select name="time" id="time-select"
+                            class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                            required>
+                            <option value="">اختر الوقت المتاح</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Additional Products Section -->
+                <div class="mt-8 border-t border-gray-700 pt-6">
+                    <h4 class="text-xl font-bold text-white mb-4 flex items-center">
+                        <i class="fas fa-shopping-cart ml-3 text-green-500"></i>
+                        منتجات إضافية (اختياري)
+                    </h4>
+                    <p class="text-gray-400 text-sm mb-4">أضف منتجات إضافية لحجزك</p>
+
+                    <div id="products-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Products loaded via JavaScript -->
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-between">
+                    <button type="button" onclick="prevStep(3)"
+                        class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        <i class="fas fa-arrow-right mr-2"></i> السابق
+                    </button>
+                    <button type="button" onclick="nextStep(5)"
+                        class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        مراجعة الطلب <i class="fas fa-arrow-left mr-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 5: Order Review -->
+            <div id="step5" class="step-content hidden">
+                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
+                    <i class="fas fa-file-invoice ml-3"></i>
+                    مراجعة الطلب
+                </h3>
+
+                <div class="space-y-4">
+                    <!-- Location Info -->
+                    <div class="bg-darkbg p-4 rounded-lg">
+                        <h4 class="font-bold text-white mb-3 flex items-center">
+                            <i class="fas fa-map-marker-alt ml-2 text-blue-500"></i>
+                            معلومات الموقع
+                        </h4>
+                        <div class="text-gray-300 space-y-2">
+                            <p><span class="text-gray-400">المدينة:</span> <span id="review-city"></span></p>
+                            <p><span class="text-gray-400">الحي:</span> <span id="review-neighborhood"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- Service Info -->
+                    <div class="bg-darkbg p-4 rounded-lg">
+                        <h4 class="font-bold text-white mb-3 flex items-center">
+                            <i class="fas fa-spray-can ml-2 text-green-500"></i>
+                            معلومات الخدمة
+                        </h4>
+                        <div class="text-gray-300 space-y-2">
+                            <p><span class="text-gray-400">الخدمة:</span> <span id="review-service"></span></p>
+                            <p><span class="text-gray-400">السيارة:</span> <span id="review-vehicle"></span></p>
+                            <p><span class="text-gray-400">التاريخ:</span> <span id="review-date"></span></p>
+                            <p><span class="text-gray-400">الوقت:</span> <span id="review-time"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- Products Info -->
+                    <div class="bg-darkbg p-4 rounded-lg" id="review-products-section" style="display:none;">
+                        <h4 class="font-bold text-white mb-3 flex items-center">
+                            <i class="fas fa-shopping-cart ml-2 text-purple-500"></i>
+                            المنتجات الإضافية
+                        </h4>
+                        <div id="review-products-list" class="text-gray-300 space-y-2">
+                        </div>
+                    </div>
+
+                    <!-- Price Breakdown -->
+                    <div class="bg-gradient-to-r from-blue-900 to-purple-900 p-6 rounded-lg border-2 border-accent">
+                        <h4 class="font-bold text-white mb-4 text-lg flex items-center">
+                            <i class="fas fa-calculator ml-2"></i>
+                            تفاصيل السعر
+                        </h4>
+                        <div class="space-y-3 text-white">
+                            <div class="flex justify-between">
+                                <span>سعر الخدمة:</span>
+                                <span id="review-service-price" class="font-bold">0 ريال</span>
+                            </div>
+                            <div class="flex justify-between" id="review-products-total-row" style="display:none;">
+                                <span>المنتجات الإضافية:</span>
+                                <span id="review-products-total" class="font-bold">0 ريال</span>
+                            </div>
+                            <div class="flex justify-between" id="review-discount-row" style="display:none;">
+                                <span class="text-green-400">الخصم:</span>
+                                <span id="review-discount" class="font-bold text-green-400">- 0 ريال</span>
+                            </div>
+                            <div class="flex justify-between" id="review-free-wash-row" style="display:none;">
+                                <span class="text-green-400">غسلة مجانية:</span>
+                                <span class="font-bold text-green-400">مجاناً</span>
+                            </div>
+                            <div class="border-t border-gray-600 pt-3 mt-3">
+                                <div class="flex justify-between text-xl">
+                                    <span class="font-bold">الإجمالي:</span>
+                                    <span id="review-total" class="font-bold text-accent">0 ريال</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-between">
+                    <button type="button" onclick="prevStep(4)"
+                        class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        <i class="fas fa-arrow-right mr-2"></i> السابق
+                    </button>
+                    {{ form.submit(class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg
+                    transition cursor-pointer flex items-center gap-2", value="تأكيد الحجز") }}
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentStep = 1;
+    let servicePrice = 0;
+    let productsData = [];
+
+    const dateInput = document.getElementById('date-input');
+    if (dateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+    }
+
+    function showStep(step) {
+        document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+        document.getElementById('step' + step).classList.remove('hidden');
+
+        for (let i = 1; i <= 5; i++) {
+            const indicator = document.getElementById('step' + i + '-indicator');
+            const line = document.getElementById('line' + i);
+
+            if (i < step) {
+                indicator.classList.remove('bg-gray-700');
+                indicator.classList.add('bg-green-600');
+                if (line) {
+                    line.classList.remove('bg-gray-700');
+                    line.classList.add('bg-green-600');
+                }
+            } else if (i === step) {
+                indicator.classList.remove('bg-gray-700', 'bg-green-600');
+                indicator.classList.add('bg-accent');
+            } else {
+                indicator.classList.remove('bg-accent', 'bg-green-600');
+                indicator.classList.add('bg-gray-700');
+                if (line) {
+                    line.classList.remove('bg-green-600');
+                    line.classList.add('bg-gray-700');
+                }
+            }
+        }
+        currentStep = step;
+
+        // Update review when reaching step 5
+        if (step === 5) {
+            updateOrderReview();
+        }
+    }
+
+    function nextStep(step) {
+        if (currentStep === 1) {
+            const city = document.getElementById('city-select').value;
+            const neighborhood = document.getElementById('neighborhood-select').value;
+            if (!city || !neighborhood) {
+                alert('الرجاء اختيار المدينة والحي');
+                return;
+            }
+        } else if (currentStep === 2) {
+            const service = document.getElementById('service-select').value;
+            const vehicle = document.querySelector('[name="vehicle_id"]').value;
+            if (!service || !vehicle) {
+                alert('الرجاء اختيار الخدمة والسيارة');
+                return;
+            }
+            const serviceName = document.getElementById('service-select').options[document.getElementById('service-select').selectedIndex].text;
+            const vehicleName = document.querySelector('[name="vehicle_id"]').options[document.querySelector('[name="vehicle_id"]').selectedIndex].text;
+            document.getElementById('service-name').textContent = serviceName;
+            document.getElementById('vehicle-name').textContent = vehicleName;
+        } else if (currentStep === 4) {
+            const date = dateInput.value;
+            const time = document.getElementById('time-select').value;
+            if (!date || !time) {
+                alert('الرجاء اختيار التاريخ والوقت');
+                return;
+            }
+        }
+        showStep(step);
+    }
+
+    function prevStep(step) {
+        showStep(step);
+    }
+
+    function updateOrderReview() {
+        // City & Neighborhood
+        const citySelect = document.getElementById('city-select');
+        const neighborhoodSelect = document.getElementById('neighborhood-select');
+        document.getElementById('review-city').textContent = citySelect.options[citySelect.selectedIndex].text;
+        document.getElementById('review-neighborhood').textContent = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
+
+        // Service & Vehicle
+        const serviceSelect = document.getElementById('service-select');
+        const serviceTxt = serviceSelect.options[serviceSelect.selectedIndex].text;
+        document.getElementById('review-service').textContent = serviceTxt;
+
+        const vehicleSelect = document.querySelector('[name="vehicle_id"]');
+        document.getElementById('review-vehicle').textContent = vehicleSelect.options[vehicleSelect.selectedIndex].text;
+
+        // Date & Time
+        document.getElementById('review-date').textContent = dateInput.value;
+        document.getElementById('review-time').textContent = document.getElementById('time-select').value;
+
+        // Extract service price from service text (assumes format: "Service Name (XXX ريال)")
+        const priceMatch = serviceTxt.match(/\((\d+(?:\.\d+)?)\s*ريال\)/);
+        servicePrice = priceMatch ? parseFloat(priceMatch[1]) : 0;
+        document.getElementById('review-service-price').textContent = servicePrice + ' ريال';
+
+        // Products
+        const selectedProducts = [];
+        let productsTotal = 0;
+        productsData.forEach(product => {
+            const checkbox = document.querySelector(`input[name="product_${product.id}"]:checked`);
+            if (checkbox) {
+                const qty = parseInt(document.querySelector(`input[name="quantity_${product.id}"]`).value) || 1;
+                const productTotal = product.price * qty;
+                productsTotal += productTotal;
+                selectedProducts.push({ name: product.name_ar, qty, price: product.price, total: productTotal });
+            }
+        });
+
+        if (selectedProducts.length > 0) {
+            document.getElementById('review-products-section').style.display = 'block';
+            document.getElementById('review-products-total-row').style.display = 'flex';
+            document.getElementById('review-products-list').innerHTML = selectedProducts.map(p =>
+                `<p>${p.name} × ${p.qty} = ${p.total} ريال</p>`
+            ).join('');
+            document.getElementById('review-products-total').textContent = productsTotal + ' ريال';
+        } else {
+            document.getElementById('review-products-section').style.display = 'none';
+            document.getElementById('review-products-total-row').style.display = 'none';
+        }
+
+        // Calculate total
+        let total = servicePrice + productsTotal;
+
+        // Check for free wash
+        const freeWash = document.getElementById('use_free_wash')?.checked || false;
+        if (freeWash) {
+            document.getElementById('review-free-wash-row').style.display = 'flex';
+            document.getElementById('review-discount-row').style.display = 'none';
+            total = productsTotal; // Free wash = service is free
+        } else {
+            document.getElementById('review-free-wash-row').style.display = 'none';
+
+            // Check for discount code
+            const discountValue = parseFloat(document.getElementById('discount_value').value) || 0;
+            const discountType = document.getElementById('discount_type').value;
+            const discountVerified = document.getElementById('discount_verified').value === '1';
+
+            if (discountVerified && discountValue > 0) {
+                let discount = 0;
+                if (discountType === 'percentage') {
+                    discount = (servicePrice * discountValue) / 100;
+                } else {
+                    discount = discountValue;
+                }
+                total = Math.max(0, servicePrice - discount) + productsTotal;
+                document.getElementById('review-discount-row').style.display = 'flex';
+                document.getElementById('review-discount').textContent = `- ${discount.toFixed(2)} ريال`;
+            } else {
+                document.getElementById('review-discount-row').style.display = 'none';
+            }
+        }
+
+        document.getElementById('review-total').textContent = total.toFixed(2) + ' ريال';
+    }
+
+    const citySelect = document.getElementById('city-select');
+    const neighborhoodSelect = document.getElementById('neighborhood-select');
+    const serviceSelect = document.getElementById('service-select');
+    const timeSelect = document.getElementById('time-select');
+
+    if (citySelect) {
+        citySelect.addEventListener('change', function () {
+            const cityId = this.value;
+            neighborhoodSelect.innerHTML = '<option value="">اختر الحي</option>';
+            timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+            if (!cityId) return;
+
+            fetch('/customer/api/neighborhoods/' + cityId)
+                .then(response => response.json())
+                .then(neighborhoods => {
+                    neighborhoods.forEach(n => {
+                        const option = document.createElement('option');
+                        option.value = n.id;
+                        option.textContent = n.name;
+                        neighborhoodSelect.appendChild(option);
+                    });
+                });
+        });
+    }
+
+    function loadAvailableTimes() {
+        const date = dateInput.value;
+        const neighborhoodId = neighborhoodSelect.value;
+        const serviceId = serviceSelect.value;
+
+        timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+        if (!date || !neighborhoodId || !serviceId) return;
+
+        const params = new URLSearchParams({ date: date, neighborhood_id: neighborhoodId, service_id: serviceId });
+        fetch('/customer/api/available-times?' + params)
+            .then(response => response.json())
+            .then(times => {
+                if (times.length === 0) {
+                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
+                } else {
+                    times.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        option.textContent = time;
+                        timeSelect.appendChild(option);
+                    });
+                }
+            });
+    }
+
+    if (dateInput) dateInput.addEventListener('change', loadAvailableTimes);
+    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
+    if (serviceSelect) serviceSelect.addEventListener('change', loadAvailableTimes);
+
+    fetch('/customer/api/products')
+        .then(response => response.json())
+        .then(products => {
+            productsData = products;
+            const container = document.getElementById('products-container');
+            if (products.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center col-span-2">لا توجد منتجات</p>';
+                return;
+            }
+            products.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
+
+                const img = product.image_url
+                    ? '<img src="' + product.image_url + '" alt="' + product.name_ar + '" class="w-20 h-20 object-cover rounded-lg mb-3">'
+                    : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
+
+                card.innerHTML = img + '<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">' + product.name_ar +
+                    '</h5><span class="text-accent font-bold">' + product.price + ' ريال</span></div>' +
+                    '<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">' +
+                    '<input type="checkbox" name="product_' + product.id + '" value="' + product.id + '" class="ml-2 w-5 h-5">' +
+                    '<span class="text-gray-300">إضافة</span></label>' +
+                    '<input type="number" name="quantity_' + product.id + '" min="1" value="1" disabled ' +
+                    'class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>';
+
+                const checkbox = card.querySelector('input[type="checkbox"]');
+                const qty = card.querySelector('input[type="number"]');
+                checkbox.addEventListener('change', function () {
+                    qty.disabled = !this.checked;
+                });
+                container.appendChild(card);
+            });
+        });
+
+    // Free wash and discount code mutual exclusivity
+    const freeWashCheckbox = document.getElementById('use_free_wash');
+    const discountCodeInput = document.getElementById('discount_code');
+
+    if (freeWashCheckbox) {
+        freeWashCheckbox.addEventListener('change', function () {
+            if (this.checked) {
+                discountCodeInput.disabled = true;
+                discountCodeInput.value = '';
+                document.getElementById('discount_message').innerHTML = '';
+                document.getElementById('discount_verified').value = '0';
+                document.getElementById('discount_value').value = '0';
+                document.getElementById('discount_type').value = '';
+            } else {
+                discountCodeInput.disabled = false;
+            }
+        });
+    }
+
+    if (discountCodeInput) {
+        discountCodeInput.addEventListener('input', function () {
+            document.getElementById('discount_message').innerHTML = '';
+            document.getElementById('discount_verified').value = '0';
+            document.getElementById('discount_value').value = '0';
+            document.getElementById('discount_type').value = '';
+        });
+    }
+
+    function verifyDiscount() {
+        const code = discountCodeInput.value.trim();
+        const messageDiv = document.getElementById('discount_message');
+
+        if (!code) {
+            messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>الرجاء إدخال كود الخصم</span>';
+            return;
+        }
+
+        if (freeWashCheckbox && freeWashCheckbox.checked) {
+            messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>لا يمكن استخدام كود خصم مع غسلة مجانية</span>';
+            return;
+        }
+
+        // Show loading
+        messageDiv.innerHTML = '<span class="text-gray-400"><i class="fas fa-spinner fa-spin mr-1"></i>جاري التحقق...</span>';
+
+        fetch('/customer/api/verify-discount', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code: code })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    messageDiv.innerHTML = '<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>' + data.message +
+                        ' (' + data.discount_value + (data.discount_type === 'percentage' ? '%' : ' ريال') + ')</span>';
+                    document.getElementById('discount_verified').value = '1';
+                    document.getElementById('discount_value').value = data.discount_value;
+                    document.getElementById('discount_type').value = data.discount_type;
+                    if (freeWashCheckbox) {
+                        freeWashCheckbox.disabled = true;
+                    }
+                } else {
+                    messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-times-circle mr-1"></i>' + data.message + '</span>';
+                    document.getElementById('discount_verified').value = '0';
+                    document.getElementById('discount_value').value = '0';
+                    document.getElementById('discount_type').value = '';
+                    if (freeWashCheckbox) {
+                        freeWashCheckbox.disabled = false;
+                    }
+                }
+            })
+            .catch(error => {
+                messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>حدث خطأ في التحقق</span>';
+                console.error('Error:', error);
+            });
+    }
+
+    showStep(1);
+</script>
+{% endblock %}

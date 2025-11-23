@@ -1,0 +1,400 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">إدارة الحجوزات</h2>
+    <button onclick="showCreateBooking()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+        <i class="fas fa-plus"></i> إضافة حجز
+    </button>
+</div>
+
+<div class="mb-6">
+    <form action="{{ url_for('admin.bookings') }}" method="GET" class="flex gap-2">
+        <input type="text" name="q" placeholder="بحث برقم الحجز، اسم العميل، أو رقم الهاتف..."
+            value="{{ request.args.get('q', '') }}"
+            class="flex-1 bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+        <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-6 py-2 rounded">
+            <i class="fas fa-search"></i> بحث
+        </button>
+        {% if request.args.get('q') %}
+        <a href="{{ url_for('admin.bookings') }}"
+            class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded flex items-center">
+            <i class="fas fa-times"></i>
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+    <table class="w-full text-right">
+        <thead class="bg-gray-800 text-gray-300">
+            <tr>
+                <th class="p-4">الحجز</th>
+                <th class="p-4">العميل</th>
+                <th class="p-4">الخدمة</th>
+                <th class="p-4">التاريخ/الوقت</th>
+                <th class="p-4">الموظف</th>
+                <th class="p-4">الحالة</th>
+                <th class="p-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody class="text-gray-200">
+            {% for booking in bookings %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
+                <td class="p-4">#{{ booking.id }}</td>
+                <td class="p-4">
+                    <div class="font-bold">{{ booking.customer.username }}</div>
+                    <div class="text-xs text-gray-400">{{ booking.customer.phone }}</div>
+                </td>
+                <td class="p-4">{{ booking.service.name_ar }}</td>
+                <td class="p-4">
+                    <div>{{ booking.date }}</div>
+                    <div class="text-xs text-gray-400">{{ booking.time }}</div>
+                </td>
+                <td class="p-4">
+                    {% if booking.employee %}
+                    {{ booking.employee.username }}
+                    {% else %}
+                    <span class="text-red-400 text-xs">غير مسند</span>
+                    {% endif %}
+                </td>
+                <td class="p-4">
+                    <span class="px-2 py-1 rounded text-xs 
+                        {% if booking.status == 'completed' %}bg-green-600
+                        {% elif booking.status == 'cancelled' %}bg-red-600
+                        {% elif booking.status == 'pending' %}bg-yellow-600
+                        {% else %}bg-blue-600{% endif %}">
+                        {{ booking.status }}
+                    </span>
+                </td>
+                <td class="p-4">
+                    <div class="flex gap-2">
+                        {% if booking.status != 'cancelled' and booking.employee_id %}
+                        <button
+                            onclick='showReassignModal({{ booking.id }}, {{ booking.employee_id }}, "{{ booking.date }}", "{{ booking.time.strftime("%H:%M") if booking.time else "" }}", {{ booking.neighborhood_id if booking.neighborhood_id else "null" }})'
+                            class="text-blue-400 hover:text-blue-300" title="إعادة إسناد">
+                            <i class="fas fa-user-plus"></i>
+                        </button>
+                        {% endif %}
+                        <form action="{{ url_for('admin.delete_booking', id=booking.id) }}" method="post"
+                            onsubmit="return confirm('هل أنت متأكد من حذف هذا الحجز نهائياً؟')" style="display:inline">
+                            <button type="submit" class="text-red-400 hover:text-red-300" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="p-4 text-center text-gray-500">لا يوجد حجوزات.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Create Booking Modal -->
+<div id="createBookingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+        <h3 class="text-xl font-bold mb-4">إضافة حجز جديد</h3>
+        <form action="{{ url_for('admin.create_booking') }}" method="post">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="col-span-2">
+                    <label class="block text-sm mb-2">العميل *</label>
+                    <input type="text" id="bookingCustomerSearch" placeholder="ابحث بالاسم أو الهاتف..."
+                        onkeyup="searchBookingCustomers()"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 mb-2">
+                    <select name="customer_id" id="bookingCustomerSelect" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر العميل --</option>
+                        {% for customer in customers %}
+                        <option value="{{ customer.id }}" data-name="{{ customer.username }}"
+                            data-phone="{{ customer.phone }}">{{ customer.username }} - {{ customer.phone }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الخدمة *</label>
+                    <select name="service_id" id="serviceSelect" onchange="updateBookingPrice()" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                        {% for service in services %}
+                        <option value="{{ service.id }}" data-price="{{ service.price }}">{{ service.name_ar }} ({{
+                            service.price }} ريال)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">التاريخ *</label>
+                    <input type="date" name="date" id="bookingDate" onchange="loadAvailableSlots()" required
+                        min="{{ today }}" class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">المدينة *</label>
+                    <select name="city_id" id="bookingCity" onchange="updateBookingNeighborhoods()" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                        {% for city in cities %}
+                        <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الحي *</label>
+                    <select name="neighborhood_id" id="bookingNeighborhood" onchange="updateBookingEmployees()" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الموظف *</label>
+                    <select name="employee_id" id="bookingEmployee" onchange="loadAvailableSlots()" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الوقت المتاح *</label>
+                    <select name="time" id="bookingTime" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر التاريخ والموظف أولاً --</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm mb-2">نسبة الخصم (%)</label>
+                    <input type="number" name="discount" id="bookingDiscount" min="0" max="100" value="0"
+                        onchange="updateBookingPrice()"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                </div>
+                <div class="col-span-2 bg-gray-800 p-3 rounded">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>السعر الأصلي:</span>
+                        <span id="bookingOrigPrice">0 ريال</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>الخصم:</span>
+                        <span id="bookingDiscAmount">0 ريال</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-lg">
+                        <span>المجموع:</span>
+                        <span id="bookingFinalPrice" class="text-accent">0 ريال</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">إضافة</button>
+                <button type="button" onclick="closeCreateBooking()"
+                    class="flex-1 bg-gray-600 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reassign Modal -->
+<div id="reassignModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold mb-4">إعادة إسناد الحجز</h3>
+        <form id="reassignForm" method="post">
+            <input type="hidden" id="reassignBookingId">
+            <input type="hidden" id="reassignDate">
+            <input type="hidden" id="reassignNeighborhoodId">
+
+            <div class="mb-4 text-sm text-gray-400">
+                <div>التاريخ: <span id="displayDate"></span></div>
+                <div>الوقت الحالي: <span id="displayCurrentTime"></span></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm mb-2">الموظف الجديد *</label>
+                <select name="employee_id" id="reassignEmployee" onchange="loadReassignSlots()" required
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                    <option value="">-- جاري التحميل... --</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm mb-2">الوقت الجديد (اختياري)</label>
+                <select name="time" id="reassignTime" class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                    <option value="">-- الاحتفاظ بالوقت الحالي --</option>
+                </select>
+                <small class="text-gray-400">اترك فارغاً للاحتفاظ بنفس الوقت</small>
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">حفظ</button>
+                <button type="button" onclick="closeReassignModal()"
+                    class="flex-1 bg-gray-600 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showCreateBooking() {
+        document.getElementById('createBookingModal').classList.remove('hidden');
+    }
+
+    function closeCreateBooking() {
+        document.getElementById('createBookingModal').classList.add('hidden');
+    }
+
+    function showReassignModal(bookingId, currentEmployeeId, date, time, neighborhoodId) {
+        document.getElementById('reassignBookingId').value = bookingId;
+        document.getElementById('reassignDate').value = date;
+        document.getElementById('reassignNeighborhoodId').value = neighborhoodId;
+        document.getElementById('displayDate').textContent = date;
+        document.getElementById('displayCurrentTime').textContent = time;
+
+        document.getElementById('reassignForm').action = `/admin/bookings/${bookingId}/reassign`;
+        document.getElementById('reassignModal').classList.remove('hidden');
+
+        // Load employees for this neighborhood
+        if (neighborhoodId) {
+            fetch(`/admin/api/employees-by-neighborhood/${neighborhoodId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('reassignEmployee');
+                    select.innerHTML = '<option value="">-- اختر موظف --</option>';
+                    data.forEach(emp => {
+                        const option = document.createElement('option');
+                        option.value = emp.id;
+                        option.textContent = emp.username;
+                        if (emp.id === currentEmployeeId) {
+                            option.disabled = true; // Cannot reassign to same employee
+                            option.textContent += ' (الحالي)';
+                        }
+                        select.appendChild(option);
+                    });
+                });
+        }
+    }
+
+    function closeReassignModal() {
+        document.getElementById('reassignModal').classList.add('hidden');
+    }
+
+    function loadReassignSlots() {
+        const employeeId = document.getElementById('reassignEmployee').value;
+        const date = document.getElementById('reassignDate').value;
+
+        if (!employeeId || !date) return;
+
+        fetch(`/admin/api/available-slots/${employeeId}/${date}`)
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('reassignTime');
+                select.innerHTML = '<option value="">-- الاحتفاظ بالوقت الحالي --</option>';
+                data.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    select.appendChild(option);
+                });
+            });
+    }
+
+    // --- Create Booking Logic ---
+    const citiesData = {{ cities_json| safe }};
+
+    function updateBookingNeighborhoods() {
+        const cityId = document.getElementById('bookingCity').value;
+        const neighborhoodSelect = document.getElementById('bookingNeighborhood');
+        neighborhoodSelect.innerHTML = '<option value="">-- اختر --</option>';
+
+        if (cityId) {
+            const city = citiesData.find(c => c.id == cityId);
+            if (city) {
+                city.neighborhoods.forEach(n => {
+                    const option = document.createElement('option');
+                    option.value = n.id;
+                    option.textContent = n.name_ar;
+                    neighborhoodSelect.appendChild(option);
+                });
+            }
+        }
+    }
+
+    function updateBookingEmployees() {
+        const neighborhoodId = document.getElementById('bookingNeighborhood').value;
+        const employeeSelect = document.getElementById('bookingEmployee');
+        employeeSelect.innerHTML = '<option value="">-- اختر --</option>';
+
+        if (neighborhoodId) {
+            fetch(`/admin/api/employees-by-neighborhood/${neighborhoodId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(emp => {
+                        const option = document.createElement('option');
+                        option.value = emp.id;
+                        option.textContent = emp.username;
+                        employeeSelect.appendChild(option);
+                    });
+                });
+        }
+    }
+
+    function loadAvailableSlots() {
+        const employeeId = document.getElementById('bookingEmployee').value;
+        const date = document.getElementById('bookingDate').value;
+        const timeSelect = document.getElementById('bookingTime');
+
+        if (!employeeId || !date) {
+            timeSelect.innerHTML = '<option value="">-- اختر التاريخ والموظف أولاً --</option>';
+            return;
+        }
+
+        timeSelect.innerHTML = '<option value="">-- جاري التحميل... --</option>';
+
+        fetch(`/admin/api/available-slots/${employeeId}/${date}`)
+            .then(response => response.json())
+            .then(data => {
+                timeSelect.innerHTML = '<option value="">-- اختر الوقت --</option>';
+                if (data.length === 0) {
+                    const option = document.createElement('option');
+                    option.text = "لا توجد أوقات متاحة";
+                    timeSelect.add(option);
+                } else {
+                    data.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        option.text = time;
+                        timeSelect.add(option);
+                    });
+                }
+            });
+    }
+
+    function updateBookingPrice() {
+        const serviceSelect = document.getElementById('serviceSelect');
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+
+        const discountInput = document.getElementById('bookingDiscount');
+        const discountPercent = parseFloat(discountInput.value) || 0;
+
+        const discountAmount = price * (discountPercent / 100);
+        const finalPrice = price - discountAmount;
+
+        document.getElementById('bookingOrigPrice').textContent = price.toFixed(2) + ' ريال';
+        document.getElementById('bookingDiscAmount').textContent = discountAmount.toFixed(2) + ' ريال';
+        document.getElementById('bookingFinalPrice').textContent = finalPrice.toFixed(2) + ' ريال';
+    }
+
+    function searchBookingCustomers() {
+        const input = document.getElementById('bookingCustomerSearch');
+        const filter = input.value.toLowerCase();
+        const select = document.getElementById('bookingCustomerSelect');
+        const options = select.getElementsByTagName('option');
+
+        for (let i = 0; i < options.length; i++) {
+            const txtValue = options[i].text;
+            if (txtValue.toLowerCase().indexOf(filter) > -1 || options[i].value === "") {
+                options[i].style.display = "";
+            } else {
+                options[i].style.display = "none";
+            }
+        }
+    }
+</script>
+{% endblock %}

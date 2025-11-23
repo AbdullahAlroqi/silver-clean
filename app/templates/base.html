@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silver Clean</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#303030">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '{{ site_settings.primary_color or "#303030" }}',
+                        secondary: '#D8D8D8',
+                        accent: '{{ site_settings.accent_color or "#4DA8DA" }}',
+                        darkbg: '#1F1F1F',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body class="bg-darkbg text-white font-sans flex flex-col min-h-screen">
+    <nav class="bg-primary p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center">
+                <a href="{{ url_for('main.index') }}" class="flex items-center gap-2 text-xl font-bold text-white">
+                    <img src="{{ site_settings.logo_path or url_for('static', filename='img/logo.png') }}"
+                        alt="{{ site_settings.site_name }}" class="h-10 w-10 rounded-full object-cover">
+                    <span>{{ site_settings.site_name or 'Silver Clean' }}</span>
+                </a>
+            </div>
+            <div class="flex items-center gap-4">
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.notifications') }}"
+                    class="text-gray-300 hover:text-white transition relative">
+                    <i class="fas fa-bell text-xl"></i>
+                    {% set unread_count = current_user.notifications.filter_by(read=False).count() %}
+                    {% if unread_count > 0 %}
+                    <span
+                        class="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{{
+                        unread_count }}</span>
+                    {% endif %}
+                </a>
+                <a href="{{ url_for('auth.logout') }}" class="text-secondary hover:text-white transition">تسجيل خروج</a>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}" class="text-secondary hover:text-white transition">تسجيل دخول</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <div class="container mx-auto p-4 flex-grow">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        <div class="bg-accent text-white p-3 mb-4 rounded shadow-lg">
+            {% for message in messages %}
+            <div>{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-primary text-white py-6 mt-auto">
+        <div class="container mx-auto px-4 text-center">
+            <div class="flex justify-center gap-4 mb-4">
+                {% if site_settings.facebook_url %}
+                <a href="{{ site_settings.facebook_url }}" target="_blank"
+                    class="text-2xl hover:text-accent transition"><i class="fab fa-facebook"></i></a>
+                {% endif %}
+                {% if site_settings.twitter_url %}
+                <a href="{{ site_settings.twitter_url }}" target="_blank"
+                    class="text-2xl hover:text-accent transition"><i class="fab fa-twitter"></i></a>
+                {% endif %}
+                {% if site_settings.instagram_url %}
+                <a href="{{ site_settings.instagram_url }}" target="_blank"
+                    class="text-2xl hover:text-accent transition"><i class="fab fa-instagram"></i></a>
+                {% endif %}
+                {% if site_settings.tiktok_url %}
+                <a href="{{ site_settings.tiktok_url }}" target="_blank"
+                    class="text-2xl hover:text-accent transition"><i class="fab fa-tiktok"></i></a>
+                {% endif %}
+            </div>
+            <p class="mb-2">&copy; 2025 {{ site_settings.site_name or 'Silver Clean' }}. جميع الحقوق محفوظة.</p>
+            <a href="{{ url_for('main.terms') }}" class="text-sm text-gray-400 hover:text-white underline">الشروط
+                والأحكام</a>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Floating Button -->
+    {% if site_settings.whatsapp_number %}
+    <a href="https://wa.me/{{ site_settings.whatsapp_number }}" target="_blank"
+        class="fixed bottom-6 left-6 bg-green-500 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center hover:bg-green-600 transition z-50 animate-bounce">
+        <i class="fab fa-whatsapp text-3xl"></i>
+    </a>
+    {% endif %}
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}")
+                .then(function (registration) {
+                    console.log('Service Worker Registered');
+                })
+                .catch(function (err) {
+                    console.log('Service Worker Failed to Register', err);
+                });
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+</body>
+
+</html>

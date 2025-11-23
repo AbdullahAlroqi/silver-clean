@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold text-white">سجل الحجوزات</h2>
+        <p class="text-gray-400">مكتمل: {{ total_completed }} | ملغي: {{ total_cancelled }}</p>
+    </div>
+    <a href="{{ url_for('employee.index') }}"
+        class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+        <i class="fas fa-arrow-right ml-2"></i> رجوع
+    </a>
+</div>
+
+<!-- Filter Tabs -->
+<div class="bg-primary rounded-lg shadow-lg p-4 mb-6">
+    <div class="flex gap-2">
+        <a href="{{ url_for('employee.history', status='completed') }}"
+            class="flex-1 py-2 px-4 rounded text-center font-bold transition
+            {% if status_filter == 'completed' %}bg-green-600 text-white{% else %}bg-gray-700 text-gray-400 hover:bg-gray-600{% endif %}">
+            <i class="fas fa-check-circle ml-2"></i> المكتملة
+        </a>
+        <a href="{{ url_for('employee.history', status='cancelled') }}"
+            class="flex-1 py-2 px-4 rounded text-center font-bold transition
+            {% if status_filter == 'cancelled' %}bg-red-600 text-white{% else %}bg-gray-700 text-gray-400 hover:bg-gray-600{% endif %}">
+            <i class="fas fa-times-circle ml-2"></i> الملغاة
+        </a>
+    </div>
+</div>
+
+<!-- Bookings List -->
+{% if bookings %}
+<div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+    <table class="w-full text-right">
+        <thead class="bg-gray-800">
+            <tr>
+                <th class="p-4">الرقم</th>
+                <th class="p-4">التاريخ</th>
+                <th class="p-4">العميل</th>
+                <th class="p-4">الخدمة</th>
+                <th class="p-4">المركبة</th>
+                <th class="p-4">السعر</th>
+            </tr>
+        </thead>
+        <tbody class="text-gray-200">
+            {% for booking in bookings %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
+                <td class="p-4">#{{ booking.id }}</td>
+                <td class="p-4">
+                    <div>{{ booking.date }}</div>
+                    <div class="text-xs text-gray-400">{{ booking.time.strftime('%H:%M') if booking.time else '' }}
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="font-bold">{{ booking.customer.username }}</div>
+                    <div class="text-xs text-gray-400">{{ booking.customer.phone }}</div>
+                </td>
+                <td class="p-4">{{ booking.service.name_ar }}</td>
+                <td class="p-4">
+                    <div>{{ booking.vehicle.brand }}</div>
+                    <div class="text-xs text-gray-400">{{ booking.vehicle.plate_number }}</div>
+                </td>
+                <td class="p-4">
+                    {% set products_total = namespace(value=0) %}
+                    {% for bp in booking.products %}
+                    {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
+                    {% endfor %}
+
+                    {% set service_price = booking.service.price %}
+                    {% set discount_amount = 0 %}
+
+                    {% if booking.used_free_wash %}
+                    {% set service_price = 0 %}
+                    {% elif booking.discount_code %}
+                    {% if booking.discount_code.discount_type == 'percentage' %}
+                    {% set discount_amount = (service_price * booking.discount_code.value / 100) %}
+                    {% else %}
+                    {% set discount_amount = booking.discount_code.value %}
+                    {% endif %}
+                    {% endif %}
+
+                    {% set grand_total = (service_price - discount_amount) + products_total.value %}
+
+                    <div>
+                        <span class="font-bold text-accent">{{ "%.1f"|format(grand_total) }} ريال</span>
+                        {% if booking.used_free_wash %}
+                        <div class="text-xs text-green-400"><i class="fas fa-gift"></i> غسلة مجانية</div>
+                        {% elif booking.discount_code %}
+                        <div class="text-xs text-blue-400"><i class="fas fa-tag"></i> خصم: {{ booking.discount_code.code
+                            }}</div>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-4 text-center text-gray-400 text-sm">
+    عرض {{ bookings|length }} حجز (آخر 100 حجز)
+</div>
+{% else %}
+<div class="bg-primary p-8 rounded-lg shadow-lg text-center">
+    <i class="fas fa-inbox text-4xl text-gray-500 mb-4"></i>
+    <p class="text-xl text-white">لا يوجد حجوزات {{ 'مكتملة' if status_filter == 'completed' else 'ملغاة' }}</p>
+    <p class="text-gray-400">ابدأ بإكمال الحجوزات!</p>
+</div>
+{% endif %}
+{% endblock %}

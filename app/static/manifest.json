@@ -1,0 +1,20 @@
+{
+  "name": "Silver Clean Car Wash",
+  "short_name": "Silver Clean",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1F1F1F",
+  "theme_color": "#303030",
+  "icons": [
+    {
+      "src": "/static/img/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

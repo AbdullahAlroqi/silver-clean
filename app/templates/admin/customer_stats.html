@@ -1,0 +1,317 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-white">احصائيات العميل</h2>
+        <a href="{{ url_for('admin.customers') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">
+            <i class="fas fa-arrow-right mr-2"></i>رجوع
+        </a>
+    </div>
+
+    <!-- Customer Info Card -->
+    <div class="bg-primary rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex items-center gap-4">
+            <div class="bg-accent rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold">
+                {{ customer.username[0].upper() }}
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-white">{{ customer.username }}</h3>
+                <div class="text-gray-300 text-sm mt-1">
+                    <span class="mr-4"><i class="fas fa-phone mr-1"></i>{{ customer.phone or '-' }}</span>
+                    <span><i class="fas fa-envelope mr-1"></i>{{ customer.email or '-' }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <!-- Total Bookings -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">إجمالي الحجوزات</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.total_bookings }}</p>
+            </div>
+            <div class="bg-blue-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-calendar-check text-blue-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Completed Bookings -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الحجوزات المكتملة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.completed_bookings }}</p>
+            </div>
+            <div class="bg-green-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-check-circle text-green-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loyalty Points -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">نقاط الولاء</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.points }}</p>
+            </div>
+            <div class="bg-yellow-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-star text-yellow-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Free Washes -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الغسلات المجانية</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.free_washes }}</p>
+            </div>
+            <div class="bg-purple-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-gift text-purple-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Vehicles -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">عدد السيارات</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.total_vehicles }}</p>
+            </div>
+            <div class="bg-indigo-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-car text-indigo-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Spent -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">إجمالي الإنفاق</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ "%.2f"|format(stats.total_spent) }} ريال</p>
+            </div>
+            <div class="bg-red-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-dollar-sign text-red-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Bookings -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الحجوزات المعلقة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.pending_bookings }}</p>
+            </div>
+            <div class="bg-orange-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-clock text-orange-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Products Purchased -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">المنتجات المشتراة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.total_products_purchased }}</p>
+            </div>
+            <div class="bg-pink-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-shopping-bag text-pink-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Products Value -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">قيمة المنتجات</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ "%.2f"|format(stats.total_products_value) }} ريال</p>
+            </div>
+            <div class="bg-teal-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-coins text-teal-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Services Value -->
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">قيمة الخدمات</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ "%.2f"|format(stats.total_services_value) }} ريال</p>
+                <p class="text-xs text-gray-400">بعد الخصم</p>
+            </div>
+            <div class="bg-cyan-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-spray-can text-cyan-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bookings History -->
+<div class="bg-primary rounded-lg shadow-lg mb-6">
+    <div class="p-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold text-white">تاريخ الحجوزات</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-darkbg">
+                <tr>
+                    <th class="px-6 py-3 text-right text-sm font-bold">#</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الخدمة</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">التاريخ</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الحالة</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">السعر الإجمالي</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+                {% for booking in bookings %}
+                <tr class="hover:bg-gray-700 transition">
+                    <td class="px-6 py-4 text-sm">{{ booking.id }}</td>
+                    <td class="px-6 py-4 text-sm">{{ booking.service.name_ar if booking.service else '-' }}</td>
+                    <td class="px-6 py-4 text-sm">{{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td class="px-6 py-4 text-sm">
+                        {% if booking.status == 'completed' %}
+                        <span class="bg-green-500 bg-opacity-20 text-green-400 px-2 py-1 rounded text-xs">مكتمل</span>
+                        {% elif booking.status == 'cancelled' %}
+                        <span class="bg-red-500 bg-opacity-20 text-red-400 px-2 py-1 rounded text-xs">ملغي</span>
+                        {% else %}
+                        <span class="bg-blue-500 bg-opacity-20 text-blue-400 px-2 py-1 rounded text-xs">{{
+                            booking.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm">
+                        {% if booking.status == 'completed' %}
+                        {% set service_price = booking.service.price if booking.service else 0 %}
+                        {% set discount_amount = 0 %}
+
+                        {% if booking.used_free_wash %}
+                        {% set service_price = 0 %}
+                        {% elif booking.discount_code %}
+                        {% if booking.discount_code.discount_type == 'percentage' %}
+                        {% set discount_amount = service_price * (booking.discount_code.value / 100) %}
+                        {% else %}
+                        {% set discount_amount = booking.discount_code.value %}
+                        {% endif %}
+                        {% endif %}
+
+                        {% set products_total = namespace(value=0) %}
+                        {% for bp in booking.products %}
+                        {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
+                        {% endfor %}
+
+                        {% set grand_total = (service_price - discount_amount) + products_total.value %}
+                        {{ "%.2f"|format(grand_total) }} ريال
+
+                        {% if booking.used_free_wash %}
+                        <span class="text-xs text-green-400 block">🎁 غسلة مجانية</span>
+                        {% elif booking.discount_code %}
+                        <span class="text-xs text-blue-400 block">🎫 {{ booking.discount_code.code }}</span>
+                        {% endif %}
+                        {% else %}
+                        {{ "%.2f"|format(booking.service.price) if booking.service else '-' }} ريال
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="px-6 py-8 text-center text-gray-400">لا يوجد حجوزات</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Subscriptions -->
+<div class="bg-primary rounded-lg shadow-lg mb-6">
+    <div class="p-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold text-white">الاشتراكات</h3>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-darkbg">
+                <tr>
+                    <th class="px-6 py-3 text-right text-sm font-bold">#</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الباقة</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">تاريخ البدء</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">تاريخ الانتهاء</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الغسلات المتبقية</th>
+                    <th class="px-6 py-3 text-right text-sm font-bold">الحالة</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-700">
+                {% for subscription in subscriptions %}
+                <tr class="hover:bg-gray-700 transition">
+                    <td class="px-6 py-4 text-sm">{{ subscription.id }}</td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.package.name_ar if subscription.package else
+                        subscription.plan_type }}</td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.start_date.strftime('%Y-%m-%d') if
+                        subscription.start_date else '-' }}</td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.end_date.strftime('%Y-%m-%d') if subscription.end_date
+                        else '-' }}</td>
+                    <td class="px-6 py-4 text-sm">{{ subscription.remaining_washes }}</td>
+                    <td class="px-6 py-4 text-sm">
+                        {% if subscription.status == 'active' %}
+                        <span class="bg-green-500 bg-opacity-20 text-green-400 px-2 py-1 rounded text-xs">نشط</span>
+                        {% elif subscription.status == 'expired' %}
+                        <span class="bg-red-500 bg-opacity-20 text-red-400 px-2 py-1 rounded text-xs">منتهي</span>
+                        {% elif subscription.status == 'pending' %}
+                        <span class="bg-yellow-500 bg-opacity-20 text-yellow-400 px-2 py-1 rounded text-xs">معلق</span>
+                        {% else %}
+                        <span class="bg-gray-500 bg-opacity-20 text-gray-400 px-2 py-1 rounded text-xs">{{
+                            subscription.status }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-400">لا يوجد اشتراكات</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Vehicles -->
+<div class="bg-primary rounded-lg shadow-lg">
+    <div class="p-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold text-white">السيارات المسجلة</h3>
+    </div>
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for vehicle in vehicles %}
+            <div class="bg-darkbg rounded-lg p-4 border border-gray-700">
+                <div class="flex items-center gap-3">
+                    <div class="bg-accent rounded-lg p-3">
+                        <i class="fas fa-car text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-white">{{ vehicle.brand }}</p>
+                        <p class="text-sm text-gray-400">{{ vehicle.plate_number }}</p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-span-full text-center py-8 text-gray-400">
+                لا يوجد سيارات مسجلة
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

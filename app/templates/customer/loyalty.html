@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Back Button -->
+<div class="mb-6">
+    <a href="{{ url_for('customer.index') }}"
+        class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold transition">
+        <i class="fas fa-arrow-right"></i>
+        رجوع
+    </a>
+</div>
+
+<div class="max-w-2xl mx-auto text-center">
+    <h2 class="text-3xl font-bold text-white mb-8">برنامج الولاء</h2>
+
+    <div class="bg-primary p-8 rounded-lg shadow-lg border-2 border-accent mb-8 relative overflow-hidden">
+        <div class="absolute top-0 right-0 bg-accent text-white px-4 py-1 rounded-bl-lg">المستوى الفضي</div>
+
+        <div class="mb-6">
+            <i class="fas fa-star text-6xl text-yellow-500 mb-4"></i>
+            <h3 class="text-2xl font-bold text-white">رصيد نقاطك</h3>
+            <p class="text-5xl font-bold text-accent mt-2">{{ current_user.points }}</p>
+            <p class="text-gray-400 mt-2">نقطة</p>
+        </div>
+
+        <div class="w-full bg-gray-700 rounded-full h-4 mb-4">
+            {% set progress = (current_user.points / 10 * 100) if current_user.points < 10 else 100 %} <div
+                class="bg-yellow-500 h-4 rounded-full" style="width: {{ progress }}%">
+        </div>
+    </div>
+    <p class="text-sm text-gray-300">اجمع 10 نقاط لتحصل على غسلة مجانية!</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-right">
+    <div class="bg-primary p-6 rounded-lg shadow">
+        <h4 class="font-bold text-white mb-2">
+            <i class="fas fa-plus-circle text-green-500 ml-2"></i>كيف تكسب النقاط؟
+        </h4>
+        <p class="text-gray-400 text-sm">تحصل على نقطة واحدة مقابل كل عملية غسيل تتمها معنا.</p>
+    </div>
+    <div class="bg-primary p-6 rounded-lg shadow">
+        <h4 class="font-bold text-white mb-2">
+            <i class="fas fa-gift text-purple-500 ml-2"></i>المكافآت
+        </h4>
+        <p class="text-gray-400 text-sm">عند وصولك إلى 10 نقاط، ستحصل تلقائياً على كوبون غسيل مجاني.</p>
+    </div>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+    <h2 class="text-2xl font-bold text-white mb-6">{{ title }}</h2>
+
+    <div class="bg-primary p-8 rounded-lg shadow-lg">
+        <form method="post" class="space-y-6">
+            {{ form.hidden_tag() }}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">نوع السيارة</label>
+                {{ form.brand(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent") }}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">رقم اللوحة</label>
+                {{ form.plate_number(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent", placeholder="مثال: أ ب ج 1234") }}
+                {% for error in form.plate_number.errors %}
+                <span class="text-red-500 text-xs">{{ error }}</span>
+                {% endfor %}
+            </div>
+
+            <div class="pt-4">
+                {{ form.submit(class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded
+                transition cursor-pointer") }}
+            </div>
+        </form>
+    </div>
+
+    <div class="mt-6">
+        <a href="{{ url_for('customer.vehicles') }}"
+            class="inline-block bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold transition">
+            <i class="fas fa-arrow-right mr-2"></i>رجوع
+        </a>
+    </div>
+</div>
+{% endblock %}

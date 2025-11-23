@@ -1,0 +1,49 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">إدارة الخدمات</h2>
+    <a href="{{ url_for('admin.add_service') }}"
+        class="bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+        <i class="fas fa-plus ml-2"></i> إضافة خدمة
+    </a>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+    <table class="w-full text-right">
+        <thead class="bg-gray-800 text-gray-300">
+            <tr>
+                <th class="p-4">الاسم (عربي)</th>
+                <th class="p-4">الاسم (إنجليزي)</th>
+                <th class="p-4">السعر</th>
+                <th class="p-4">المدة (دقيقة)</th>
+                <th class="p-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody class="text-gray-200">
+            {% for service in services %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
+                <td class="p-4">{{ service.name_ar }}</td>
+                <td class="p-4">{{ service.name_en }}</td>
+                <td class="p-4">{{ service.price }} ريال</td>
+                <td class="p-4">{{ service.duration }}</td>
+                <td class="p-4 flex gap-2">
+                    <a href="{{ url_for('admin.edit_service', id=service.id) }}"
+                        class="text-blue-400 hover:text-blue-300">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{{ url_for('admin.delete_service', id=service.id) }}"
+                        class="text-red-400 hover:text-red-300" onclick="return confirm('هل أنت متأكد من الحذف؟')">
+                        <i class="fas fa-trash"></i>
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="p-4 text-center text-gray-500">لا يوجد خدمات حالياً.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

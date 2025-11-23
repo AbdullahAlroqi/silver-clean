@@ -1,0 +1,379 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h2 class="text-2xl font-bold text-white">إدارة الاشتراكات</h2>
+    <button onclick="showCreate()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+        <i class="fas fa-plus"></i> إضافة اشتراك
+    </button>
+</div>
+
+<!-- Search Bar -->
+<div class="mb-4">
+    <form method="get" class="flex gap-2">
+        <input type="hidden" name="status" value="{{ current_status }}">
+        <input type="text" name="search" value="{{ search_query or '' }}" placeholder="🔍 البحث..."
+            class="flex-1 bg-darkbg border border-gray-600 rounded px-4 py-2 text-white">
+        <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-6 py-2 rounded">بحث</button>
+        {% if search_query %}<a href="{{ url_for('admin.subscriptions', status=current_status) }}"
+            class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">✕</a>{% endif %}
+    </form>
+</div>
+
+<!-- Tabs -->
+<div class="mb-6 flex gap-2 border-b border-gray-700">
+    <a href="{{ url_for('admin.subscriptions', status='pending') }}"
+        class="px-4 py-2 {% if current_status == 'pending' %}bg-accent text-white{% else %}text-gray-400{% endif %} rounded-t">المعلقة
+        ({{ pending_count }})</a>
+    <a href="{{ url_for('admin.subscriptions', status='active') }}"
+        class="px-4 py-2 {% if current_status == 'active' %}bg-accent text-white{% else %}text-gray-400{% endif %} rounded-t">الفعالة
+        ({{ active_count }})</a>
+    <a href="{{ url_for('admin.subscriptions', status='rejected') }}"
+        class="px-4 py-2 {% if current_status == 'rejected' %}bg-accent text-white{% else %}text-gray-400{% endif %} rounded-t">المرفوضة
+        ({{ rejected_count }})</a>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg overflow-x-auto">
+    <table class="w-full text-right">
+        <thead class="bg-gray-800">
+            <tr>
+                <th class="p-4">#</th>
+                <th class="p-4">العميل</th>
+                <th class="p-4">المنطقة</th>
+                <th class="p-4">الباقة</th>
+                {% if current_status == 'active' %}<th class="p-4">الموظف</th>
+                <th class="p-4">الغسلات</th>
+                <th class="p-4">الانتهاء</th>{% endif %}
+                <th class="p-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sub in subscriptions %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700">
+                <td class="p-4">#{{ sub.id }}</td>
+                <td class="p-4">
+                    <div class="font-bold">{{ sub.customer.username }}</div>
+                    <div class="text-xs text-gray-400">{{ sub.customer.phone }}</div>
+                </td>
+                <td class="p-4">{% if sub.neighborhood %}<div>{{ sub.neighborhood.city.name_ar }}</div>
+                    <div class="text-xs text-gray-400">{{ sub.neighborhood.name_ar }}</div>{% else %}-{% endif %}
+                </td>
+                <td class="p-4">{{ sub.package.name_ar if sub.package else sub.plan_type }}</td>
+                {% if current_status == 'active' %}
+                <td class="p-4">{{ sub.assigned_employee.username if sub.assigned_employee else '-' }}</td>
+                <td class="p-4"><span class="bg-green-600 px-2 py-1 rounded text-xs">{{ sub.remaining_washes }}</span>
+                </td>
+                <td class="p-4 text-sm">{{ sub.end_date.strftime('%Y-%m-%d') if sub.end_date else '-' }}</td>
+                {% endif %}
+                <td class="p-4">
+                    <div class="flex gap-2">
+                        {% if current_status == 'pending' %}
+                        <button onclick="showApprove({{ sub.id }}, {{ sub.neighborhood_id or 0 }})"
+                            class="text-green-400" title="قبول">✓</button>
+                        <a href="{{ url_for('admin.reject_subscription', id=sub.id) }}" class="text-red-400"
+                            onclick="return confirm('رفض؟')">✕</a>
+                        {% elif current_status == 'active' %}
+                        <button onclick="showEdit({{ sub.id }})" class="text-blue-400" title="تعديل"><i
+                                class="fas fa-edit"></i></button>
+                        <a href="{{ url_for('admin.delete_subscription', id=sub.id) }}" class="text-red-400"
+                            onclick="return confirm('حذف؟')"><i class="fas fa-trash"></i></a>
+                        {% endif %}
+                        <a href="{{ url_for('admin.whatsapp_customer', id=sub.id) }}" target="_blank"
+                            class="text-green-500"><i class="fab fa-whatsapp"></i></a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="{% if current_status == 'active' %}8{% else %}5{% endif %}"
+                    class="p-8 text-center text-gray-500">لا توجد نتائج</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Create Subscription Modal -->
+<div id="createModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+        <h3 class="text-xl font-bold mb-4">إضافة اشتراك جديد</h3>
+        <form action="{{ url_for('admin.create_subscription') }}" method="post">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="col-span-2">
+                    <label class="block text-sm mb-2">العميل *</label>
+                    <input type="text" id="customerSearch" placeholder="ابحث بالاسم أو الهاتف..."
+                        onkeyup="searchCustomers()"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 mb-2">
+                    <select name="customer_id" id="customerSelect" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر العميل --</option>
+                        {% for customer in customers %}
+                        <option value="{{ customer.id }}" data-name="{{ customer.username }}"
+                            data-phone="{{ customer.phone }}">{{ customer.username }} - {{ customer.phone }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الباقة *</label>
+                    <select name="package_id" id="packageSelect" onchange="updatePrice()" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                        {% for pkg in packages %}
+                        <option value="{{ pkg.id }}" data-price="{{ pkg.price }}" data-washes="{{ pkg.wash_count }}"
+                            data-days="{{ pkg.duration_days }}">{{ pkg.name_ar }} ({{ pkg.price }} ريال)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">نسبة الخصم (%)</label>
+                    <input type="number" name="discount" id="discount" min="0" max="100" value="0"
+                        onchange="updatePrice()" class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">المدينة *</label>
+                    <select name="city_id" id="createCity" onchange="updateCreateNeighborhoods()" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                        {% for city in cities %}
+                        <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الحي *</label>
+                    <select name="neighborhood_id" id="createNeighborhood" onchange="updateCreateEmployees()" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <label class="block text-sm mb-2">الموظف *</label>
+                    <select name="employee_id" id="createEmployee" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                    </select>
+                </div>
+                <div class="col-span-2 bg-gray-800 p-3 rounded">
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>السعر الأصلي:</span>
+                        <span id="origPrice">0 ريال</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span>الخصم:</span>
+                        <span id="discAmount">0 ريال</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-lg">
+                        <span>المجموع:</span>
+                        <span id="finalPrice" class="text-accent">0 ريال</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">إضافة</button>
+                <button type="button" onclick="closeCreate()"
+                    class="flex-1 bg-gray-600 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Approve Modal -->
+<div id="approveModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold mb-4">قبول الاشتراك</h3>
+        <form id="approveForm" method="post">
+            <label class="block text-sm mb-2">الموظف</label>
+            <select name="employee_id" id="employeeSelect" required
+                class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 mb-4">
+                <option value="">-- اختر --</option>
+            </select>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">قبول</button>
+                <button type="button" onclick="closeApprove()"
+                    class="flex-1 bg-gray-600 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg max-w-2xl w-full mx-4">
+        <h3 class="text-xl font-bold mb-4">تعديل الاشتراك</h3>
+        <form id="editForm" method="post">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm mb-2">المدينة</label>
+                    <select name="city_id" id="editCity" onchange="updateNeighborhoods()"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                        {% for city in cities %}
+                        <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الحي</label>
+                    <select name="neighborhood_id" id="editNeighborhood" onchange="updateEmployees()"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الموظف</label>
+                    <select name="employee_id" id="editEmployee"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر --</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الغسلات المتبقية</label>
+                    <input type="number" name="remaining_washes" id="editWashes" min="0"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">حفظ</button>
+                <button type="button" onclick="closeEdit()"
+                    class="flex-1 bg-gray-600 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const subscriptionsData = {{ subscriptions_json| safe }};
+    const citiesData = {{ cities_json| safe }};
+    const allCustomers = document.querySelectorAll('#customerSelect option');
+
+    async function getEmployees(neighborhoodId) {
+        if (!neighborhoodId) return [];
+        const res = await fetch(`/admin/api/employees-by-neighborhood/${neighborhoodId}`);
+        return await res.json();
+    }
+
+    function searchCustomers() {
+        const search = document.getElementById('customerSearch').value.toLowerCase();
+        const select = document.getElementById('customerSelect');
+        Array.from(select.options).forEach(opt => {
+            if (opt.value === '') return;
+            const name = opt.getAttribute('data-name').toLowerCase();
+            const phone = opt.getAttribute('data-phone');
+            opt.style.display = (name.includes(search) || phone.includes(search)) ? '' : 'none';
+        });
+    }
+
+    function updatePrice() {
+        const pkgSelect = document.getElementById('packageSelect');
+        const selectedPkg = pkgSelect.options[pkgSelect.selectedIndex];
+        const price = parseFloat(selectedPkg.getAttribute('data-price') || 0);
+        const discount = parseFloat(document.getElementById('discount').value || 0);
+        const discAmount = price * (discount / 100);
+        const final = price - discAmount;
+
+        document.getElementById('origPrice').textContent = price.toFixed(2) + ' ريال';
+        document.getElementById('discAmount').textContent = discAmount.toFixed(2) + ' ريال';
+        document.getElementById('finalPrice').textContent = final.toFixed(2) + ' ريال';
+    }
+
+    function updateCreateNeighborhoods() {
+        const cityId = document.getElementById('createCity').value;
+        const city = citiesData.find(c => c.id == cityId);
+        const select = document.getElementById('createNeighborhood');
+        select.innerHTML = '<option value="">-- اختر --</option>';
+        if (city && city.neighborhoods) {
+            city.neighborhoods.forEach(n => {
+                select.innerHTML += `<option value="${n.id}">${n.name_ar}</option>`;
+            });
+        }
+        document.getElementById('createEmployee').innerHTML = '<option value="">-- اختر --</option>';
+    }
+
+    function updateCreateEmployees() {
+        const neighborhoodId = document.getElementById('createNeighborhood').value;
+        if (!neighborhoodId) {
+            document.getElementById('createEmployee').innerHTML = '<option value="">-- اختر --</option>';
+            return;
+        }
+        getEmployees(neighborhoodId).then(emps => {
+            const sel = document.getElementById('createEmployee');
+            sel.innerHTML = '<option value="">-- اختر --</option>';
+            emps.forEach(e => sel.innerHTML += `<option value="${e.id}">${e.username}</option>`);
+        });
+    }
+
+    function showCreate() {
+        document.getElementById('createModal').classList.remove('hidden');
+    }
+
+    function closeCreate() {
+        document.getElementById('createModal').classList.add('hidden');
+    }
+
+    function showApprove(id, neighborhoodId) {
+        document.getElementById('approveForm').action = `/admin/subscriptions/${id}/approve`;
+        getEmployees(neighborhoodId).then(emps => {
+            const sel = document.getElementById('employeeSelect');
+            sel.innerHTML = '<option value="">-- اختر --</option>';
+            emps.forEach(e => sel.innerHTML += `<option value="${e.id}">${e.username}</option>`);
+        });
+        document.getElementById('approveModal').classList.remove('hidden');
+    }
+
+    function closeApprove() {
+        document.getElementById('approveModal').classList.add('hidden');
+    }
+
+    function updateNeighborhoods() {
+        const cityId = document.getElementById('editCity').value;
+        const city = citiesData.find(c => c.id == cityId);
+        const select = document.getElementById('editNeighborhood');
+        select.innerHTML = '<option value="">-- اختر --</option>';
+        if (city && city.neighborhoods) {
+            city.neighborhoods.forEach(n => {
+                select.innerHTML += `<option value="${n.id}">${n.name_ar}</option>`;
+            });
+        }
+        document.getElementById('editEmployee').innerHTML = '<option value="">-- اختر --</option>';
+    }
+
+    function updateEmployees() {
+        const neighborhoodId = document.getElementById('editNeighborhood').value;
+        if (!neighborhoodId) {
+            document.getElementById('editEmployee').innerHTML = '<option value="">-- اختر --</option>';
+            return;
+        }
+        getEmployees(neighborhoodId).then(emps => {
+            const sel = document.getElementById('editEmployee');
+            sel.innerHTML = '<option value="">-- اختر --</option>';
+            emps.forEach(e => sel.innerHTML += `<option value="${e.id}">${e.username}</option>`);
+        });
+    }
+
+    function showEdit(id) {
+        const sub = subscriptionsData.find(s => s.id == id);
+        if (!sub) return;
+
+        document.getElementById('editForm').action = `/admin/subscriptions/${id}/edit`;
+        document.getElementById('editWashes').value = sub.remaining_washes;
+
+        if (sub.city_id) {
+            document.getElementById('editCity').value = sub.city_id;
+            updateNeighborhoods();
+            setTimeout(() => {
+                document.getElementById('editNeighborhood').value = sub.neighborhood_id || '';
+                updateEmployees();
+                setTimeout(() => {
+                    document.getElementById('editEmployee').value = sub.employee_id || '';
+                }, 100);
+            }, 100);
+        }
+
+        document.getElementById('editModal').classList.remove('hidden');
+    }
+
+    function closeEdit() {
+        document.getElementById('editModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}

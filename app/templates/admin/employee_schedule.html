@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h2 class="text-2xl font-bold text-white mb-6">جدول عمل الموظف: {{ employee.username }}</h2>
+
+    <div class="bg-primary p-8 rounded-lg shadow-lg">
+        <form method="post" class="space-y-4">
+            {% set days = [
+            ('sunday', 'الأحد', 6),
+            ('monday', 'الاثنين', 0),
+            ('tuesday', 'الثلاثاء', 1),
+            ('wednesday', 'الأربعاء', 2),
+            ('thursday', 'الخميس', 3),
+            ('friday', 'الجمعة', 4),
+            ('saturday', 'السبت', 5)
+            ] %}
+
+            {% for day_key, day_name, day_num in days %}
+            {% set schedule = schedules.get(day_num) %}
+            <div class="bg-darkbg p-4 rounded flex items-center gap-4">
+                <div class="w-32">
+                    <input type="checkbox" name="{{ day_key }}_enabled" id="{{ day_key }}_enabled" {% if schedule
+                        %}checked{% endif %} class="mr-2">
+                    <label for="{{ day_key }}_enabled" class="font-bold">{{ day_name }}</label>
+                </div>
+
+                <div class="flex-1 flex gap-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">من</label>
+                        <input type="time" name="{{ day_key }}_start"
+                            value="{{ schedule.start_time.strftime('%H:%M') if schedule else '08:00' }}"
+                            class="bg-primary border border-gray-600 rounded px-3 py-1 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">إلى</label>
+                        <input type="time" name="{{ day_key }}_end"
+                            value="{{ schedule.end_time.strftime('%H:%M') if schedule else '20:00' }}"
+                            class="bg-primary border border-gray-600 rounded px-3 py-1 text-white">
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="flex gap-2 pt-4">
+                <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-6 py-2 rounded">
+                    حفظ الجدول
+                </button>
+                <a href="{{ url_for('admin.employees') }}"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded">
+                    إلغاء
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

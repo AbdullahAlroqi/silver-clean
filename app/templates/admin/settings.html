@@ -1,0 +1,176 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">إعدادات الموقع</h2>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main Settings Form -->
+    <div class="lg:col-span-2">
+        <div class="bg-primary rounded-lg shadow-lg p-6">
+            <form method="post" enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+
+                <!-- General Settings -->
+                <h3 class="text-xl font-bold mb-4 text-accent border-b border-gray-700 pb-2">الإعدادات العامة</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.site_name.label }}</label>
+                        {{ form.site_name(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white")
+                        }}
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.logo.label }}</label>
+                        {{ form.logo(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white") }}
+                        <small class="text-gray-400">يفضل صورة بخلفية شفافة (PNG/SVG)</small>
+                    </div>
+                </div>
+
+                <!-- Colors -->
+                <h3 class="text-xl font-bold mb-4 text-accent border-b border-gray-700 pb-2">ألوان الموقع</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.primary_color.label }}</label>
+                        <div class="flex gap-2">
+                            <input type="color" id="primaryColorPicker" value="{{ form.primary_color.data }}"
+                                onchange="document.getElementById('primary_color').value = this.value"
+                                class="h-10 w-10 rounded cursor-pointer bg-transparent border-0 p-0">
+                            {{ form.primary_color(class="flex-1 bg-darkbg border border-gray-600 rounded px-3 py-2
+                            text-white") }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.accent_color.label }}</label>
+                        <div class="flex gap-2">
+                            <input type="color" id="accentColorPicker" value="{{ form.accent_color.data }}"
+                                onchange="document.getElementById('accent_color').value = this.value"
+                                class="h-10 w-10 rounded cursor-pointer bg-transparent border-0 p-0">
+                            {{ form.accent_color(class="flex-1 bg-darkbg border border-gray-600 rounded px-3 py-2
+                            text-white") }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Social Media & Contact -->
+                <h3 class="text-xl font-bold mb-4 text-accent border-b border-gray-700 pb-2">التواصل الاجتماعي</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.whatsapp_number.label }}</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fab fa-whatsapp"></i>
+                            </span>
+                            {{ form.whatsapp_number(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2
+                            pl-10 text-white", placeholder="9665xxxxxxxx") }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.facebook_url.label }}</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fab fa-facebook"></i>
+                            </span>
+                            {{ form.facebook_url(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 pl-10
+                            text-white") }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.twitter_url.label }}</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fab fa-twitter"></i>
+                            </span>
+                            {{ form.twitter_url(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 pl-10
+                            text-white") }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.instagram_url.label }}</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fab fa-instagram"></i>
+                            </span>
+                            {{ form.instagram_url(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 pl-10
+                            text-white") }}
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm mb-2">{{ form.tiktok_url.label }}</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                                <i class="fab fa-tiktok"></i>
+                            </span>
+                            {{ form.tiktok_url(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 pl-10
+                            text-white") }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terms & Conditions -->
+                <h3 class="text-xl font-bold mb-4 text-accent border-b border-gray-700 pb-2">الشروط والأحكام</h3>
+                <div class="mb-6">
+                    {{ form.terms_content(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                    h-64", placeholder="اكتب الشروط والأحكام هنا...") }}
+                </div>
+
+                <div class="flex justify-end">
+                    {{ form.submit(class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-bold
+                    cursor-pointer") }}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Preview Sidebar -->
+    <div class="lg:col-span-1">
+        <div class="bg-primary rounded-lg shadow-lg p-6 sticky top-6">
+            <h3 class="text-xl font-bold mb-4 text-white">معاينة</h3>
+
+            <!-- Logo Preview -->
+            <div class="mb-6 text-center">
+                <p class="text-sm text-gray-400 mb-2">الشعار الحالي</p>
+                <div class="bg-gray-800 p-4 rounded-lg inline-block">
+                    <img src="{{ settings.logo_path }}" alt="Logo" class="h-20 mx-auto">
+                </div>
+            </div>
+
+            <!-- Colors Preview -->
+            <div class="mb-6">
+                <p class="text-sm text-gray-400 mb-2">ألوان الهوية</p>
+                <div class="flex gap-2">
+                    <div class="flex-1 h-12 rounded flex items-center justify-center text-white text-xs"
+                        style="background-color: {{ settings.primary_color }}">
+                        الأساسي
+                    </div>
+                    <div class="flex-1 h-12 rounded flex items-center justify-center text-white text-xs"
+                        style="background-color: {{ settings.accent_color }}">
+                        الثانوي
+                    </div>
+                </div>
+            </div>
+
+            <!-- WhatsApp Preview -->
+            {% if settings.whatsapp_number %}
+            <div class="mb-6 text-center">
+                <p class="text-sm text-gray-400 mb-2">زر واتساب</p>
+                <a href="#"
+                    class="inline-flex items-center justify-center bg-green-500 text-white w-12 h-12 rounded-full shadow-lg">
+                    <i class="fab fa-whatsapp text-2xl"></i>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Sync color pickers with inputs
+    document.getElementById('primary_color').addEventListener('input', function () {
+        document.getElementById('primaryColorPicker').value = this.value;
+    });
+    document.getElementById('accent_color').addEventListener('input', function () {
+        document.getElementById('accentColorPicker').value = this.value;
+    });
+</script>
+{% endblock %}

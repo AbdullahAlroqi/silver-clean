@@ -1,0 +1,50 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h2 class="text-2xl font-bold text-white mb-6">{{ title }}</h2>
+
+    <div class="bg-primary p-8 rounded-lg shadow-lg">
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {{ form.hidden_tag() }}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">الاسم (عربي)</label>
+                {{ form.name_ar(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent") }}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">الاسم (إنجليزي)</label>
+                {{ form.name_en(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent") }}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">السعر</label>
+                {{ form.price(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent") }}
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">صورة المنتج</label>
+                {% if product and product.image_url %}
+                <div class="mb-3">
+                    <img src="{{ product.image_url }}" alt="{{ product.name_ar }}"
+                        class="w-32 h-32 object-cover rounded border-2 border-accent">
+                    <p class="text-xs text-gray-400 mt-1">الصورة الحالية</p>
+                </div>
+                {% endif %}
+                {{ form.image(class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded
+                file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-white hover:file:bg-blue-600") }}
+                <p class="text-xs text-gray-400 mt-1">JPG, PNG, GIF, WEBP</p>
+            </div>
+
+            <div class="pt-4">
+                {{ form.submit(class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded
+                transition cursor-pointer") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

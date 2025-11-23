@@ -1,0 +1,148 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Bookings Card -->
+    <div class="bg-primary p-6 rounded-lg shadow-lg border-r-4 border-accent flex items-center justify-between">
+        <div>
+            <h3 class="text-gray-400 text-sm font-bold mb-1">إجمالي الحجوزات</h3>
+            <p class="text-3xl font-bold text-white">{{ bookings_count }}</p>
+        </div>
+        <div class="bg-gray-700 p-3 rounded-full">
+            <i class="fas fa-calendar-check text-accent text-xl"></i>
+        </div>
+    </div>
+
+    <!-- Employees Card -->
+    <div class="bg-primary p-6 rounded-lg shadow-lg border-r-4 border-green-500 flex items-center justify-between">
+        <div>
+            <h3 class="text-gray-400 text-sm font-bold mb-1">الموظفين</h3>
+            <p class="text-3xl font-bold text-white">{{ employees_count }}</p>
+        </div>
+        <div class="bg-gray-700 p-3 rounded-full">
+            <i class="fas fa-users text-green-500 text-xl"></i>
+        </div>
+    </div>
+
+    <!-- Customers Card -->
+    <div class="bg-primary p-6 rounded-lg shadow-lg border-r-4 border-yellow-500 flex items-center justify-between">
+        <div>
+            <h3 class="text-gray-400 text-sm font-bold mb-1">العملاء</h3>
+            <p class="text-3xl font-bold text-white">{{ customers_count }}</p>
+        </div>
+        <div class="bg-gray-700 p-3 rounded-full">
+            <i class="fas fa-user text-yellow-500 text-xl"></i>
+        </div>
+    </div>
+
+    <!-- Revenue Card -->
+    <div class="bg-primary p-6 rounded-lg shadow-lg border-r-4 border-purple-500 flex items-center justify-between">
+        <div>
+            <h3 class="text-gray-400 text-sm font-bold mb-1">إجمالي الإيرادات</h3>
+            <p class="text-3xl font-bold text-white">{{ total_revenue }} <span
+                    class="text-sm font-normal text-gray-400">ريال</span></p>
+        </div>
+        <div class="bg-gray-700 p-3 rounded-full">
+            <i class="fas fa-money-bill-wave text-purple-500 text-xl"></i>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Recent Bookings -->
+    <div class="lg:col-span-2 bg-primary rounded-lg shadow-lg p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <i class="fas fa-clock text-accent"></i>
+                آخر الحجوزات
+            </h2>
+            <a href="{{ url_for('admin.bookings') }}" class="text-sm text-accent hover:text-blue-400 transition">عرض
+                الكل</a>
+        </div>
+
+        {% if recent_bookings %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-right">
+                <thead class="bg-gray-800 text-gray-300 text-sm">
+                    <tr>
+                        <th class="p-3 rounded-r-lg">العميل</th>
+                        <th class="p-3">الخدمة</th>
+                        <th class="p-3">التاريخ</th>
+                        <th class="p-3 rounded-l-lg">الحالة</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-200">
+                    {% for booking in recent_bookings %}
+                    <tr class="border-b border-gray-700 last:border-0 hover:bg-gray-700 transition">
+                        <td class="p-3 font-medium">{{ booking.customer.username }}</td>
+                        <td class="p-3">{{ booking.service.name_ar }}</td>
+                        <td class="p-3 text-sm text-gray-400">{{ booking.date }}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-1 rounded text-xs font-bold
+                                {% if booking.status == 'completed' %}bg-green-900 text-green-200
+                                {% elif booking.status == 'cancelled' %}bg-red-900 text-red-200
+                                {% elif booking.status == 'pending' %}bg-yellow-900 text-yellow-200
+                                {% else %}bg-blue-900 text-blue-200{% endif %}">
+                                {{ booking.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <i class="far fa-calendar-times text-4xl text-gray-600 mb-3"></i>
+            <p class="text-gray-400">لا توجد حجوزات حديثة.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-primary rounded-lg shadow-lg p-6">
+        <h2 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
+            <i class="fas fa-bolt text-yellow-500"></i>
+            إجراءات سريعة
+        </h2>
+        <div class="grid grid-cols-1 gap-4">
+            <a href="{{ url_for('admin.bookings') }}"
+                class="group bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex items-center transition">
+                <div class="bg-accent bg-opacity-20 p-3 rounded-lg group-hover:bg-opacity-30 transition">
+                    <i class="fas fa-calendar-plus text-accent text-xl"></i>
+                </div>
+                <div class="mr-4">
+                    <div class="font-bold text-white">إدارة الحجوزات</div>
+                    <div class="text-xs text-gray-400">عرض وإدارة جميع الحجوزات</div>
+                </div>
+                <i class="fas fa-chevron-left mr-auto text-gray-500 group-hover:text-white transition"></i>
+            </a>
+
+            <a href="{{ url_for('admin.products') }}"
+                class="group bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex items-center transition">
+                <div class="bg-green-500 bg-opacity-20 p-3 rounded-lg group-hover:bg-opacity-30 transition">
+                    <i class="fas fa-box text-green-500 text-xl"></i>
+                </div>
+                <div class="mr-4">
+                    <div class="font-bold text-white">المنتجات والمخزون</div>
+                    <div class="text-xs text-gray-400">إدارة المنتجات ومتابعة المخزون</div>
+                </div>
+                <i class="fas fa-chevron-left mr-auto text-gray-500 group-hover:text-white transition"></i>
+            </a>
+
+            <a href="{{ url_for('admin.employees') }}"
+                class="group bg-gray-700 hover:bg-gray-600 p-4 rounded-lg flex items-center transition">
+                <div class="bg-yellow-500 bg-opacity-20 p-3 rounded-lg group-hover:bg-opacity-30 transition">
+                    <i class="fas fa-users text-yellow-500 text-xl"></i>
+                </div>
+                <div class="mr-4">
+                    <div class="font-bold text-white">الموظفين</div>
+                    <div class="text-xs text-gray-400">إدارة الموظفين وجداول العمل</div>
+                </div>
+                <i class="fas fa-chevron-left mr-auto text-gray-500 group-hover:text-white transition"></i>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

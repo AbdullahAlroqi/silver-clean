@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-white">الإشعارات</h2>
+        <span class="bg-accent text-white text-xs px-2 py-1 rounded-full">{{ notifications|length }}</span>
+    </div>
+
+    <div class="space-y-4">
+        {% for notification in notifications %}
+        <div
+            class="bg-primary p-4 rounded-lg shadow border-r-4 {% if notification.read %}border-gray-600{% else %}border-accent{% endif %}">
+            <div class="flex justify-between items-start">
+                <h3 class="font-bold text-white mb-1">{{ notification.title }}</h3>
+                <span class="text-xs text-gray-500">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+            <p class="text-gray-300 text-sm">{{ notification.message }}</p>
+        </div>
+        {% else %}
+        <div class="text-center text-gray-500 py-8">
+            لا يوجد إشعارات حالياً.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

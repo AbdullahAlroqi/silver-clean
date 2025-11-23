@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-6 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h2 class="text-3xl font-bold text-white mb-2">إحصائيات المنتج: {{ product.name_ar }}</h2>
+            <p class="text-gray-400">{{ product.name_en }}</p>
+        </div>
+        <a href="{{ url_for('admin.products') }}"
+            class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition">
+            <i class="fas fa-arrow-right ml-2"></i> العودة للمنتجات
+        </a>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Total Sold -->
+        <div class="bg-primary rounded-lg shadow-lg p-6 border-r-4 border-blue-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 text-sm">إجمالي الكمية المباعة</p>
+                    <p class="text-3xl font-bold text-white mt-2">{{ sold_quantity }}</p>
+                </div>
+                <div class="bg-gray-700 p-3 rounded-full">
+                    <i class="fas fa-shopping-cart text-2xl text-blue-500"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Revenue -->
+        <div class="bg-primary rounded-lg shadow-lg p-6 border-r-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 text-sm">إجمالي الإيرادات</p>
+                    <p class="text-3xl font-bold text-white mt-2">{{ "%.2f"|format(total_revenue) }} <span
+                            class="text-sm text-green-500">ر.س</span></p>
+                </div>
+                <div class="bg-gray-700 p-3 rounded-full">
+                    <i class="fas fa-money-bill-wave text-2xl text-green-500"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Stock -->
+        <div class="bg-primary rounded-lg shadow-lg p-6 border-r-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-400 text-sm">المخزون الحالي</p>
+                    <p class="text-3xl font-bold text-white mt-2">{{ product.stock_quantity }}</p>
+                </div>
+                <div class="bg-gray-700 p-3 rounded-full">
+                    <i class="fas fa-boxes text-2xl text-yellow-500"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Bookings Table -->
+    <div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+        <div class="p-6 border-b border-gray-700">
+            <h3 class="text-xl font-bold text-white">آخر الحجوزات التي تتضمن هذا المنتج</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-right">
+                <thead class="bg-gray-800 text-gray-400">
+                    <tr>
+                        <th class="p-4">رقم الحجز</th>
+                        <th class="p-4">العميل</th>
+                        <th class="p-4">التاريخ</th>
+                        <th class="p-4">الكمية</th>
+                        <th class="p-4">الحالة</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-300">
+                    {% for booking, quantity in recent_bookings %}
+                    <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
+                        <td class="p-4">#{{ booking.id }}</td>
+                        <td class="p-4">{{ booking.customer.username }}</td>
+                        <td class="p-4">{{ booking.date }}</td>
+                        <td class="p-4 font-bold">{{ quantity }}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold 
+                                {% if booking.status == 'completed' %}bg-green-900 text-green-200
+                                {% elif booking.status == 'cancelled' %}bg-red-900 text-red-200
+                                {% else %}bg-yellow-900 text-yellow-200{% endif %}">
+                                {{ booking.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="p-8 text-center text-gray-500">لا توجد حجوزات لهذا المنتج حتى الآن</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

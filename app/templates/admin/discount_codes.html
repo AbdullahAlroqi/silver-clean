@@ -1,0 +1,81 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">أكواد الخصم</h2>
+    <a href="{{ url_for('admin.add_discount_code') }}"
+        class="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-lg flex items-center">
+        <i class="fas fa-plus ml-2"></i>
+        إضافة كود خصم جديد
+    </a>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg p-6">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="text-right border-b border-gray-700">
+                    <th class="py-3 px-4 text-right">الكود</th>
+                    <th class="py-3 px-4 text-right">نوع الخصم</th>
+                    <th class="py-3 px-4 text-right">القيمة</th>
+                    <th class="py-3 px-4 text-right">صالح من</th>
+                    <th class="py-3 px-4 text-right">صالح حتى</th>
+                    <th class="py-3 px-4 text-right">الحالة</th>
+                    <th class="py-3 px-4 text-right">الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for code in discount_codes %}
+                <tr class="border-b border-gray-700 hover:bg-gray-800">
+                    <td class="py-3 px-4">
+                        <span class="font-mono bg-gray-800 px-2 py-1 rounded">{{ code.code }}</span>
+                    </td>
+                    <td class="py-3 px-4">{{ 'نسبة مئوية' if code.discount_type == 'percentage' else 'مبلغ ثابت' }}</td>
+                    <td class="py-3 px-4">
+                        {% if code.discount_type == 'percentage' %}
+                        {{ code.value }}%
+                        {% else %}
+                        {{ "%.2f"|format(code.value) }} ريال
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4">{{ code.valid_from.strftime('%Y-%m-%d') }}</td>
+                    <td class="py-3 px-4">{{ code.valid_until.strftime('%Y-%m-%d') }}</td>
+                    <td class="py-3 px-4">
+                        {% if code.is_active %}
+                        <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">نشط</span>
+                        {% else %}
+                        <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs">منتهي</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="flex items-center space-x-2 space-x-reverse">
+                            <a href="{{ url_for('admin.discount_code_stats', id=code.id) }}"
+                                class="text-purple-400 hover:text-purple-300" title="الإحصائيات">
+                                <i class="fas fa-chart-bar"></i>
+                            </a>
+                            <a href="{{ url_for('admin.edit_discount_code', id=code.id) }}"
+                                class="text-blue-400 hover:text-blue-300" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{{ url_for('admin.delete_discount_code', id=code.id) }}" method="POST"
+                                class="inline">
+                                <button type="submit" class="text-red-400 hover:text-red-300"
+                                    onclick="return confirm('هل أنت متأكد من حذف كود الخصم هذا؟')" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="py-8 text-center text-gray-400">
+                        لا توجد أكواد خصم متاحة
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

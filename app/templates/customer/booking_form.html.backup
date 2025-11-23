@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h2 class="text-3xl font-bold text-white mb-8 text-center">حجز خدمة جديدة</h2>
+
+    <!-- Progress Steps -->
+    <div class="mb-8">
+        <div class="flex justify-between items-center">
+            <div class="flex-1 text-center">
+                <div id="step1-indicator"
+                    class="w-12 h-12 bg-accent rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2">
+                    1</div>
+                <p class="text-sm text-gray-400">الموقع</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-700" id="line1"></div>
+            <div class="flex-1 text-center">
+                <div id="step2-indicator"
+                    class="w-12 h-12 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2">
+                    2</div>
+                <p class="text-sm text-gray-400">الخدمة</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-700" id="line2"></div>
+            <div class="flex-1 text-center">
+                <div id="step3-indicator"
+                    class="w-12 h-12 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2">
+                    3</div>
+                <p class="text-sm text-gray-400">السيارة</p>
+            </div>
+            <div class="flex-1 h-1 bg-gray-700" id="line3"></div>
+            <div class="flex-1 text-center">
+                <div id="step4-indicator"
+                    class="w-12 h-12 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2">
+                    4</div>
+                <p class="text-sm text-gray-400">الموعد والدفع</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary p-8 rounded-lg shadow-lg">
+        <form method="post" id="bookingForm" class="space-y-6">
+            {{ form.hidden_tag() }}
+            <input type="hidden" name="discount_code" id="discount-code-input">
+
+            <!-- Step 1: Location -->
+            <div class="mb-4 bg-gray-800 p-4 rounded-lg border border-gray-700">
+                <label class="flex items-center cursor-pointer">
+                    <input type="checkbox" name="use_free_wash" id="use-free-wash" value="1"
+                        class="w-5 h-5 text-accent rounded focus:ring-accent" onchange="toggleFreeWash()">
+                    <span class="mr-3 text-white font-bold">استخدام رصيد الغسيل المجاني</span>
+                </label>
+                <p class="text-sm text-gray-400 mt-1 mr-8">
+                    لديك {{ current_user.free_washes }} غسلة مجانية متاحة.
+                </p>
+            </div>
+            {% endif %}
+
+            <!-- Price Summary -->
+            <div class="bg-gray-800 p-4 rounded-lg border border-gray-700 space-y-2">
+                <div class="flex justify-between text-gray-300">
+                    <span>سعر الخدمة:</span>
+                    <span id="base-price">0.00 ريال</span>
+                </div>
+                <div class="flex justify-between text-gray-300 hidden" id="products-price-row">
+                    <span>المنتجات الإضافية:</span>
+                    <span id="products-price">0.00 ريال</span>
+                </div>
+                <div class="flex justify-between text-green-400 hidden" id="discount-row">
+                    <span>الخصم:</span>
+                    <span id="discount-amount">-0.00 ريال</span>
+                </div>
+                <div class="border-t border-gray-700 pt-2 mt-2 flex justify-between text-xl font-bold text-white">
+                    <span>الإجمالي:</span>
+                    <span id="total-price">0.00 ريال</span>
+                </div>
+            </div>
+    </div>
+
+    <div class="mt-8 pt-6">
+        <div class="flex justify-between">
+            <button type="button" onclick="prevStep(3)"
+                class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                <i class="fas fa-arrow-right mr-2"></i> السابق
+            </button>
+            {{ form.submit(class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg
+            transition cursor-pointer") }}
+        </div>
+    </div>
+</div>
+</form>
+</div>
+
+<div class="mt-6 text-center">
+    <a href="{{ url_for('customer.index') }}"
+        class="inline-block bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold transition">
+        <i class="fas fa-arrow-right mr-2"></i>رجوع
+    </a>
+</div>
+</div>
+
+<script>
+    let currentStep = 1;
+    const dateInput = document.getElementById('date-input');
+    if (dateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+    }
+
+    function showStep(step) {
+        document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+        document.getElementById('step' + step).classList.remove('hidden');
+
+        for (let i = 1; i <= 4; i++) {
+            const indicator = document.getElementById('step' + i + '-indicator');
+            const line = document.getElementById('line' + i);
+
+            if (i < step) {
+                indicator.classList.remove('bg-gray-700');
+                indicator.classList.add('bg-green-600');
+                if (line) {
+                    line.classList.remove('bg-gray-700');
+                    line.classList.add('bg-green-600');
+                }
+            } else if (i === step) {
+                indicator.classList.remove('bg-gray-700', 'bg-green-600');
+                indicator.classList.add('bg-accent');
+            } else {
+                indicator.classList.remove('bg-accent', 'bg-green-600');
+                indicator.classList.add('bg-gray-700');
+                if (line) {
+                    line.classList.remove('bg-green-600');
+                    line.classList.add('bg-gray-700');
+                }
+            }
+        }
+        currentStep = step;
+    }
+
+    function nextStep(step) {
+        if (currentStep === 1) {
+            const city = document.getElementById('city-select').value;
+            const neighborhood = document.getElementById('neighborhood-select').value;
+            if (!city || !neighborhood) {
+                alert('الرجاء اختيار المدينة والحي');
+                return;
+            }
+        } else if (currentStep === 2) {
+            const service = document.getElementById('service-select').value;
+            const vehicle = document.querySelector('[name="vehicle_id"]').value;
+            if (!service || !vehicle) {
+                alert('الرجاء اختيار الخدمة والسيارة');
+                return;
+            }
+            const serviceName = document.getElementById('service-select').options[document.getElementById('service-select').selectedIndex].text;
+            const vehicleName = document.querySelector('[name="vehicle_id"]').options[document.querySelector('[name="vehicle_id"]').selectedIndex].text;
+            document.getElementById('service-name').textContent = serviceName;
+            document.getElementById('vehicle-name').textContent = vehicleName;
+        }
+        showStep(step);
+    }
+
+    function prevStep(step) {
+        showStep(step);
+    }
+
+    const citySelect = document.getElementById('city-select');
+    const neighborhoodSelect = document.getElementById('neighborhood-select');
+    const serviceSelect = document.getElementById('service-select');
+    const timeSelect = document.getElementById('time-select');
+
+    if (citySelect) {
+        citySelect.addEventListener('change', function () {
+            const cityId = this.value;
+            neighborhoodSelect.innerHTML = '<option value="">اختر الحي</option>';
+            timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+            if (!cityId) return;
+
+            fetch('/customer/api/neighborhoods/' + cityId)
+                .then(response => response.json())
+                .then(neighborhoods => {
+                    neighborhoods.forEach(n => {
+                        const option = document.createElement('option');
+                        option.value = n.id;
+                        option.textContent = n.name;
+                        neighborhoodSelect.appendChild(option);
+                    });
+                });
+        });
+    }
+
+    function loadAvailableTimes() {
+        const date = dateInput.value;
+        const neighborhoodId = neighborhoodSelect.value;
+        const serviceId = serviceSelect.value;
+
+        timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+        if (!date || !neighborhoodId || !serviceId) return;
+
+        const params = new URLSearchParams({ date: date, neighborhood_id: neighborhoodId, service_id: serviceId });
+        fetch('/customer/api/available-times?' + params)
+            .then(response => response.json())
+            .then(times => {
+                if (times.length === 0) {
+                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
+                } else {
+                    times.forEach(time => {
+                        const option = document.createElement('option');
+                        option.value = time;
+                        option.textContent = time;
+                        timeSelect.appendChild(option);
+                    });
+                }
+            });
+    }
+
+    if (dateInput) dateInput.addEventListener('change', loadAvailableTimes);
+    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
+    if (serviceSelect) serviceSelect.addEventListener('change', loadAvailableTimes);
+
+    // Load Products
+    fetch('/customer/api/products')
+        .then(response => response.json())
+        .then(products => {
+            const container = document.getElementById('products-container');
+            container.innerHTML = ''; // Clear loading spinner
+
+            if (products.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center col-span-2">لا توجد منتجات</p>';
+                return;
+            }
+            products.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
+
+                const img = product.image_url
+                    ? '<img src="' + product.image_url + '" alt="' + product.name_ar + '" class="w-20 h-20 object-cover rounded-lg mb-3">'
+                    : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
+
+                card.innerHTML = img + '<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">' + product.name_ar +
+                    '</h5><span class="text-accent font-bold">' + product.price + ' ريال</span></div>' +
+                    '<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">' +
+                    '<input type="checkbox" name="product_' + product.id + '" value="' + product.id + '" class="ml-2 w-5 h-5" onchange="updatePrice()">' +
+                    '<span class="text-gray-300">إضافة</span></label>' +
+                    '<input type="number" name="quantity_' + product.id + '" min="1" value="1" disabled ' +
+                    'class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm" onchange="updatePrice()"></div>';
+
+                const checkbox = card.querySelector('input[type="checkbox"]');
+                const qty = card.querySelector('input[type="number"]');
+                checkbox.addEventListener('change', function () {
+                    qty.disabled = !this.checked;
+                    updatePrice();
+                });
+                qty.addEventListener('change', updatePrice);
+                container.appendChild(card);
+            });
+        });
+
+    showStep(1);
+
+    // Discount & Price Logic
+    let currentServicePrice = 0;
+    let currentProductsPrice = 0;
+    let currentDiscount = 0;
+    let discountType = null; // 'percent' or 'fixed'
+    let discountValue = 0;
+
+    function updatePrice() {
+        // Calculate Service Price
+        const serviceSelect = document.getElementById('service-select');
+        if (serviceSelect && serviceSelect.selectedIndex >= 0) {
+            const text = serviceSelect.options[serviceSelect.selectedIndex].text;
+            const match = text.match(/\((\d+(\.\d+)?) ريال\)/);
+            if (match) {
+                currentServicePrice = parseFloat(match[1]);
+            } else {
+                currentServicePrice = 0;
+            }
+        } else {
+            currentServicePrice = 0;
+        }
+
+        // Calculate Products Price
+        currentProductsPrice = 0;
+        const productCheckboxes = document.querySelectorAll('input[name^="product_"]:checked');
+        productCheckboxes.forEach(cb => {
+            const productId = cb.value;
+            const qtyInput = document.querySelector(`input[name="quantity_${productId}"]`);
+            const qty = parseInt(qtyInput.value) || 1;
+
+            // Find price from card text
+            const card = cb.closest('.bg-darkbg');
+            const priceText = card.querySelector('.text-accent').textContent;
+            const priceMatch = priceText.match(/(\d+(\.\d+)?) ريال/);
+            if (priceMatch) {
+                currentProductsPrice += parseFloat(priceMatch[1]) * qty;
+            }
+        });
+
+        let totalPrice = currentServicePrice + currentProductsPrice;
+
+        // Apply Free Wash
+        const useFreeWash = document.getElementById('use-free-wash');
+        let finalServicePrice = currentServicePrice;
+
+        if (useFreeWash && useFreeWash.checked) {
+            finalServicePrice = 0;
+        }
+
+        let subtotal = finalServicePrice + currentProductsPrice;
+
+        // Apply Discount Code
+        currentDiscount = 0;
+        if (discountType === 'percent') {
+            currentDiscount = subtotal * (discountValue / 100);
+        } else if (discountType === 'fixed') {
+            currentDiscount = discountValue;
+        }
+
+        // Ensure discount doesn't exceed subtotal
+        if (currentDiscount > subtotal) currentDiscount = subtotal;
+
+        let finalPrice = subtotal - currentDiscount;
+
+        // Update UI
+        const basePriceEl = document.getElementById('base-price');
+        if (basePriceEl) basePriceEl.textContent = currentServicePrice.toFixed(2) + ' ريال';
+
+        const productsPriceEl = document.getElementById('products-price');
+        if (productsPriceEl) productsPriceEl.textContent = currentProductsPrice.toFixed(2) + ' ريال';
+
+        const productsRow = document.getElementById('products-price-row');
+        if (productsRow) {
+            if (currentProductsPrice > 0) {
+                productsRow.classList.remove('hidden');
+            } else {
+                productsRow.classList.add('hidden');
+            }
+        }
+
+        let totalDiscountDisplay = currentDiscount;
+        if (useFreeWash && useFreeWash.checked) {
+            totalDiscountDisplay += currentServicePrice;
+        }
+
+        const discountRow = document.getElementById('discount-row');
+        const discountAmountEl = document.getElementById('discount-amount');
+        if (discountRow && discountAmountEl) {
+            if (totalDiscountDisplay > 0) {
+                discountRow.classList.remove('hidden');
+                discountAmountEl.textContent = '-' + totalDiscountDisplay.toFixed(2) + ' ريال';
+            } else {
+                discountRow.classList.add('hidden');
+            }
+        }
+
+        const totalPriceEl = document.getElementById('total-price');
+        if (totalPriceEl) totalPriceEl.textContent = finalPrice.toFixed(2) + ' ريال';
+    }
+
+    function applyDiscount() {
+        const code = document.getElementById('discount-code').value;
+        const messageEl = document.getElementById('discount-message');
+        const inputEl = document.getElementById('discount-code-input');
+
+        if (!code) return;
+
+        fetch('/admin/api/validate-discount?code=' + code)
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    discountType = data.type;
+                    discountValue = data.value;
+                    inputEl.value = data.id; // Store ID
+
+                    messageEl.textContent = data.message;
+                    messageEl.className = 'text-sm mt-1 text-green-500';
+                    messageEl.classList.remove('hidden');
+                    updatePrice();
+                } else {
+                    discountType = null;
+                    discountValue = 0;
+                    inputEl.value = '';
+
+                    messageEl.textContent = data.message;
+                    messageEl.className = 'text-sm mt-1 text-red-500';
+                    messageEl.classList.remove('hidden');
+                    updatePrice();
+                }
+            });
+    }
+
+    function toggleFreeWash() {
+        updatePrice();
+    }
+
+    // Event Listeners
+    if (serviceSelect) serviceSelect.addEventListener('change', updatePrice);
+
+    // Initial update
+    // setTimeout(updatePrice, 1000); // Wait for products to load? No, products load async.
+</script>
+{% endblock %}

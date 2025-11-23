@@ -1,0 +1,147 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">إدارة العملاء</h2>
+    <a href="{{ url_for('admin.export_customers') }}"
+        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+        <i class="fas fa-download mr-2"></i>تصدير CSV
+    </a>
+</div>
+
+<div class="mb-6">
+    <form action="{{ url_for('admin.customers') }}" method="GET" class="flex gap-2">
+        <input type="text" name="q" placeholder="بحث بالاسم، البريد الإلكتروني، أو رقم الهاتف..."
+            value="{{ request.args.get('q', '') }}"
+            class="flex-1 bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+        <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-6 py-2 rounded">
+            <i class="fas fa-search"></i> بحث
+        </button>
+        {% if request.args.get('q') %}
+        <a href="{{ url_for('admin.customers') }}"
+            class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded flex items-center">
+            <i class="fas fa-times"></i>
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+    <table class="w-full">
+        <thead class="bg-darkbg">
+            <tr>
+                <th class="px-6 py-3 text-right text-sm font-bold">#</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">الاسم</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">رقم الجوال</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">البريد الإلكتروني</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">الغسلات المجانية</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">نقاط الولاء</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">عدد السيارات</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">تاريخ اخر عملية شراء</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-700">
+            {% for customer in customers %}
+            <tr class="hover:bg-gray-700 transition">
+                <td class="px-6 py-4 text-sm">{{ customer.id }}</td>
+                <td class="px-6 py-4 text-sm font-medium">{{ customer.username }}</td>
+                <td class="px-6 py-4 text-sm text-gray-300">{{ customer.phone or '-' }}</td>
+        </tbody>
+    </table>
+</div>
+
+<!-- Password Reset Modal -->
+<div id="passwordModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-white mb-4">تغيير كلمة السر</h3>
+        <form id="passwordForm" method="post">
+            <p class="text-gray-300 mb-4">العميل: <span id="customerName" class="font-bold"></span></p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">كلمة السر الجديدة</label>
+                <input type="text" name="new_password" value="123456"
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent hover:bg-blue-600 text-white py-2 rounded">حفظ</button>
+                <button type="button" onclick="closePasswordModal()"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Points Modal -->
+<div id="pointsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-white mb-4">تعديل نقاط الولاء</h3>
+        <form id="pointsForm" method="post">
+            <p class="text-gray-300 mb-4">العميل: <span id="pointsCustomerName" class="font-bold"></span></p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">عدد النقاط (استخدم - للخصم)</label>
+                <input type="number" name="points" value="10"
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white">
+                <p class="text-xs text-gray-400 mt-1">مثال: 10 للإضافة، -5 للخصم</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent hover:bg-blue-600 text-white py-2 rounded">تطبيق</button>
+                <button type="button" onclick="closePointsModal()"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Free Washes Modal -->
+<div id="washesModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-white mb-4">تعديل الغسلات المجانية</h3>
+        <form id="washesForm" method="post">
+            <p class="text-gray-300 mb-4">العميل: <span id="washesCustomerName" class="font-bold"></span></p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">عدد الغسلات (استخدم - للخصم)</label>
+                <input type="number" name="washes" value="1"
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white">
+                <p class="text-xs text-gray-400 mt-1">مثال: 1 للإضافة، -1 للخصم</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent hover:bg-blue-600 text-white py-2 rounded">تطبيق</button>
+                <button type="button" onclick="closeWashesModal()"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showPasswordModal(customerId, customerName) {
+        document.getElementById('customerName').textContent = customerName;
+        document.getElementById('passwordForm').action = `/admin/customers/${customerId}/reset-password`;
+        document.getElementById('passwordModal').classList.remove('hidden');
+    }
+
+    function closePasswordModal() {
+        document.getElementById('passwordModal').classList.add('hidden');
+    }
+
+    function showPointsModal(customerId, customerName) {
+        document.getElementById('pointsCustomerName').textContent = customerName;
+        document.getElementById('pointsForm').action = `/admin/customers/${customerId}/add-points`;
+        document.getElementById('pointsModal').classList.remove('hidden');
+    }
+
+    function closePointsModal() {
+        document.getElementById('pointsModal').classList.add('hidden');
+    }
+
+    function showWashesModal(customerId, customerName) {
+        document.getElementById('washesCustomerName').textContent = customerName;
+        document.getElementById('washesForm').action = `/admin/customers/${customerId}/update-washes`;
+        document.getElementById('washesModal').classList.remove('hidden');
+    }
+
+    function closeWashesModal() {
+        document.getElementById('washesModal').classList.add('hidden');
+    }
+</script>
+{% endblock %}
