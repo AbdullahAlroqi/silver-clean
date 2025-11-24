@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">أحجام السيارات</h2>
+    <a href="{{ url_for('admin.add_vehicle_size') }}"
+        class="bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+        <i class="fas fa-plus ml-2"></i> إضافة حجم جديد
+    </a>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg overflow-hidden overflow-x-auto">
+    <table class="w-full text-right">
+        <thead class="bg-gray-800 text-gray-300">
+            <tr>
+                <th class="p-4">الاسم (عربي)</th>
+                <th class="p-4">الاسم (إنجليزي)</th>
+                <th class="p-4">تعديل السعر</th>
+                <th class="p-4">الحالة</th>
+                <th class="p-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody class="text-gray-200">
+            {% for size in vehicle_sizes %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
+                <td class="p-4">{{ size.name_ar }}</td>
+                <td class="p-4">{{ size.name_en }}</td>
+                <td class="p-4">{{ size.price_adjustment }} ريال</td>
+                <td class="p-4">
+                    {% if size.is_active %}
+                    <span class="bg-green-600 text-white px-2 py-1 rounded text-xs">مفعل</span>
+                    {% else %}
+                    <span class="bg-red-600 text-white px-2 py-1 rounded text-xs">غير مفعل</span>
+                    {% endif %}
+                </td>
+                <td class="p-4">
+                    <div class="flex gap-3">
+                        <a href="{{ url_for('admin.edit_vehicle_size', id=size.id) }}"
+                            class="text-blue-400 hover:text-blue-300" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <a href="{{ url_for('admin.delete_vehicle_size', id=size.id) }}"
+                            class="text-red-400 hover:text-red-300"
+                            onclick="return confirm('هل أنت متأكد من حذف الحجم {{ size.name_ar }}؟')"
+                            title="حذف">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="p-4 text-center text-gray-500">لا يوجد أحجام سيارات حالياً.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

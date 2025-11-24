@@ -9,7 +9,7 @@ from app.models import User
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        if current_user.role == 'admin':
+        if current_user.role in ['admin', 'supervisor']:
             return redirect(url_for('admin.index'))
         elif current_user.role == 'employee':
             return redirect(url_for('employee.index'))
@@ -18,7 +18,7 @@ def login():
             
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
+        user = User.query.filter((User.username == form.username.data) | (User.phone == form.username.data)).first()
         if user is None or not user.check_password(form.password.data):
             flash('اسم المستخدم أو كلمة المرور غير صحيحة')
             return redirect(url_for('auth.login'))
@@ -27,7 +27,7 @@ def login():
         
         next_page = request.args.get('next')
         if not next_page or urlparse(next_page).netloc != '':
-            if user.role == 'admin':
+            if user.role in ['admin', 'supervisor']:
                 next_page = url_for('admin.index')
             elif user.role == 'employee':
                 next_page = url_for('employee.index')

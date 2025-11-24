@@ -12,6 +12,7 @@ class VehicleForm(FlaskForm):
         ('GMC', 'جي إم سي'), ('Dodge', 'دودج'), ('Jeep', 'جيب'),
         ('Other', 'أخرى')
     ], validators=[DataRequired()])
+    vehicle_size = SelectField('حجم السيارة', coerce=int, validators=[DataRequired()])
     plate_number = StringField('رقم اللوحة', validators=[DataRequired()])
     submit = SubmitField('حفظ')
 

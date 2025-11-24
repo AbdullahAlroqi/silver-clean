@@ -8,7 +8,10 @@ class EmployeeForm(FlaskForm):
     email = StringField('البريد الإلكتروني', validators=[DataRequired(), Email()])
     phone = StringField('رقم الجوال', validators=[DataRequired(), Length(min=10, max=15)])
     password = PasswordField('كلمة المرور', validators=[Optional()])
-    neighborhoods = SelectMultipleField('الأحياء المسندة', coerce=int)
+    role = SelectField('الدور', choices=[('employee', 'موظف'), ('supervisor', 'مشرف')], default='employee')
+    neighborhoods = SelectMultipleField('الأحياء المسندة (للموظفين)', coerce=int)
+    supervisor_cities = SelectMultipleField('المدن المسندة (للمشرفين)', coerce=int)
+    supervisor_neighborhoods = SelectMultipleField('الأحياء المسندة (للمشرفين)', coerce=int)
     submit = SubmitField('حفظ')
 
 class ServiceForm(FlaskForm):
@@ -17,6 +20,13 @@ class ServiceForm(FlaskForm):
     price = FloatField('السعر', validators=[DataRequired()])
     duration = IntegerField('المدة (دقيقة)', validators=[DataRequired()])
     description = TextAreaField('الوصف')
+    submit = SubmitField('حفظ')
+
+class VehicleSizeForm(FlaskForm):
+    name_ar = StringField('الاسم (عربي)', validators=[DataRequired()])
+    name_en = StringField('الاسم (إنجليزي)', validators=[DataRequired()])
+    price_adjustment = FloatField('تعديل السعر (ريال)', validators=[DataRequired()])
+    is_active = BooleanField('مفعل', default=True)
     submit = SubmitField('حفظ')
 
 class CityForm(FlaskForm):

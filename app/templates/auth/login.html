@@ -12,7 +12,8 @@
             {{ form.hidden_tag() }}
 
             <div>
-                <label for="username" class="block text-sm font-medium text-gray-300 mb-1">اسم المستخدم</label>
+                <label for="username" class="block text-sm font-medium text-gray-300 mb-1">اسم المستخدم أو رقم
+                    الجوال</label>
                 {{ form.username(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
                 focus:outline-none focus:border-accent") }}
                 {% for error in form.username.errors %}

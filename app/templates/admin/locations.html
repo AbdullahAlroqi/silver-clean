@@ -10,30 +10,51 @@
 </div>
 
 <div class="space-y-6">
-    {% for city in cities %}
+    {% for stat in city_stats %}
     <div class="bg-primary rounded-lg shadow-lg overflow-hidden">
         <div class="bg-gray-800 p-4 flex justify-between items-center">
-            <h3 class="text-xl font-bold text-white">{{ city.name_ar }} <span class="text-sm text-gray-400">({{
-                    city.name_en }})</span></h3>
+            <div class="flex items-center">
+                <h3 class="text-xl font-bold text-white ml-4">{{ stat.city.name_ar }} <span
+                        class="text-sm text-gray-400">({{ stat.city.name_en }})</span></h3>
+
+                <!-- Stats Badges -->
+                <div class="flex gap-2">
+                    <span class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs" title="عدد الأحياء">
+                        <i class="fas fa-map-signs ml-1"></i> {{ stat.neighborhood_count }}
+                    </span>
+                    <span class="bg-blue-900 text-blue-200 px-2 py-1 rounded text-xs" title="عدد الحجوزات">
+                        <i class="fas fa-calendar-check ml-1"></i> {{ stat.booking_count }}
+                    </span>
+                    <span class="bg-green-900 text-green-200 px-2 py-1 rounded text-xs" title="الإيرادات">
+                        <i class="fas fa-money-bill-wave ml-1"></i> {{ "%.2f"|format(stat.revenue) }} ريال
+                    </span>
+                </div>
+            </div>
+
             <div class="flex gap-2">
-                <a href="{{ url_for('admin.add_neighborhood', city_id=city.id) }}"
+                <a href="{{ url_for('admin.reports', city_id=stat.city.id) }}"
+                    class="text-sm bg-purple-600 hover:bg-purple-500 text-white py-1 px-3 rounded transition">
+                    <i class="fas fa-chart-bar"></i> التقارير
+                </a>
+                <a href="{{ url_for('admin.add_neighborhood', city_id=stat.city.id) }}"
                     class="text-sm bg-green-600 hover:bg-green-500 text-white py-1 px-3 rounded transition">
                     <i class="fas fa-plus"></i> إضافة حي
                 </a>
-                <a href="{{ url_for('admin.edit_city', id=city.id) }}" class="text-blue-400 hover:text-blue-300 px-2"
-                    title="تعديل">
+                <a href="{{ url_for('admin.edit_city', id=stat.city.id) }}"
+                    class="text-blue-400 hover:text-blue-300 px-2" title="تعديل">
                     <i class="fas fa-edit"></i>
                 </a>
-                <a href="{{ url_for('admin.delete_city', id=city.id) }}" class="text-red-400 hover:text-red-300 px-2"
-                    title="حذف" onclick="return confirm('هل أنت متأكد من حذف المدينة {{ city.name_ar }}؟')">
+                <a href="{{ url_for('admin.delete_city', id=stat.city.id) }}"
+                    class="text-red-400 hover:text-red-300 px-2" title="حذف"
+                    onclick="return confirm('هل أنت متأكد من حذف المدينة {{ stat.city.name_ar }}؟')">
                     <i class="fas fa-trash"></i>
                 </a>
             </div>
         </div>
         <div class="p-4">
-            {% if city.neighborhoods.count() > 0 %}
+            {% if stat.city.neighborhoods.count() > 0 %}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for neighborhood in city.neighborhoods %}
+                {% for neighborhood in stat.city.neighborhoods %}
                 <div class="bg-darkbg p-3 rounded border border-gray-700 flex justify-between items-center">
                     <div>
                         <p class="text-white">{{ neighborhood.name_ar }}</p>

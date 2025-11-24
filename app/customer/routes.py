@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.customer import bp
 from app.customer.forms import VehicleForm, BookingForm
-from app.models import Vehicle, Service, Booking, City, Neighborhood
+from app.models import Vehicle, Service, Booking, City, Neighborhood, VehicleSize
 
 @bp.before_request
 def before_request():
@@ -81,8 +81,16 @@ def vehicles():
 @bp.route('/vehicles/add', methods=['GET', 'POST'])
 def add_vehicle():
     form = VehicleForm()
+    # Populate vehicle sizes
+    form.vehicle_size.choices = [(s.id, s.name_ar) for s in VehicleSize.query.filter_by(is_active=True).all()]
+    
     if form.validate_on_submit():
-        vehicle = Vehicle(user_id=current_user.id, brand=form.brand.data, plate_number=form.plate_number.data)
+        vehicle = Vehicle(
+            user_id=current_user.id, 
+            brand=form.brand.data, 
+            plate_number=form.plate_number.data,
+            vehicle_size_id=form.vehicle_size.data
+        )
         db.session.add(vehicle)
         db.session.commit()
         flash('تم إضافة المركبة بنجاح')
@@ -246,8 +254,14 @@ def book():
                 time=booking_time,
                 status='assigned',
                 discount_code_id=discount_code.id if discount_code else None,
-                used_free_wash=use_free_wash
+                used_free_wash=use_free_wash,
+                vehicle_size_price=0.0
             )
+            
+            # Get vehicle size price
+            vehicle = Vehicle.query.get(form.vehicle_id.data)
+            if vehicle and vehicle.size:
+                booking.vehicle_size_price = vehicle.size.price_adjustment
             db.session.add(booking)
             db.session.flush()  # Get booking ID before adding products
             
@@ -281,6 +295,14 @@ def book():
 
     return render_template('customer/booking_form.html', form=form)
 
+
+
+@bp.route('/api/vehicle/<int:vehicle_id>/size-price')
+def get_vehicle_size_price(vehicle_id):
+    """Get the size price for a vehicle"""
+    vehicle = Vehicle.query.get_or_404(vehicle_id)
+    size_price = vehicle.size.price_adjustment if vehicle.size else 0
+    return jsonify({'size_price': size_price})
 
 @bp.route('/api/neighborhoods/<int:city_id>')
 def get_neighborhoods(city_id):

@@ -2,8 +2,8 @@ from flask import render_template, redirect, url_for, flash, request, jsonify, c
 from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
-from app.admin.forms import EmployeeForm, ServiceForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
-from app.models import User, Service, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode
+from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode
 from sqlalchemy import func, or_
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -14,21 +14,59 @@ import json
 
 @bp.before_request
 def before_request():
-    if not current_user.is_authenticated or current_user.role != 'admin':
+    if not current_user.is_authenticated or current_user.role not in ['admin', 'supervisor']:
         return redirect(url_for('auth.login'))
 
 @bp.route('/')
 def index():
-    employees_count = User.query.filter_by(role='employee').count()
-    customers_count = User.query.filter_by(role='customer').count()
-    bookings_count = Booking.query.count()
+    # Get supervisor's neighborhood scope if applicable
+    supervisor_neighborhood_ids = []
+    if current_user.role == 'supervisor':
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+    
+    # Count employees (filter by scope for supervisors)
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            employees_count = User.query.filter_by(role='employee').join(User.neighborhoods).filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).distinct().count()
+            # Fix AmbiguousForeignKeysError by specifying join condition
+            customers_count = User.query.filter_by(role='customer').join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).distinct().count()
+            bookings_count = Booking.query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).count()
+        else:
+            employees_count = 0
+            customers_count = 0
+            bookings_count = 0
+    else:
+        employees_count = User.query.filter_by(role='employee').count()
+        customers_count = User.query.filter_by(role='customer').count()
+        bookings_count = Booking.query.count()
     
     # Calculate total revenue from completed bookings
-    completed_bookings = Booking.query.filter_by(status='completed').all()
+    completed_bookings_query = Booking.query.filter_by(status='completed')
+    
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            completed_bookings_query = completed_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            completed_bookings_query = completed_bookings_query.filter_by(id=-1) # Empty result
+            
+    completed_bookings = completed_bookings_query.all()
     total_revenue = sum(b.service.price for b in completed_bookings if b.service)
     
     # Get recent bookings
-    recent_bookings = Booking.query.order_by(Booking.date.desc(), Booking.time.desc()).limit(5).all()
+    recent_bookings_query = Booking.query.order_by(Booking.date.desc(), Booking.time.desc())
+    
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            recent_bookings_query = recent_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            recent_bookings_query = recent_bookings_query.filter_by(id=-1)
+            
+    recent_bookings = recent_bookings_query.limit(5).all()
     
     return render_template('admin/index.html', 
                            employees_count=employees_count, 
@@ -41,19 +79,42 @@ def index():
 @bp.route('/employees')
 def employees():
     search_query = request.args.get('q', '').strip()
-    query = User.query.filter_by(role='employee')
-    
+    role_filter = request.args.get('role', 'all')
+
+    # Base query
+    query = User.query
+
+    if role_filter == 'employee':
+        query = query.filter_by(role='employee')
+    elif role_filter == 'supervisor':
+        query = query.filter_by(role='supervisor')
+    else:
+        query = query.filter(User.role.in_(['employee', 'supervisor']))
+
     if search_query:
         query = query.filter(
             or_(
-                User.username.ilike(f'%{search_query}%'),
-                User.phone.ilike(f'%{search_query}%'),
-                User.email.ilike(f'%{search_query}%')
+                User.username.ilike(f"%{search_query}%"),
+                User.phone.ilike(f"%{search_query}%"),
+                User.email.ilike(f"%{search_query}%")
             )
         )
-        
-    employees = query.all()
-    return render_template('admin/employees.html', employees=employees)
+
+    employees = query.order_by(User.id.desc()).all()
+
+    # Counters for tabs
+    all_count = User.query.filter(User.role.in_(['employee', 'supervisor'])).count()
+    employee_count = User.query.filter_by(role='employee').count()
+    supervisor_count = User.query.filter_by(role='supervisor').count()
+
+    return render_template(
+        'admin/employees.html',
+        employees=employees,
+        role_filter=role_filter,
+        all_count=all_count,
+        employee_count=employee_count,
+        supervisor_count=supervisor_count,
+    )
 
 @bp.route('/employees/add', methods=['GET', 'POST'])
 def add_employee():
@@ -61,92 +122,234 @@ def add_employee():
     from datetime import time
     
     form = EmployeeForm()
-    form.neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in Neighborhood.query.join(City).all()]
+    
+    # Populate choices
+    all_neighborhoods = Neighborhood.query.join(City).all()
+    all_cities = City.query.all()
+    
+    form.neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in all_neighborhoods]
+    form.supervisor_cities.choices = [(c.id, c.name_ar) for c in all_cities]
+    form.supervisor_neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in all_neighborhoods]
+    
+    # Restrict for supervisor (the current user, not the one being created)
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        # Filter choices to only show neighborhoods within supervisor's scope
+        form.neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in all_neighborhoods if n.id in supervisor_neighborhood_ids]
     
     if form.validate_on_submit():
         # Check if phone number already exists
         existing_phone = User.query.filter_by(phone=form.phone.data).first()
         if existing_phone:
             flash('رقم الهاتف مستخدم بالفعل. الرجاء استخدام رقم هاتف آخر.', 'error')
-            return render_template('admin/employee_form.html', form=form, title='إضافة موظف')
+            return render_template('admin/employee_form.html', form=form, title='إضافة موظف / مشرف')
         
         # Check if username already exists
         existing_username = User.query.filter_by(username=form.username.data).first()
         if existing_username:
             flash('اسم المستخدم موجود بالفعل. الرجاء اختيار اسم مستخدم آخر.', 'error')
-            return render_template('admin/employee_form.html', form=form, title='إضافة موظف')
+            return render_template('admin/employee_form.html', form=form, title='إضافة موظف / مشرف')
         
         # Check if email already exists
         existing_email = User.query.filter_by(email=form.email.data).first()
         if existing_email:
             flash('البريد الإلكتروني مستخدم بالفعل. الرجاء استخدام بريد آخر.', 'error')
-            return render_template('admin/employee_form.html', form=form, title='إضافة موظف')
+            return render_template('admin/employee_form.html', form=form, title='إضافة موظف / مشرف')
         
-        user = User(username=form.username.data, email=form.email.data, phone=form.phone.data, role='employee')
+        # Determine role - only admin can create supervisors
+        if current_user.role == 'admin' and form.role.data:
+            role = form.role.data
+        else:
+            role = 'employee'
+        
+        user = User(username=form.username.data, email=form.email.data, phone=form.phone.data, role=role)
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.flush()  # Get user ID
         
-        # Assign neighborhoods from checkboxes
-        neighborhood_ids = request.form.getlist('neighborhoods')
-        for neighborhood_id in neighborhood_ids:
-            neighborhood = Neighborhood.query.get(int(neighborhood_id))
-            if neighborhood:
-                user.neighborhoods.append(neighborhood)
-        
-        # Create default schedule (Sun-Thu, 8 AM - 8 PM)
-        for day in [6, 0, 1, 2, 3]:  # Sunday(6) to Thursday(3)
-            schedule = EmployeeSchedule(
-                employee_id=user.id,
-                day_of_week=day,
-                start_time=time(8, 0),
-                end_time=time(20, 0),
-                is_active=True
-            )
-            db.session.add(schedule)
+        # Handle based on role
+        if role == 'supervisor':
+            # Assign supervisor cities
+            city_ids = request.form.getlist('supervisor_cities')
+            for city_id in city_ids:
+                city = City.query.get(int(city_id))
+                if city:
+                    user.supervisor_cities.append(city)
+            
+            # Assign supervisor neighborhoods
+            neighborhood_ids = request.form.getlist('supervisor_neighborhoods')
+            for neighborhood_id in neighborhood_ids:
+                neighborhood = Neighborhood.query.get(int(neighborhood_id))
+                if neighborhood:
+                    user.supervisor_neighborhoods.append(neighborhood)
+        else:
+            # Assign employee neighborhoods
+            neighborhood_ids = request.form.getlist('neighborhoods')
+            
+            # Validate supervisor scope if current user is supervisor
+            if current_user.role == 'supervisor':
+                allowed_ids = set(supervisor_neighborhood_ids)
+                neighborhood_ids = [nid for nid in neighborhood_ids if int(nid) in allowed_ids]
+                
+            for neighborhood_id in neighborhood_ids:
+                neighborhood = Neighborhood.query.get(int(neighborhood_id))
+                if neighborhood:
+                    user.neighborhoods.append(neighborhood)
+            
+            # Create default schedule for employees only (Sun-Thu, 8 AM - 8 PM)
+            for day in [6, 0, 1, 2, 3]:  # Sunday(6) to Thursday(3)
+                schedule = EmployeeSchedule(
+                    employee_id=user.id,
+                    day_of_week=day,
+                    start_time=time(8, 0),
+                    end_time=time(20, 0),
+                    is_active=True
+                )
+                db.session.add(schedule)
         
         db.session.commit()
-        flash('تم إضافة الموظف بنجاح')
+        flash(f'تم إضافة {"المشرف" if role == "supervisor" else "الموظف"} بنجاح')
         return redirect(url_for('admin.employees'))
-    return render_template('admin/employee_form.html', form=form, title='إضافة موظف')
+    return render_template('admin/employee_form.html', form=form, title='إضافة موظف / مشرف')
 
 @bp.route('/employees/edit/<int:id>', methods=['GET', 'POST'])
 def edit_employee(id):
     employee = User.query.get_or_404(id)
-    form = EmployeeForm(obj=employee)
-    form.neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in Neighborhood.query.join(City).all()]
     
+    # Check supervisor access (only for employees, not supervisors being edited)
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        # Check if employee belongs to any of supervisor's neighborhoods
+        if employee.role == 'employee':
+            employee_neighborhood_ids = [n.id for n in employee.neighborhoods]
+            has_access = False
+            
+            for nid in employee_neighborhood_ids:
+                if nid in supervisor_neighborhood_ids:
+                    has_access = True
+                    break
+            
+            if not has_access and employee_neighborhood_ids:
+                flash('ليس لديك صلاحية لتعديل هذا الموظف', 'error')
+                return redirect(url_for('admin.employees'))
+        else:
+            # Supervisors cannot edit other supervisors
+            flash('ليس لديك صلاحية لتعديل المشرفين', 'error')
+            return redirect(url_for('admin.employees'))
+
+    form = EmployeeForm(obj=employee)
+    
+    all_neighborhoods = Neighborhood.query.join(City).all()
+    all_cities = City.query.all()
+    
+    form.neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in all_neighborhoods]
+    form.supervisor_cities.choices = [(c.id, c.name_ar) for c in all_cities]
+    form.supervisor_neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in all_neighborhoods]
+    
+    # Restrict choices for supervisor (current user)
+    if current_user.role == 'supervisor':
+        form.neighborhoods.choices = [(n.id, f"{n.city.name_ar} - {n.name_ar}") for n in all_neighborhoods if n.id in supervisor_neighborhood_ids]
+
     if request.method == 'POST':
         # Update basic info
         employee.username = request.form.get('username')
         employee.email = request.form.get('email')
         employee.phone = request.form.get('phone')
         
+        # Update role if admin is editing
+        if current_user.role == 'admin' and form.role.data:
+            old_role = employee.role
+            new_role = form.role.data
+            
+            # If role changed, clear old associations
+            if old_role != new_role:
+                if old_role == 'employee':
+                    employee.neighborhoods.clear()
+                elif old_role == 'supervisor':
+                    employee.supervisor_cities.clear()
+                    employee.supervisor_neighborhoods.clear()
+                
+                employee.role = new_role
+        
         # Update password if provided
         password = request.form.get('password')
         if password and password.strip():
             employee.set_password(password)
         
-        # Update neighborhoods from checkboxes
-        employee.neighborhoods.clear()  # Clear all existing relationships
-        neighborhood_ids = request.form.getlist('neighborhoods')
-        
-        for neighborhood_id in neighborhood_ids:
-            neighborhood = Neighborhood.query.get(int(neighborhood_id))
-            if neighborhood and neighborhood not in employee.neighborhoods:
-                employee.neighborhoods.append(neighborhood)
+        # Handle based on role
+        if employee.role == 'supervisor':
+            # Update supervisor cities
+            employee.supervisor_cities.clear()
+            city_ids = request.form.getlist('supervisor_cities')
+            for city_id in city_ids:
+                city = City.query.get(int(city_id))
+                if city:
+                    employee.supervisor_cities.append(city)
+            
+            # Update supervisor neighborhoods
+            employee.supervisor_neighborhoods.clear()
+            neighborhood_ids = request.form.getlist('supervisor_neighborhoods')
+            for neighborhood_id in neighborhood_ids:
+                neighborhood = Neighborhood.query.get(int(neighborhood_id))
+                if neighborhood:
+                    employee.supervisor_neighborhoods.append(neighborhood)
+        else:
+            # Update employee neighborhoods
+            neighborhood_ids = request.form.getlist('neighborhoods')
+            
+            if current_user.role == 'supervisor':
+                # Get current neighborhoods outside scope (to preserve them)
+                preserved_neighborhoods = [n for n in employee.neighborhoods if n.id not in supervisor_neighborhood_ids]
+                
+                # Filter new ids to be within scope
+                new_scope_ids = [int(nid) for nid in neighborhood_ids if int(nid) in supervisor_neighborhood_ids]
+                
+                # Rebuild list
+                employee.neighborhoods = preserved_neighborhoods
+                for nid in new_scope_ids:
+                    n = Neighborhood.query.get(nid)
+                    if n:
+                        employee.neighborhoods.append(n)
+            else:
+                # Admin: full replace
+                employee.neighborhoods.clear()
+                for neighborhood_id in neighborhood_ids:
+                    neighborhood = Neighborhood.query.get(int(neighborhood_id))
+                    if neighborhood and neighborhood not in employee.neighborhoods:
+                        employee.neighborhoods.append(neighborhood)
         
         db.session.commit()
-        flash('تم تعديل بيانات الموظف بنجاح')
+        flash('تم تعديل البيانات بنجاح')
         return redirect(url_for('admin.employees'))
     
     # GET request - pre-populate form
     form.username.data = employee.username
     form.email.data = employee.email
     form.phone.data = employee.phone
-    form.neighborhoods.data = [n.id for n in employee.neighborhoods]
+    
+    if employee.role == 'supervisor':
+        form.role.data = 'supervisor'
+        form.supervisor_cities.data = [c.id for c in employee.supervisor_cities]
+        form.supervisor_neighborhoods.data = [n.id for n in employee.supervisor_neighborhoods]
+    else:
+        form.role.data = 'employee'
+        form.neighborhoods.data = [n.id for n in employee.neighborhoods]
 
-    return render_template('admin/employee_form.html', form=form, title='تعديل بيانات موظف', employee=employee)
+    return render_template('admin/employee_form.html', form=form, title='تعديل موظف / مشرف', employee=employee)
 
 @bp.route('/employees/schedule/<int:id>', methods=['GET', 'POST'])
 def employee_schedule(id):
@@ -523,6 +726,50 @@ def delete_service(id):
     flash('تم حذف الخدمة')
     return redirect(url_for('admin.services'))
 
+# --- Vehicle Size Management ---
+@bp.route('/vehicle-sizes')
+def vehicle_sizes():
+    sizes = VehicleSize.query.all()
+    return render_template('admin/vehicle_sizes.html', vehicle_sizes=sizes)
+
+@bp.route('/vehicle-sizes/add', methods=['GET', 'POST'])
+def add_vehicle_size():
+    form = VehicleSizeForm()
+    if form.validate_on_submit():
+        size = VehicleSize(
+            name_ar=form.name_ar.data,
+            name_en=form.name_en.data,
+            price_adjustment=form.price_adjustment.data,
+            is_active=form.is_active.data
+        )
+        db.session.add(size)
+        db.session.commit()
+        flash('تم إضافة حجم السيارة بنجاح')
+        return redirect(url_for('admin.vehicle_sizes'))
+    return render_template('admin/vehicle_size_form.html', form=form, title='إضافة حجم سيارة')
+
+@bp.route('/vehicle-sizes/edit/<int:id>', methods=['GET', 'POST'])
+def edit_vehicle_size(id):
+    size = VehicleSize.query.get_or_404(id)
+    form = VehicleSizeForm(obj=size)
+    if form.validate_on_submit():
+        size.name_ar = form.name_ar.data
+        size.name_en = form.name_en.data
+        size.price_adjustment = form.price_adjustment.data
+        size.is_active = form.is_active.data
+        db.session.commit()
+        flash('تم تعديل حجم السيارة بنجاح')
+        return redirect(url_for('admin.vehicle_sizes'))
+    return render_template('admin/vehicle_size_form.html', form=form, title='تعديل حجم سيارة')
+
+@bp.route('/vehicle-sizes/delete/<int:id>')
+def delete_vehicle_size(id):
+    size = VehicleSize.query.get_or_404(id)
+    db.session.delete(size)
+    db.session.commit()
+    flash('تم حذف حجم السيارة')
+    return redirect(url_for('admin.vehicle_sizes'))
+
 # --- Products Management ---
 @bp.route('/products')
 def products():
@@ -586,7 +833,31 @@ def add_product():
 @bp.route('/locations')
 def locations():
     cities = City.query.all()
-    return render_template('admin/locations.html', cities=cities)
+
+    city_stats = []
+    for city in cities:
+        neighborhood_count = city.neighborhoods.count()
+
+        city_neighborhood_ids = [n.id for n in city.neighborhoods]
+
+        if city_neighborhood_ids:
+            bookings_q = Booking.query.filter(Booking.neighborhood_id.in_(city_neighborhood_ids))
+            booking_count = bookings_q.count()
+            completed_bookings = bookings_q.filter_by(status='completed').all()
+        else:
+            booking_count = 0
+            completed_bookings = []
+
+        revenue = sum(b.service.price for b in completed_bookings if b.service)
+
+        city_stats.append({
+            'city': city,
+            'neighborhood_count': neighborhood_count,
+            'booking_count': booking_count,
+            'revenue': revenue,
+        })
+
+    return render_template('admin/locations.html', city_stats=city_stats)
 
 @bp.route('/locations/city/add', methods=['GET', 'POST'])
 def add_city():
@@ -817,29 +1088,41 @@ def delete_package(id):
 
 # --- Subscription Requests Management ---
 @bp.route('/subscriptions')
+@login_required
 def subscriptions():
     import json
-    status = request.args.get('status', 'pending')
+    status = request.args.get('status', 'active')
     search_query = request.args.get('search', '').strip()
     
     subscriptions_query = Subscription.query
     
-    # Apply status filter
-    if status == 'pending':
-        subscriptions_query = subscriptions_query.filter_by(status='pending')
-    elif status == 'active':
-        subscriptions_query = subscriptions_query.filter_by(status='active')
-    elif status == 'rejected':
-        subscriptions_query = subscriptions_query.filter_by(status='rejected')
-    
-    # Apply search filter
+    # Filter by status
+    if status != 'all':
+        subscriptions_query = subscriptions_query.filter_by(status=status)
+        
+    # Filter for supervisors
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        if supervisor_neighborhood_ids:
+            subscriptions_query = subscriptions_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            subscriptions_query = subscriptions_query.filter_by(id=-1) # Empty result
+        
+    # Search filter
     if search_query:
-        subscriptions_query = subscriptions_query.join(User).filter(
+        subscriptions_query = subscriptions_query.join(User, User.id == Subscription.customer_id).filter(
             (User.username.contains(search_query)) | 
             (User.phone.contains(search_query))
         )
     
-    subscriptions_result = subscriptions_query.all()
+    subscriptions_result = subscriptions_query.order_by(Subscription.created_at.desc()).all()
     
     # Get counts for tabs
     pending_count = Subscription.query.filter_by(status='pending').count()
@@ -890,6 +1173,21 @@ def create_subscription():
     employee_id = request.form.get('employee_id')
     neighborhood_id = request.form.get('neighborhood_id')
     discount = float(request.form.get('discount', 0))
+    
+    # Validate supervisor scope
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        # Check if the neighborhood is within supervisor's scope
+        if int(neighborhood_id) not in supervisor_neighborhood_ids:
+            flash('خطأ: لا يمكنك إضافة اشتراك خارج نطاق منطقتك المحددة', 'error')
+            return redirect(url_for('admin.subscriptions'))
     
     package = SubscriptionPackage.query.get(package_id)
     if not package:
@@ -1028,6 +1326,21 @@ def bookings():
     
     query = Booking.query
     
+    # Filter for supervisors
+    supervisor_neighborhood_ids = []
+    if current_user.role == 'supervisor':
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        if supervisor_neighborhood_ids:
+            query = query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            query = query.filter_by(id=-1)  # Empty result
+    
     if status_filter != 'all':
         query = query.filter_by(status=status_filter)
     if employee_filter != 'all':
@@ -1054,18 +1367,38 @@ def bookings():
             
     bookings_list = query.order_by(Booking.date.desc(), Booking.time.desc()).all()
     
-    # Define cities here
-    cities = City.query.all()
+    # Filter cities and neighborhoods for supervisor
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            # Get cities that contain the supervisor's neighborhoods
+            city_ids = set()
+            for neighborhood in Neighborhood.query.filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).all():
+                city_ids.add(neighborhood.city_id)
+            
+            cities = City.query.filter(City.id.in_(city_ids)).all()
+        else:
+            cities = []
+    else:
+        cities = City.query.all()
+    
     cities_json = json.dumps([{
         'id': c.id,
         'name_ar': c.name_ar,
-        'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods]
+        'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods if current_user.role != 'supervisor' or n.id in supervisor_neighborhood_ids]
     } for c in cities])
+    
     from datetime import datetime
     today = datetime.now().strftime('%Y-%m-%d')
     
-    # Define missing variables
-    employees = User.query.filter_by(role='employee').all()
+    # Filter employees for supervisor
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            employees = User.query.filter_by(role='employee').join(User.neighborhoods).filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).distinct().all()
+        else:
+            employees = []
+    else:
+        employees = User.query.filter_by(role='employee').all()
+    
     customers = User.query.filter_by(role='customer').all()
     services = Service.query.all()
     
@@ -1084,6 +1417,21 @@ def create_booking():
     date = request.form.get('date')
     time_str = request.form.get('time')
     discount = float(request.form.get('discount', 0))
+    
+    # Validate supervisor scope
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        # Check if the neighborhood is within supervisor's scope
+        if int(neighborhood_id) not in supervisor_neighborhood_ids:
+            flash('خطأ: لا يمكنك إضافة حجز خارج نطاق منطقتك المحددة', 'error')
+            return redirect(url_for('admin.bookings'))
     
     # Convert time string to time object
     hour, minute = map(int, time_str.split(':'))
@@ -1395,9 +1743,10 @@ def reports():
     from sqlalchemy import func, and_
     from datetime import datetime, timedelta
     
-    # Get date range from query parameters
+    # Get query parameters
     from_date_str = request.args.get('from_date', '')
     to_date_str = request.args.get('to_date', '')
+    city_id = request.args.get('city_id', type=int)
     
     # Set default date range (last 30 days if not specified)
     if not from_date_str:
@@ -1410,33 +1759,64 @@ def reports():
     else:
         to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
     
-    # Basic stats with date filter
-    total_bookings = Booking.query.filter(
+    # Base queries with date filter
+    bookings_query = Booking.query.join(Neighborhood).filter(
         Booking.date >= from_date,
         Booking.date <= to_date
-    ).count()
+    )
     
-    completed_bookings = Booking.query.filter(
+    completed_bookings_query = Booking.query.join(Neighborhood).filter(
         Booking.date >= from_date,
         Booking.date <= to_date,
         Booking.status == 'completed'
-    ).count()
+    )
     
-    total_customers = User.query.filter_by(role='customer').count()
+    # Filter by city if specified
+    if city_id:
+        bookings_query = bookings_query.filter(Neighborhood.city_id == city_id)
+        completed_bookings_query = completed_bookings_query.filter(Neighborhood.city_id == city_id)
     
-    # Filter subscriptions that started within the date range and are active
-    active_subscriptions = Subscription.query.filter(
+    customers_query = User.query.filter_by(role='customer')
+    
+    subscriptions_query = Subscription.query.filter(
         Subscription.start_date >= from_date,
         Subscription.start_date <= to_date,
         Subscription.status == 'active'
-    ).count()
+    )
+    
+    # Filter for supervisor
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        if supervisor_neighborhood_ids:
+            bookings_query = bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+            completed_bookings_query = completed_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+            
+            # Filter customers who have bookings in supervisor's area
+            # Fix AmbiguousForeignKeysError by specifying join condition
+            customers_query = customers_query.join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).distinct()
+            
+            subscriptions_query = subscriptions_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            # No scope assigned
+            bookings_query = bookings_query.filter_by(id=-1)
+            completed_bookings_query = completed_bookings_query.filter_by(id=-1)
+            customers_query = customers_query.filter_by(id=-1)
+            subscriptions_query = subscriptions_query.filter_by(id=-1)
+
+    total_bookings = bookings_query.count()
+    completed_bookings = completed_bookings_query.count()
+    total_customers = customers_query.count()
+    active_subscriptions = subscriptions_query.count()
     
     # Revenue calculations with accurate pricing
-    completed_bookings_list = Booking.query.filter(
-        Booking.date >= from_date,
-        Booking.date <= to_date,
-        Booking.status == 'completed'
-    ).all()
+    completed_bookings_list = completed_bookings_query.all()
     
     service_revenue = 0
     product_revenue = 0
@@ -1456,48 +1836,85 @@ def reports():
             else:
                 discount_amount = booking.discount_code.value
         
-        # Add service revenue
-        service_revenue += (service_price - discount_amount)
+        # Add service revenue (including vehicle size price)
+        service_revenue += (service_price - discount_amount + (booking.vehicle_size_price or 0))
         
         # Add product revenue
         for bp in booking.products:
             product_revenue += (bp.product.price * bp.quantity)
     
-    # Subscription revenue (subscriptions created in date range)
-    subscription_revenue = db.session.query(func.sum(SubscriptionPackage.price))\
+    # Subscription revenue (only active subscriptions created in date range)
+    sub_rev_query = db.session.query(func.sum(SubscriptionPackage.price))\
         .join(Subscription)\
+        .join(Neighborhood, Subscription.neighborhood_id == Neighborhood.id)\
         .filter(
             Subscription.start_date >= from_date,
-            Subscription.start_date <= to_date
-        ).scalar() or 0
+            Subscription.start_date <= to_date,
+            Subscription.status == 'active'
+        )
+        
+    if city_id:
+        sub_rev_query = sub_rev_query.filter(Neighborhood.city_id == city_id)
+        
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            sub_rev_query = sub_rev_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            sub_rev_query = sub_rev_query.filter(Subscription.id == -1)
+        
+    subscription_revenue = sub_rev_query.scalar() or 0
     
     # Total revenue
     total_revenue = service_revenue + product_revenue + subscription_revenue
     
     # Top services (in date range)
-    top_services = db.session.query(
+    top_services_query = db.session.query(
         Service.name_ar,
         func.count(Booking.id).label('count')
     ).join(Booking)\
+    .join(Neighborhood, Booking.neighborhood_id == Neighborhood.id)\
     .filter(
         Booking.date >= from_date,
         Booking.date <= to_date
-    ).group_by(Service.id)\
+    )
+    
+    if city_id:
+        top_services_query = top_services_query.filter(Neighborhood.city_id == city_id)
+    
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            top_services_query = top_services_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            top_services_query = top_services_query.filter(Booking.id == -1)
+        
+    top_services = top_services_query.group_by(Service.id)\
     .order_by(func.count(Booking.id).desc())\
     .limit(5).all()
     
     # Employee performance (in date range)
     from sqlalchemy import case
-    employee_stats = db.session.query(
+    employee_stats_query = db.session.query(
         User.username,
         func.count(Booking.id).label('total'),
         func.sum(case((Booking.status == 'completed', 1), else_=0)).label('completed')
     ).join(Booking, User.id == Booking.employee_id)\
+    .join(Neighborhood, Booking.neighborhood_id == Neighborhood.id)\
     .filter(
         User.role == 'employee',
         Booking.date >= from_date,
         Booking.date <= to_date
-    ).group_by(User.id).all()
+    )
+    
+    if city_id:
+        employee_stats_query = employee_stats_query.filter(Neighborhood.city_id == city_id)
+    
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            employee_stats_query = employee_stats_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            employee_stats_query = employee_stats_query.filter(Booking.id == -1)
+        
+    employee_stats = employee_stats_query.group_by(User.id).all()
     
     return render_template('admin/reports.html', 
                            total_bookings=total_bookings,
@@ -1511,6 +1928,7 @@ def reports():
                            top_services=top_services,
                            employee_stats=employee_stats,
                            from_date=from_date.strftime('%Y-%m-%d'),
+                           city_id=city_id,
                            to_date=to_date.strftime('%Y-%m-%d'))
 
 # --- Settings (Loyalty, Admin Accounts, Backup) ---

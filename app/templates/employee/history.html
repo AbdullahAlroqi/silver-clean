@@ -66,7 +66,7 @@
                     {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
                     {% endfor %}
 
-                    {% set service_price = booking.service.price %}
+                    {% set service_price = booking.service.price + (booking.vehicle_size_price or 0) %}
                     {% set discount_amount = 0 %}
 
                     {% if booking.used_free_wash %}

@@ -35,66 +35,112 @@
                 {% endfor %}
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-300 mb-2">الأحياء المسندة</label>
-                <div class="bg-darkbg border border-gray-600 rounded p-4 max-h-80 overflow-y-auto">
+            <!-- Role Selection -->
+            {% if current_user.role == 'admin' and form.role %}
+            <div class="mb-4">
+                <label class="block text-gray-300 text-sm font-semibold mb-2">الدور</label>
+                {{ form.role(class="w-full bg-darkbg text-white border-2 border-gray-600 rounded-lg p-3
+                focus:outline-none focus:border-accent transition", onchange="toggleSupervisorFields()") }}
+            </div>
+            {% endif %}
+
+            <!-- Employee Neighborhoods -->
+            <div class="mb-4" id="employee-neighborhoods-field">
+                <label class="block text-gray-300 text-sm font-semibold mb-2">الأحياء المسندة (للموظفين)</label>
+                <div class="bg-darkbg border-2 border-gray-600 rounded-lg p-3 max-h-48 overflow-y-auto">
                     {% if form.neighborhoods.choices %}
-                    <div class="space-y-4">
-                        {% set current_city = namespace(value='') %}
-                        {% for choice_id, choice_label in form.neighborhoods.choices %}
-                        {% set parts = choice_label.split(' - ') %}
-                        {% set city_name = parts[0] if parts|length > 1 else 'أخرى' %}
-                        {% set neighborhood_name = parts[1] if parts|length > 1 else choice_label %}
-
-                        {% if city_name != current_city.value %}
-                        {% if not loop.first %}</div>
-                </div>{% endif %}
-                {% set current_city.value = city_name %}
-                <div class="mb-4">
-                    <h4 class="text-accent font-bold mb-2 text-sm">📍 {{ city_name }}</h4>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-4">
-                        {% endif %}
-
-                        <label
-                            class="flex items-center gap-2 text-sm hover:bg-gray-700 p-2 rounded cursor-pointer transition">
-                            <input type="checkbox" name="neighborhoods" value="{{ choice_id }}" {% if employee and
-                                employee.neighborhoods %} {% for n in employee.neighborhoods %} {% if n.id==choice_id
-                                %}checked{% endif %} {% endfor %} {% endif %}
-                                class="w-5 h-5 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent focus:ring-2">
-                            <span class="select-none">{{ neighborhood_name }}</span>
-                        </label>
-
-                        {% if loop.last %}
+                    {% for value, label in form.neighborhoods.choices %}
+                    <div class="flex items-center mb-2">
+                        <input type="checkbox" name="neighborhoods" value="{{ value }}" id="neigh_{{ value }}" {% if
+                            form.neighborhoods.data and value in form.neighborhoods.data %}checked{% endif %}
+                            class="form-checkbox h-5 w-5 text-accent rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800">
+                        <label for="neigh_{{ value }}" class="mr-2 text-gray-300 text-sm">{{ label }}</label>
                     </div>
-                </div>{% endif %}
+                    {% endfor %}
+                    {% else %}
+                    <p class="text-gray-500 text-sm">لا توجد أحياء متاحة</p>
+                    {% endif %}
+                </div>
+                <p class="text-gray-500 text-xs mt-1">اختر الأحياء التي سيعمل بها الموظف</p>
+            </div>
+
+            {% if current_user.role == 'admin' %}
+            <!-- Supervisor Fields -->
+            <div id="supervisor-fields" class="hidden">
+                <div class="mb-4">
+                    <label class="block text-gray-300 text-sm font-semibold mb-2">المدن المسندة (للمشرفين)</label>
+                    <div class="bg-darkbg border-2 border-gray-600 rounded-lg p-3 max-h-48 overflow-y-auto">
+                        {% if form.supervisor_cities and form.supervisor_cities.choices %}
+                        {% for value, label in form.supervisor_cities.choices %}
+                        <div class="flex items-center mb-2">
+                            <input type="checkbox" name="supervisor_cities" value="{{ value }}" id="city_{{ value }}" {%
+                                if form.supervisor_cities.data and value in form.supervisor_cities.data %}checked{%
+                                endif %}
+                                class="form-checkbox h-5 w-5 text-accent rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800">
+                            <label for="city_{{ value }}" class="mr-2 text-gray-300 text-sm">{{ label }}</label>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-gray-300 text-sm font-semibold mb-2">الأحياء المسندة (للمشرفين)</label>
+                    <div class="bg-darkbg border-2 border-gray-600 rounded-lg p-3 max-h-48 overflow-y-auto">
+                        {% if form.supervisor_neighborhoods and form.supervisor_neighborhoods.choices %}
+                        {% for value, label in form.supervisor_neighborhoods.choices %}
+                        <div class="flex items-center mb-2">
+                            <input type="checkbox" name="supervisor_neighborhoods" value="{{ value }}"
+                                id="sup_neigh_{{ value }}" {% if form.supervisor_neighborhoods.data and value in
+                                form.supervisor_neighborhoods.data %}checked{% endif %}
+                                class="form-checkbox h-5 w-5 text-accent rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800">
+                            <label for="sup_neigh_{{ value }}" class="mr-2 text-gray-300 text-sm">{{ label }}</label>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-500 text-xs mt-1">يمكنك تحديد أحياء محددة بالإضافة إلى المدن</p>
+                </div>
+            </div>
+
+            <script>
+                function toggleSupervisorFields() {
+                    const roleSelect = document.getElementById('role');
+                    const supervisorFields = document.getElementById('supervisor-fields');
+                    const employeeFields = document.getElementById('employee-neighborhoods-field');
+
+                    if (roleSelect && roleSelect.value === 'supervisor') {
+                        supervisorFields.classList.remove('hidden');
+                        employeeFields.classList.add('hidden');
+                    } else {
+                        supervisorFields.classList.add('hidden');
+                        employeeFields.classList.remove('hidden');
+                    }
+                }
+
+                // Run on load
+                document.addEventListener('DOMContentLoaded', toggleSupervisorFields);
+            </script>
+            {% endif %}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">
+                    كلمة المرور
+                    {% if employee %}<span class="text-gray-400 text-xs">(اتركها فارغة إذا لم ترد التغيير)</span>{%
+                    endif %}
+                </label>
+                {{ form.password(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent") }}
+                {% for error in form.password.errors %}
+                <span class="text-red-500 text-xs">{{ error }}</span>
                 {% endfor %}
             </div>
-            {% else %}
-            <p class="text-gray-400 text-sm text-center py-4">لا توجد أحياء متاحة</p>
-            {% endif %}
+
+            <div class="pt-4">
+                {{ form.submit(class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded
+                transition cursor-pointer") }}
+            </div>
+        </form>
     </div>
-    <p class="text-xs text-gray-400 mt-2">
-        <i class="fas fa-info-circle"></i> اختر الأحياء التي يخدمها الموظف (يمكن اختيار أكثر من حي)
-    </p>
-</div>
-
-<div>
-    <label class="block text-sm font-medium text-gray-300 mb-1">
-        كلمة المرور
-        {% if employee %}<span class="text-gray-400 text-xs">(اتركها فارغة إذا لم ترد التغيير)</span>{% endif %}
-    </label>
-    {{ form.password(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
-    focus:outline-none focus:border-accent") }}
-    {% for error in form.password.errors %}
-    <span class="text-red-500 text-xs">{{ error }}</span>
-    {% endfor %}
-</div>
-
-<div class="pt-4">
-    {{ form.submit(class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded
-    transition cursor-pointer") }}
-</div>
-</form>
-</div>
 </div>
 {% endblock %}

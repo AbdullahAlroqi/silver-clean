@@ -77,7 +77,7 @@
                         {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
                         {% endfor %}
 
-                        {% set service_price = booking.service.price %}
+                        {% set service_price = booking.service.price + (booking.vehicle_size_price or 0) %}
                         {% set discount_amount = 0 %}
 
                         {% if booking.used_free_wash %}
@@ -96,7 +96,8 @@
                             <div class="flex justify-between text-gray-300">
                                 <span><i class="fas fa-spray-can text-accent mr-2"></i>سعر الخدمة:</span>
                                 <span class="font-bold">{% if booking.used_free_wash %}<span
-                                        class="text-green-400">مجاناً</span>{% else %}{{ booking.service.price }} ريال{%
+                                        class="text-green-400">مجاناً</span>{% else %}{{ booking.service.price +
+                                    (booking.vehicle_size_price or 0) }} ريال{%
                                     endif %}</span>
                             </div>
                             {% if discount_amount > 0 %}

@@ -48,7 +48,8 @@
                 <p class="text-gray-400 text-sm mb-1">الخدمة</p>
                 <div class="flex items-center justify-between bg-gray-800 p-3 rounded">
                     <p class="text-white">{{ booking.service.name_ar }}</p>
-                    <p class="text-accent font-bold">{{ booking.service.price }} ريال</p>
+                    <p class="text-accent font-bold">{{ booking.service.price + (booking.vehicle_size_price or 0) }}
+                        ريال</p>
                 </div>
             </div>
             <div class="col-span-2">
@@ -64,6 +65,10 @@
                     <div class="flex-1">
                         <p class="text-white font-bold text-lg">{{ booking.vehicle.brand }}</p>
                         <p class="text-gray-400 text-sm">{{ booking.vehicle.plate_number }}</p>
+                        {% if booking.vehicle.size %}
+                        <p class="text-accent text-xs mt-1 bg-gray-700 inline-block px-2 py-1 rounded">{{
+                            booking.vehicle.size.name_ar }}</p>
+                        {% endif %}
                     </div>
                 </div>
                 {% else %}
@@ -174,7 +179,7 @@
                     {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
                     {% endfor %}
 
-                    {% set service_price = booking.service.price %}
+                    {% set service_price = booking.service.price + (booking.vehicle_size_price or 0) %}
                     {% set discount_amount = 0 %}
 
                     {# Free wash means service is free #}
@@ -196,7 +201,7 @@
                         {% if booking.used_free_wash %}
                         (خدمة: مجاناً
                         {% else %}
-                        (خدمة: {{ booking.service.price }}
+                        (خدمة: {{ booking.service.price + (booking.vehicle_size_price or 0) }}
                         {% if discount_amount > 0 %} - خصم: {{ "%.1f"|format(discount_amount) }}{% endif %}
                         {% endif %}
                         {% if products_total.value > 0 %} + منتجات: {{ products_total.value }}{% endif %})

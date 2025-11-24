@@ -9,13 +9,25 @@ employee_neighborhoods = db.Table('employee_neighborhoods',
     db.Column('neighborhood_id', db.Integer, db.ForeignKey('neighborhood.id'), primary_key=True)
 )
 
+# Association table for Supervisor-City many-to-many
+supervisor_cities = db.Table('supervisor_cities',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('city_id', db.Integer, db.ForeignKey('city.id'), primary_key=True)
+)
+
+# Association table for Supervisor-Neighborhood many-to-many
+supervisor_neighborhoods = db.Table('supervisor_neighborhoods',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('neighborhood_id', db.Integer, db.ForeignKey('neighborhood.id'), primary_key=True)
+)
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True)
     email = db.Column(db.String(120), index=True, unique=True)
     phone = db.Column(db.String(20), index=True, unique=True)
     password_hash = db.Column(db.String(128))
-    role = db.Column(db.String(20)) # 'admin', 'employee', 'customer'
+    role = db.Column(db.String(20)) # 'admin', 'employee', 'customer', 'supervisor'
     points = db.Column(db.Integer, default=0)
     free_washes = db.Column(db.Integer, default=0)
     push_subscription = db.Column(db.Text) # JSON string for Web Push subscription
@@ -29,6 +41,10 @@ class User(UserMixin, db.Model):
     assigned_subscriptions = db.relationship('Subscription', backref='assigned_employee', foreign_keys='Subscription.employee_id', lazy='dynamic')
     neighborhoods = db.relationship('Neighborhood', secondary=employee_neighborhoods, backref=db.backref('employees', lazy='dynamic'))
     schedules = db.relationship('EmployeeSchedule', backref='employee', lazy='dynamic')
+    
+    # Supervisor Relationships
+    supervisor_cities = db.relationship('City', secondary=supervisor_cities, backref=db.backref('supervisors', lazy='dynamic'))
+    supervisor_neighborhoods = db.relationship('Neighborhood', secondary=supervisor_neighborhoods, backref=db.backref('supervisors', lazy='dynamic'))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -43,9 +59,18 @@ class User(UserMixin, db.Model):
 def load_user(id):
     return User.query.get(int(id))
 
+class VehicleSize(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name_ar = db.Column(db.String(64))
+    name_en = db.Column(db.String(64))
+    price_adjustment = db.Column(db.Float, default=0.0)
+    is_active = db.Column(db.Boolean, default=True)
+    vehicles = db.relationship('Vehicle', backref='size', lazy='dynamic')
+
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    vehicle_size_id = db.Column(db.Integer, db.ForeignKey('vehicle_size.id'), nullable=True)
     brand = db.Column(db.String(64))
     plate_number = db.Column(db.String(20))
 
@@ -94,6 +119,7 @@ class Booking(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     discount_code_id = db.Column(db.Integer, db.ForeignKey('discount_code.id'), nullable=True)
     used_free_wash = db.Column(db.Boolean, default=False)
+    vehicle_size_price = db.Column(db.Float, default=0.0) # Store price adjustment at time of booking
     
     # Relationships
     vehicle = db.relationship('Vehicle')

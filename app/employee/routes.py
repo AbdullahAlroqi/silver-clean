@@ -65,17 +65,22 @@ def update_status(id, status):
         booking.status = status
         if status == 'completed':
             # Add loyalty point
-            booking.customer.points = (booking.customer.points or 0) + 1
+            current_points = (booking.customer.points or 0) + 1
+            if current_points >= 10:
+                booking.customer.points = 0
+                booking.customer.free_washes = (booking.customer.free_washes or 0) + 1
+                flash('تم إكمال الخدمة. وصل العميل لـ 10 نقاط وحصل على غسلة مجانية! 🎉', 'success')
+            else:
+                booking.customer.points = current_points
+                flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
             
             # Deduct products from stock
             for booking_product in booking.products:
                 product = booking_product.product
-                if product.stock is not None:
-                    product.stock -= booking_product.quantity
-                    if product.stock < 0:
-                        product.stock = 0  # Prevent negative stock
-            
-            flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
+                if product.stock_quantity is not None:
+                    product.stock_quantity -= booking_product.quantity
+                    if product.stock_quantity < 0:
+                        product.stock_quantity = 0  # Prevent negative stock
         else:
             flash(f'تم تحديث الحالة بنجاح', 'success')
             
@@ -219,8 +224,8 @@ def stats():
             else:
                 discount_amount = booking.discount_code.value
         
-        # Calculate final service price
-        final_service_price = service_price - discount_amount
+        # Calculate final service price (including vehicle size price)
+        final_service_price = service_price - discount_amount + (booking.vehicle_size_price or 0)
         total_services_revenue += final_service_price
         
         # Calculate products total

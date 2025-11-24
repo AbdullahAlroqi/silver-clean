@@ -9,8 +9,25 @@
     </a>
 </div>
 
+<!-- Filter Tabs -->
+<div class="mb-6 flex gap-2 border-b border-gray-700">
+    <a href="{{ url_for('admin.employees', role='all') }}"
+        class="px-4 py-2 {% if role_filter == 'all' %}bg-accent text-white{% else %}text-gray-400 hover:text-white{% endif %} rounded-t-lg transition">
+        الكل ({{ all_count }})
+    </a>
+    <a href="{{ url_for('admin.employees', role='employee') }}"
+        class="px-4 py-2 {% if role_filter == 'employee' %}bg-accent text-white{% else %}text-gray-400 hover:text-white{% endif %} rounded-t-lg transition">
+        موظفين ({{ employee_count }})
+    </a>
+    <a href="{{ url_for('admin.employees', role='supervisor') }}"
+        class="px-4 py-2 {% if role_filter == 'supervisor' %}bg-accent text-white{% else %}text-gray-400 hover:text-white{% endif %} rounded-t-lg transition">
+        مشرفين ({{ supervisor_count }})
+    </a>
+</div>
+
 <div class="mb-6">
     <form action="{{ url_for('admin.employees') }}" method="GET" class="flex gap-2">
+        <input type="hidden" name="role" value="{{ role_filter }}">
         <input type="text" name="q" placeholder="بحث بالاسم، البريد الإلكتروني، أو رقم الهاتف..."
             value="{{ request.args.get('q', '') }}"
             class="flex-1 bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
@@ -18,7 +35,7 @@
             <i class="fas fa-search"></i> بحث
         </button>
         {% if request.args.get('q') %}
-        <a href="{{ url_for('admin.employees') }}"
+        <a href="{{ url_for('admin.employees', role=role_filter) }}"
             class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded flex items-center">
             <i class="fas fa-times"></i>
         </a>
@@ -26,12 +43,13 @@
     </form>
 </div>
 
-<div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+<div class="bg-primary rounded-lg shadow-lg overflow-hidden overflow-x-auto">
     <table class="w-full text-right">
         <thead class="bg-gray-800 text-gray-300">
             <tr>
                 <th class="p-4">ID</th>
                 <th class="p-4">اسم المستخدم</th>
+                <th class="p-4">الصلاحية</th>
                 <th class="p-4">البريد الإلكتروني</th>
                 <th class="p-4">رقم الجوال</th>
                 <th class="p-4">الإجراءات</th>
@@ -42,6 +60,13 @@
             <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
                 <td class="p-4">{{ emp.id }}</td>
                 <td class="p-4">{{ emp.username }}</td>
+                <td class="p-4">
+                    {% if emp.role == 'supervisor' %}
+                    <span class="bg-purple-600 text-white px-2 py-1 rounded text-xs">مشرف</span>
+                    {% else %}
+                    <span class="bg-blue-600 text-white px-2 py-1 rounded text-xs">موظف</span>
+                    {% endif %}
+                </td>
                 <td class="p-4">{{ emp.email }}</td>
                 <td class="p-4">{{ emp.phone }}</td>
                 <td class="px-6 py-4">
@@ -54,13 +79,16 @@
                             class="text-blue-400 hover:text-blue-300" title="تعديل">
                             <i class="fas fa-edit"></i>
                         </a>
+                        {% if emp.role == 'employee' %}
                         <a href="{{ url_for('admin.employee_schedule', id=emp.id) }}"
                             class="text-green-400 hover:text-green-300" title="جدول العمل">
                             <i class="fas fa-calendar-alt"></i>
                         </a>
+                        {% endif %}
                         <a href="{{ url_for('admin.delete_employee', id=emp.id) }}"
                             class="text-red-400 hover:text-red-300"
-                            onclick="return confirm('هل أنت متأكد من حذف هذا الموظف؟')" title="حذف">
+                            onclick="return confirm('هل أنت متأكد من حذف هذا {% if emp.role == 'supervisor' %}المشرف{% else %}الموظف{% endif %}؟')"
+                            title="حذف">
                             <i class="fas fa-trash"></i>
                         </a>
                     </div>
@@ -68,7 +96,8 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="5" class="p-4 text-center text-gray-500">لا يوجد موظفين حالياً.</td>
+                <td colspan="6" class="p-4 text-center text-gray-500">لا يوجد {% if role_filter == 'employee' %}موظفين{%
+                    elif role_filter == 'supervisor' %}مشرفين{% else %}موظفين{% endif %} حالياً.</td>
             </tr>
             {% endfor %}
         </tbody>

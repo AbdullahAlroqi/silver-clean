@@ -15,6 +15,12 @@
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">حجم السيارة</label>
+                {{ form.vehicle_size(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent") }}
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">رقم اللوحة</label>
                 {{ form.plate_number(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
                 focus:outline-none focus:border-accent", placeholder="مثال: أ ب ج 1234") }}

@@ -335,6 +335,8 @@
 <script>
     let currentStep = 1;
     let servicePrice = 0;
+    let vehicleSizePrice = 0;
+
     let productsData = [];
 
     const dateInput = document.getElementById('date-input');
@@ -434,7 +436,31 @@
         // Extract service price from service text (assumes format: "Service Name (XXX ريال)")
         const priceMatch = serviceTxt.match(/\((\d+(?:\.\d+)?)\s*ريال\)/);
         servicePrice = priceMatch ? parseFloat(priceMatch[1]) : 0;
-        document.getElementById('review-service-price').textContent = servicePrice + ' ريال';
+
+        // Fetch vehicle size price
+        const vehicleId = vehicleSelect.value;
+
+        if (vehicleId) {
+            fetch(`/customer/api/vehicle/${vehicleId}/size-price`)
+                .then(response => response.json())
+                .then(data => {
+                    vehicleSizePrice = data.size_price || 0;
+                    updateTotals();
+                })
+                .catch(error => {
+                    console.error('Error fetching vehicle size price:', error);
+                    vehicleSizePrice = 0;
+                    updateTotals();
+                });
+        } else {
+            vehicleSizePrice = 0;
+            updateTotals();
+        }
+    }
+
+    function updateTotals() {
+        const totalServicePrice = servicePrice + vehicleSizePrice;
+        document.getElementById('review-service-price').textContent = totalServicePrice + ' ريال';
 
         // Products
         const selectedProducts = [];
@@ -462,7 +488,7 @@
         }
 
         // Calculate total
-        let total = servicePrice + productsTotal;
+        let total = (servicePrice + vehicleSizePrice) + productsTotal;
 
         // Check for free wash
         const freeWash = document.getElementById('use_free_wash')?.checked || false;
@@ -485,7 +511,7 @@
                 } else {
                     discount = discountValue;
                 }
-                total = Math.max(0, servicePrice - discount) + productsTotal;
+                total = Math.max(0, (servicePrice + vehicleSizePrice) - discount) + productsTotal;
                 document.getElementById('review-discount-row').style.display = 'flex';
                 document.getElementById('review-discount').textContent = `- ${discount.toFixed(2)} ريال`;
             } else {
