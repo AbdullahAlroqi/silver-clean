@@ -208,23 +208,46 @@
                     </p>
                 </div>
             </div>
-            </a>
-            {% elif booking.status == 'en_route' %}
-            <a href="{{ url_for('employee.update_status', id=booking.id, status='arrived') }}"
-                class="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded text-center transition">
-                وصلت للعميل
-            </a>
-            {% elif booking.status == 'arrived' %}
-            <a href="{{ url_for('employee.update_status', id=booking.id, status='in_progress') }}"
-                class="bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded text-center transition">
-                بدء الخدمة
-            </a>
-            {%elif booking.status == 'in_progress' %}
-            <a href="{{ url_for('employee.update_status', id=booking.id, status='completed') }}"
-                class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-4 rounded text-center transition">
-                إنهاء الخدمة
-            </a>
+
+            {% set msg = "مرحباً " ~ booking.customer.username ~ " 👋،%0A" ~
+            "معك " ~ current_user.username ~ " من سيلفر كلين 🚙.%0A%0A" ~
+            "أنا في طريقي إليك لغسيل سيارتك:%0A" ~
+            "🚗 " ~ booking.vehicle.brand ~ " (" ~ booking.vehicle.plate_number ~ ")%0A%0A" ~
+            "📍 *الرجاء إرسال الموقع أو العنوان الوطني*" %}
+            {% set phone = booking.customer.phone %}
+            {% if phone.startswith('0') %}
+            {% set phone = '+966' ~ phone[1:] %}
             {% endif %}
+
+            <div class="flex flex-col gap-3 mt-4">
+                <a href="https://wa.me/{{ phone }}?text={{ msg }}" target="_blank"
+                    class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                    <i class="fab fa-whatsapp text-xl"></i>
+                    <span>تواصل واتساب</span>
+                </a>
+
+                {% if booking.status == 'assigned' %}
+                <a href="{{ url_for('employee.update_status', id=booking.id, status='en_route') }}"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                    في الطريق 🚗
+                </a>
+                {% elif booking.status == 'en_route' %}
+                <a href="{{ url_for('employee.update_status', id=booking.id, status='arrived') }}"
+                    class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                    وصلت للعميل 📍
+                </a>
+                {% elif booking.status == 'arrived' %}
+                <a href="{{ url_for('employee.update_status', id=booking.id, status='in_progress') }}"
+                    class="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                    بدء الخدمة 🧼
+                </a>
+                {% elif booking.status == 'in_progress' %}
+                <a href="{{ url_for('employee.update_status', id=booking.id, status='completed') }}"
+                    class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                    إنهاء الخدمة ✅
+                </a>
+                {% endif %}
+            </div>
         </div>
     </div>
     {% endfor %}

@@ -290,6 +290,24 @@ def book():
                 flash(f'تم تطبيق كود الخصم: {discount_code.code}')
             
             db.session.commit()
+            
+            # Notify assigned employee
+            if available_employee:
+                try:
+                    from app.notifications import send_push_notification
+                    notification_data = {
+                        "title": "حجز جديد تم تعيينه لك 🆕",
+                        "body": f"تم تعيين حجز جديد #{booking.id}\nالعميل: {current_user.username}\nالخدمة: {booking.service.name_ar}\nالموعد: {booking.date} {booking.time.strftime('%H:%M')}",
+                        "icon": "/static/images/logo.png",
+                        "badge": "/static/images/logo.png",
+                        "url": "/employee/bookings/active",
+                        "data": {
+                            "booking_id": booking.id
+                        }
+                    }
+                    send_push_notification(available_employee, notification_data)
+                except Exception as e:
+                    print(f"Failed to send notification to employee: {e}")
             flash('تم الحجز بنجاح!')
             return redirect(url_for('customer.index'))
 

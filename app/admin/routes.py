@@ -1470,6 +1470,24 @@ def create_booking():
     )
     db.session.add(booking)
     db.session.commit()
+    
+    # Notify employee if assigned
+    if employee_id:
+        employee = User.query.get(int(employee_id))
+        if employee:
+            from app.notifications import send_push_notification
+            notification_data = {
+                "title": "حجز جديد تم تعيينه لك 🆕",
+                "body": f"تم تعيين حجز جديد #{booking.id}\nالعميل: {booking.customer.username}\nالخدمة: {booking.service.name_ar}\nالموعد: {booking.date} {booking.time.strftime('%H:%M')}",
+                "icon": "/static/images/logo.png",
+                "badge": "/static/images/logo.png",
+                "url": "/employee/bookings/active",
+                "data": {
+                    "booking_id": booking.id
+                }
+            }
+            send_push_notification(employee, notification_data)
+            
     flash(f'تم إضافة الحجز بنجاح (الخصم: {discount}%)')
     return redirect(url_for('admin.bookings'))
 

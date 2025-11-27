@@ -64,15 +64,40 @@
                 <p class="text-white">{{ subscription.neighborhood.name_ar }}</p>
             </div>
             {% endif %}
-            onclick="return confirm('هل تأكدت من إتمام الغسلة؟')">
-            <i class="fas fa-check ml-2"></i> إتمام غسلة
-            </button>
-            </form>
-            {% else %}
-            <button disabled class="w-full bg-gray-600 text-gray-400 font-bold py-2 px-4 rounded cursor-not-allowed">
-                لا توجد غسلات متبقية
-            </button>
+
+            {% set msg = "مرحباً " ~ subscription.customer.username ~ " 👋،%0A" ~
+            "معك " ~ current_user.username ~ " من سيلفر كلين 🚙.%0A%0A" ~
+            "أنا في طريقي إليك لغسيل سيارتك:%0A" ~
+            "🚗 " ~ subscription.vehicle.brand ~ " (" ~ subscription.vehicle.plate_number ~ ")%0A%0A" ~
+            "📍 *الرجاء إرسال الموقع أو العنوان الوطني*" %}
+            {% set phone = subscription.customer.phone %}
+            {% if phone.startswith('0') %}
+            {% set phone = '+966' ~ phone[1:] %}
             {% endif %}
+
+            <div class="flex flex-col gap-3 mt-4">
+                <a href="https://wa.me/{{ phone }}?text={{ msg }}" target="_blank"
+                    class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                    <i class="fab fa-whatsapp text-xl"></i>
+                    <span>تواصل واتساب</span>
+                </a>
+
+                {% if subscription.remaining_washes > 0 %}
+                <form action="{{ url_for('employee.complete_wash', id=subscription.id) }}" method="POST" class="w-full">
+                    <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                        onclick="return confirm('هل تأكدت من إتمام الغسلة؟')">
+                        <i class="fas fa-check"></i>
+                        <span>إتمام غسلة</span>
+                    </button>
+                </form>
+                {% else %}
+                <button disabled
+                    class="w-full bg-gray-600 text-gray-400 font-bold py-3 px-4 rounded-lg cursor-not-allowed text-center shadow-inner">
+                    لا توجد غسلات متبقية
+                </button>
+                {% endif %}
+            </div>
         </div>
     </div>
     {% endfor %}
