@@ -82,21 +82,38 @@ def update_status(id, status):
                     if product.stock_quantity < 0:
                         product.stock_quantity = 0  # Prevent negative stock
         else:
-            flash(f'تم تحديث الحالة بنجاح', 'success')
-            
-            # Send notification to customer
-            notification_data = {
-                "title": "تحديث حالة الحجز",
-                "body": f"تم تغيير حالة حجزك إلى: {status}",
-                "icon": "/static/images/logo.png",
-                "badge": "/static/images/logo.png",
-                "url": "/customer/bookings",
-                "data": {
-                    "booking_id": booking.id,
-                    "status": status
+            # Define status messages in Arabic
+            status_messages = {
+                'en_route': {
+                    'title': 'الموظف في الطريق 🚗',
+                    'body': f'موظفنا في الطريق إليك! سيصل قريباً لحجزك #{booking.id}'
+                },
+                'arrived': {
+                    'title': 'وصل الموظف ✅',
+                    'body': f'وصل موظفنا إلى موقعك للحجز #{booking.id}'
+                },
+                'in_progress': {
+                    'title': 'جاري العمل 🧼',
+                    'body': f'بدأ موظفنا بتقديم خدمة {booking.service.name_ar} للحجز #{booking.id}'
                 }
             }
-            send_push_notification(booking.customer, notification_data)
+            
+            flash(f'تم تحديث الحالة بنجاح', 'success')
+            
+            # Send notification to customer with Arabic message
+            if status in status_messages:
+                notification_data = {
+                    "title": status_messages[status]['title'],
+                    "body": status_messages[status]['body'],
+                    "icon": "/static/images/logo.png",
+                    "badge": "/static/images/logo.png",
+                    "url": "/customer/bookings",
+                    "data": {
+                        "booking_id": booking.id,
+                        "status": status
+                    }
+                }
+                send_push_notification(booking.customer, notification_data)
             
         db.session.commit()
     

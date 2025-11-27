@@ -605,78 +605,97 @@ def edit_customer(id):
 
 @bp.route('/customers/export')
 def export_customers():
-    import io
-    from flask import send_file
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-    
-    customers = User.query.filter_by(role='customer').all()
-    
-    # Create Workbook
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "العملاء"
-    ws.sheet_view.rightToLeft = True  # Enable RTL
-    
-    # Headers
-    headers = ['#', 'الاسم', 'رقم الجوال', 'البريد الإلكتروني', 'الغسلات المجانية', 'نقاط الولاء', 'عدد السيارات', 'تاريخ اخر عملية شراء']
-    ws.append(headers)
-    
-    # Styling
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill(start_color="4DA8DA", end_color="4DA8DA", fill_type="solid")
-    alignment = Alignment(horizontal="center", vertical="center")
-    border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-    
-    # Apply style to headers
-    for cell in ws[1]:
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = alignment
-        cell.border = border
+    try:
+        import io
+        from flask import send_file
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
         
-    # Data
-    for customer in customers:
-        # Count vehicles
-        vehicle_count = customer.vehicles.count()
+        customers = User.query.filter_by(role='customer').all()
         
-        # Get last purchase date
-        last_booking = Booking.query.filter_by(customer_id=customer.id).order_by(Booking.created_at.desc()).first()
-        last_purchase = last_booking.created_at.strftime('%Y-%m-%d') if last_booking else '-'
+        # Create Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "العملاء"
+        ws.sheet_view.rightToLeft = True  # Enable RTL
         
-        row = [
-            customer.id,
-            customer.username,
-            customer.phone or '-',
-            customer.email or '-',
-            customer.free_washes or 0,
-            customer.points or 0,
-            vehicle_count,
-            last_purchase
-        ]
-        ws.append(row)
+        # Headers
+        headers = ['#', 'الاسم', 'رقم الجوال', 'البريد الإلكتروني', 'الغسلات المجانية', 'نقاط الولاء', 'عدد السيارات', 'تاريخ اخر عملية شراء']
+        ws.append(headers)
         
-        # Apply style to data rows
-        for cell in ws[ws.max_row]:
+        # Styling
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4DA8DA", end_color="4DA8DA", fill_type="solid")
+        alignment = Alignment(horizontal="center", vertical="center")
+        border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+        
+        # Apply style to headers
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
             cell.alignment = alignment
             cell.border = border
+            
+        # Data
+        for customer in customers:
+            # Count vehicles
+            vehicle_count = customer.vehicles.count()
+            
+            # Get last purchase date - with fallback
+            try:
+                last_booking = Booking.query.filter_by(customer_id=customer.id).order_by(Booking.date.desc()).first()
+                if last_booking:
+                    # Try created_at first, fallback to date
+                    if hasattr(last_booking, 'created_at') and last_booking.created_at:
+                        last_purchase = last_booking.created_at.strftime('%Y-%m-%d')
+                    else:
+                        last_purchase = last_booking.date.strftime('%Y-%m-%d') if last_booking.date else '-'
+                else:
+                    last_purchase = '-'
+            except Exception as e:
+                last_purchase = '-'
+            
+            row = [
+                customer.id,
+                customer.username,
+                customer.phone or '-',
+                customer.email or '-',
+                customer.free_washes or 0,
+                customer.points or 0,
+                vehicle_count,
+                last_purchase
+            ]
+            ws.append(row)
+            
+            # Apply style to data rows
+            for cell in ws[ws.max_row]:
+                cell.alignment = alignment
+                cell.border = border
 
-    # Auto-adjust column widths
-    for column_cells in ws.columns:
-        length = max(len(str(cell.value) or "") for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = length + 5
+        # Auto-adjust column widths
+        for column_cells in ws.columns:
+            length = max(len(str(cell.value) or "") for cell in column_cells)
+            ws.column_dimensions[column_cells[0].column_letter].width = length + 5
 
-    # Save to buffer
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    
-    return send_file(
-        output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name='customers.xlsx'
-    )
+        # Save to buffer
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='customers.xlsx'
+        )
+    except ImportError:
+        # openpyxl not installed - fallback to CSV
+        flash('خطأ: مكتبة openpyxl غير مثبتة. يرجى تثبيتها أولاً.', 'error')
+        return redirect(url_for('admin.customers'))
+    except Exception as e:
+        # Log the error and show user-friendly message
+        flash(f'حدث خطأ أثناء تصدير البيانات: {str(e)}', 'error')
+        return redirect(url_for('admin.customers'))
 
 
 # --- Service Management ---
@@ -2037,27 +2056,16 @@ def send_notification():
             notif = Notification(user_id=user.id, title=title, message=message)
             db.session.add(notif)
             
-            # 2. Send Web Push
-            subscriptions = user.push_subscriptions
-            for sub in subscriptions:
-                try:
-                    webpush(
-                        subscription_info={
-                            "endpoint": sub.endpoint,
-                            "keys": {
-                                "p256dh": sub.p256dh,
-                                "auth": sub.auth
-                            }
-                        },
-                        data=json.dumps({"title": title, "body": message, "url": "/notifications"}),
-                        vapid_private_key=current_app.config['VAPID_PRIVATE_KEY'],
-                        vapid_claims={"sub": current_app.config['VAPID_CLAIM_EMAIL']}
-                    )
-                except WebPushException as ex:
-                    print("Web Push Failed:", ex)
-                    # Optional: delete invalid subscription
-                    if ex.response and ex.response.status_code == 410:
-                        db.session.delete(sub)
+            # 2. Send Web Push using the improved notification function
+            from app.notifications import send_push_notification
+            notification_data = {
+                "title": title,
+                "body": message,
+                "icon": "/static/images/logo.png",
+                "badge": "/static/images/logo.png",
+                "url": "/notifications"
+            }
+            send_push_notification(user, notification_data)
             
             count += 1
         
