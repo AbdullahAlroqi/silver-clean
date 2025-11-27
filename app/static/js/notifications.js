@@ -3,7 +3,7 @@ const publicVapidKey = 'BEWyGqMWafmjeAy4CHHd2iUAeTlpE7kxSh3GDa6NyMeZ3e3_363xUdx-
 async function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         try {
-            const register = await navigator.serviceWorker.register('/static/sw.js', {
+            const register = await navigator.serviceWorker.register('/sw.js', {
                 scope: '/'
             });
             console.log('✅ Service Worker Registered successfully');

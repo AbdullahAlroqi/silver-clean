@@ -1,12 +1,20 @@
-from flask import render_template, Blueprint, request, jsonify
+from flask import render_template, Blueprint, request, jsonify, send_from_directory
 from flask_login import login_required, current_user
 from app.models import Notification, PushSubscription
 from app import db
 from app.main import bp
+import os
 
 @bp.route('/')
 def index():
     return render_template('index.html')
+
+@bp.route('/sw.js')
+def service_worker():
+    """Serve service worker from root to fix scope issue"""
+    return send_from_directory(os.path.join(os.path.dirname(__file__), '..', 'static'), 
+                                'sw.js', 
+                                mimetype='application/javascript')
 
 @bp.route('/notifications')
 @login_required
