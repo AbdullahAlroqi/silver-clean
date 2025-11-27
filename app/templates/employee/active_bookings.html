@@ -208,21 +208,6 @@
                     </p>
                 </div>
             </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {% set whatsapp_phone = '966' + booking.customer.phone[1:] if booking.customer.phone.startswith('0') else
-            booking.customer.phone %}
-            <a href="https://wa.me/{{ whatsapp_phone }}?text=مرحبًا أستاذ/أستاذة الكريم،%0aمعك موظف Silver Clean.%0aللوصول إليك في الوقت المحدد، فضلاً أرسل لي العنوان الوطني أو موقعك الحالي.%0a%0aشكرًا لك ويسعدني خدمتك 🌟🚗"
-                target="_blank"
-                class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded text-center transition">
-                <i class="fab fa-whatsapp ml-2"></i> واتساب
-            </a>
-
-            {% if booking.status == 'assigned' %}
-            <a href="{{ url_for('employee.update_status', id=booking.id, status='en_route') }}"
-                class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded text-center transition">
-                في الطريق
             </a>
             {% elif booking.status == 'en_route' %}
             <a href="{{ url_for('employee.update_status', id=booking.id, status='arrived') }}"

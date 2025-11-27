@@ -102,6 +102,10 @@ def update_status(id, status):
             
             # Send notification to customer with Arabic message
             if status in status_messages:
+                print(f"🔔 Attempting to send {status} notification to customer {booking.customer.username}")
+                if not booking.customer.push_subscriptions:
+                    print(f"⚠️ Customer {booking.customer.username} has NO push subscriptions!")
+                
                 notification_data = {
                     "title": status_messages[status]['title'],
                     "body": status_messages[status]['body'],
@@ -113,7 +117,8 @@ def update_status(id, status):
                         "status": status
                     }
                 }
-                send_push_notification(booking.customer, notification_data)
+                success = send_push_notification(booking.customer, notification_data)
+                print(f"🔔 Notification sent result: {success}")
             
         db.session.commit()
     
