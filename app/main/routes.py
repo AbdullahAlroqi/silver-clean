@@ -16,6 +16,50 @@ def service_worker():
                                 'sw.js', 
                                 mimetype='application/javascript')
 
+@bp.route('/manifest.json')
+def manifest():
+    """Serve dynamic manifest with versioned icons to fix caching"""
+    from app.models import SiteSettings
+    import time
+    
+    settings = SiteSettings.get_settings()
+    # Use current timestamp as version to force refresh if logo changed recently
+    # Or better, use a stored timestamp. For now, we'll use a simple cache buster
+    version = int(time.time())
+    
+    logo_url = settings.logo_path or '/static/images/logo.png'
+    logo_url_with_version = f"{logo_url}?v={version}"
+    
+    manifest_data = {
+        "name": settings.site_name or "Silver Clean Car Wash",
+        "short_name": settings.site_name or "Silver Clean",
+        "description": "Silver Clean - خدمة غسيل سيارات متنقلة",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait",
+        "background_color": settings.primary_color or "#1F1F1F",
+        "theme_color": settings.accent_color or "#10B981",
+        "categories": ["lifestyle", "business"],
+        "icons": [
+            {
+                "src": logo_url_with_version,
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": logo_url_with_version,
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            }
+        ],
+        "gcm_sender_id": "103953800507"
+    }
+    
+    return jsonify(manifest_data)
+
 @bp.route('/notifications')
 @login_required
 def notifications():

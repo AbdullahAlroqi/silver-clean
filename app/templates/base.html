@@ -5,9 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Silver Clean</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo.png') }}">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="icon" type="image/png"
+        href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}">
+    <link rel="apple-touch-icon"
+        href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}">
+    <link rel="manifest" href="{{ url_for('main.manifest') }}">
     <meta name="theme-color" content="#303030">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -39,6 +41,10 @@
                 </a>
             </div>
             <div class="flex items-center gap-4">
+                <button id="enable-notifications-btn"
+                    class="hidden bg-accent hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded transition">
+                    <i class="fas fa-bell"></i> تفعيل الإشعارات
+                </button>
                 {% if current_user.is_authenticated %}
                 <a href="{{ url_for('main.notifications') }}" class="text-white hover:text-accent transition relative">
                     <i class="fas fa-bell text-xl"></i>

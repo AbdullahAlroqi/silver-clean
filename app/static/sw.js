@@ -1,5 +1,5 @@
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing.');
+  console.log('Service Worker installing. Version 2.0');
   self.skipWaiting();
 });
 
@@ -26,10 +26,13 @@ self.addEventListener('push', function (event) {
   }
 
   const title = data.title || 'Silver Clean';
+  // Add random version to icon to bypass cache
+  const iconUrl = '/static/images/logo.png?v=' + Date.now();
+
   const options = {
     body: data.body || 'إشعار جديد',
-    icon: '/static/images/logo.png',
-    badge: '/static/images/logo.png',
+    icon: iconUrl,
+    badge: iconUrl,
     vibrate: [200, 100, 200],
     tag: 'silver-clean-notification',
     requireInteraction: true,
