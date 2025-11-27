@@ -26,6 +26,12 @@ def notifications():
     db.session.commit()
     return render_template('notifications.html', notifications=notifications)
 
+@bp.route('/api/notifications/unread-count')
+@login_required
+def unread_notifications_count():
+    count = current_user.notifications.filter_by(read=False).count()
+    return jsonify({'count': count})
+
 @bp.route('/terms')
 def terms():
     return render_template('terms.html', title='Terms and Conditions')
