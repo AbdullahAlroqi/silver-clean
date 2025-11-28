@@ -28,6 +28,16 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('البريد الإلكتروني هذا مستخدم بالفعل.')
 
     def validate_phone(self, phone):
-        user = User.query.filter_by(phone=phone.data).first()
+        # Convert Arabic numerals to English
+        arabic_numerals = '٠١٢٣٤٥٦٧٨٩'
+        english_numerals = '0123456789'
+        translation_table = str.maketrans(arabic_numerals, english_numerals)
+        converted_phone = phone.data.translate(translation_table).strip()
+        
+        # Update the field data with converted value
+        phone.data = converted_phone
+        
+        # Check if phone already exists
+        user = User.query.filter_by(phone=converted_phone).first()
         if user:
             raise ValidationError('رقم الجوال هذا مستخدم بالفعل.')

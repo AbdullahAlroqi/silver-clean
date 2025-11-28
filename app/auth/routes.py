@@ -6,6 +6,13 @@ from app.auth import bp
 from app.auth.forms import LoginForm, RegistrationForm
 from app.models import User
 
+def convert_arabic_to_english_numerals(text):
+    """Convert Arabic numerals to English numerals"""
+    arabic_numerals = '٠١٢٣٤٥٦٧٨٩'
+    english_numerals = '0123456789'
+    translation_table = str.maketrans(arabic_numerals, english_numerals)
+    return text.translate(translation_table)
+
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -18,7 +25,9 @@ def login():
             
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter((User.username == form.username.data) | (User.phone == form.username.data)).first()
+        # Convert Arabic numerals to English in login username (could be phone)
+        username_or_phone = convert_arabic_to_english_numerals(form.username.data)
+        user = User.query.filter((User.username == username_or_phone) | (User.phone == username_or_phone)).first()
         if user is None or not user.check_password(form.password.data):
             flash('اسم المستخدم أو كلمة المرور غير صحيحة')
             return redirect(url_for('auth.login'))
@@ -49,8 +58,11 @@ def register():
     
     form = RegistrationForm()
     if form.validate_on_submit():
+        # Convert Arabic numerals to English before processing
+        phone = convert_arabic_to_english_numerals(form.phone.data.strip())
+        
         # Check if phone number already exists
-        existing_phone = User.query.filter_by(phone=form.phone.data).first()
+        existing_phone = User.query.filter_by(phone=phone).first()
         if existing_phone:
             flash('رقم الهاتف مستخدم بالفعل. الرجاء استخدام رقم هاتف آخر.', 'error')
             return render_template('auth/register.html', title='التسجيل', form=form)
@@ -67,7 +79,8 @@ def register():
             flash('البريد الإلكتروني مستخدم بالفعل. الرجاء استخدام بريد آخر.', 'error')
             return render_template('auth/register.html', title='التسجيل', form=form)
         
-        user = User(username=form.username.data, email=form.email.data, phone=form.phone.data, role='customer')
+        # Create user with converted phone number
+        user = User(username=form.username.data, email=form.email.data, phone=phone, role='customer')
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
