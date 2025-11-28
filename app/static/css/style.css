@@ -3,3 +3,71 @@
 body {
     font-family: 'Tajawal', sans-serif;
 }
+
+/* PWA Install Banner Animations */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+#install-banner {
+    animation: slideUp 0.5s ease-out, pulse 2s ease-in-out infinite;
+}
+
+/* RTL Support for Install Banner */
+[dir="rtl"] #install-banner {
+    direction: rtl;
+}
+
+/* Smooth transitions for all interactive elements */
+button,
+a {
+    transition: all 0.3s ease;
+}
+
+/* Custom scrollbar for better aesthetics */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #1F1F1F;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #4DA8DA;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #3B8AB8;
+}
