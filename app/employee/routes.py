@@ -12,6 +12,13 @@ def before_request():
     if not current_user.is_authenticated or current_user.role != 'employee':
         return redirect(url_for('auth.login'))
 
+@bp.route('/set-language/<lang>')
+def set_language(lang):
+    from flask import session
+    if lang in ['ar', 'en', 'ha']:
+        session['lang'] = lang
+    return redirect(request.referrer or url_for('employee.index'))
+
 @bp.route('/')
 def index():
     # Get next upcoming booking

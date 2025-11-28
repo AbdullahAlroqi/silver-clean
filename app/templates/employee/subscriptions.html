@@ -3,12 +3,12 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h2 class="text-2xl font-bold text-white">الاشتراكات المسندة</h2>
-        <p class="text-gray-400">{{ subscriptions|length }} اشتراك نشط</p>
+        <h2 class="text-2xl font-bold text-white">{{ _('Assigned Subscriptions') }}</h2>
+        <p class="text-gray-400">{{ subscriptions|length }} {{ _('active subscription') }}</p>
     </div>
     <a href="{{ url_for('employee.index') }}"
         class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
-        <i class="fas fa-arrow-right ml-2"></i> رجوع
+        <i class="fas fa-arrow-right ml-2"></i> {{ _('Back') }}
     </a>
 </div>
 
@@ -18,50 +18,70 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex justify-between items-start mb-4">
             <div>
-                <h3 class="text-lg font-bold text-white">اشتراك #{{ subscription.id }}</h3>
-                <span class="inline-block px-3 py-1 rounded text-xs font-bold mt-2 bg-green-600">نشط</span>
+                <h3 class="text-lg font-bold text-white">{{ _('Subscription') }} #{{ subscription.id }}</h3>
+                <span class="inline-block px-3 py-1 rounded text-xs font-bold mt-2 bg-green-600">{{ _('Active')
+                    }}</span>
             </div>
             <div class="text-center">
                 <div class="bg-accent text-white rounded-full w-16 h-16 flex items-center justify-center">
                     <span class="text-2xl font-bold">{{ subscription.remaining_washes }}</span>
                 </div>
-                <p class="text-xs text-gray-400 mt-1">غسلات متبقية</p>
+                <p class="text-xs text-gray-400 mt-1">{{ _('Washes Remaining') }}</p>
             </div>
         </div>
 
         <div class="space-y-3 mb-4">
             <div>
-                <p class="text-gray-400 text-sm mb-1">العميل</p>
+                <p class="text-gray-400 text-sm mb-1">{{ _('Customer') }}</p>
                 <p class="text-white font-bold">{{ subscription.customer.username }}</p>
                 <p class="text-gray-400 text-sm">{{ subscription.customer.phone }}</p>
             </div>
 
             {% if subscription.package %}
             <div>
-                <p class="text-gray-400 text-sm mb-1">الباقة</p>
+                <p class="text-gray-400 text-sm mb-1">{{ _('Package') }}</p>
                 <p class="text-white">{{ subscription.package.name_ar }}</p>
-                <p class="text-gray-400 text-sm">{{ subscription.package.washes }} غسلة - {{
-                    subscription.package.duration_days }} يوم</p>
+                <p class="text-gray-400 text-sm">{{ subscription.package.washes }} {{ _('washes') }} - {{
+                    subscription.package.duration_days }} {{ _('days') }}</p>
             </div>
             {% endif %}
 
             {% if subscription.vehicle %}
             <div>
-                <p class="text-gray-400 text-sm mb-1">المركبة</p>
+                <p class="text-gray-400 text-sm mb-1">{{ _('Vehicle') }}</p>
                 <p class="text-white">{{ subscription.vehicle.brand }}</p>
                 <p class="text-gray-400 text-sm">{{ subscription.vehicle.plate_number }}</p>
             </div>
             {% endif %}
 
             <div>
-                <p class="text-gray-400 text-sm mb-1">المدة</p>
+                <p class="text-gray-400 text-sm mb-1">{{ _('Duration') }}</p>
                 <p class="text-white">{{ subscription.start_date }} - {{ subscription.end_date }}</p>
             </div>
 
             {% if subscription.neighborhood %}
             <div>
-                <p class="text-gray-400 text-sm mb-1">الحي</p>
+                <p class="text-gray-400 text-sm mb-1">{{ _('Neighborhood') }}</p>
                 <p class="text-white">{{ subscription.neighborhood.name_ar }}</p>
+            </div>
+            {% endif %}
+
+            {% if subscription.preferred_time %}
+            <div>
+                <p class="text-gray-400 text-sm mb-1">{{ _('Preferred Time') }}</p>
+                <p class="text-white">
+                    {% if subscription.preferred_time == 'morning' %}
+                    <i class="fas fa-sun text-yellow-400 ml-1"></i> {{ _('Morning (8 AM - 12 PM)') }}
+                    {% elif subscription.preferred_time == 'afternoon' %}
+                    <i class="fas fa-cloud-sun text-orange-400 ml-1"></i> {{ _('Afternoon (12 PM - 4 PM)') }}
+                    {% elif subscription.preferred_time == 'evening' %}
+                    <i class="fas fa-moon text-blue-400 ml-1"></i> {{ _('Evening (4 PM - 8 PM)') }}
+                    {% elif subscription.preferred_time == 'flexible' %}
+                    <i class="fas fa-clock text-gray-400 ml-1"></i> {{ _('Any time') }}
+                    {% else %}
+                    {{ subscription.preferred_time }}
+                    {% endif %}
+                </p>
             </div>
             {% endif %}
 
@@ -79,22 +99,22 @@
                 <a href="https://wa.me/{{ phone }}?text={{ msg }}" target="_blank"
                     class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
                     <i class="fab fa-whatsapp text-xl"></i>
-                    <span>تواصل واتساب</span>
+                    <span>{{ _('Contact via WhatsApp') }}</span>
                 </a>
 
                 {% if subscription.remaining_washes > 0 %}
                 <form action="{{ url_for('employee.complete_wash', id=subscription.id) }}" method="POST" class="w-full">
                     <button type="submit"
                         class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02] flex items-center justify-center gap-2"
-                        onclick="return confirm('هل تأكدت من إتمام الغسلة؟')">
+                        onclick="return confirm('{{ _('Are you sure you want to complete this wash?') }}')">
                         <i class="fas fa-check"></i>
-                        <span>إتمام غسلة</span>
+                        <span>{{ _('Complete Wash') }}</span>
                     </button>
                 </form>
                 {% else %}
                 <button disabled
                     class="w-full bg-gray-600 text-gray-400 font-bold py-3 px-4 rounded-lg cursor-not-allowed text-center shadow-inner">
-                    لا توجد غسلات متبقية
+                    {{ _('No washes remaining') }}
                 </button>
                 {% endif %}
             </div>
@@ -105,8 +125,8 @@
 {% else %}
 <div class="bg-primary p-8 rounded-lg shadow-lg text-center">
     <i class="fas fa-box-open text-4xl text-gray-500 mb-4"></i>
-    <p class="text-xl text-white">لا يوجد اشتراكات مسندة</p>
-    <p class="text-gray-400">سيتم إسناد الاشتراكات لك تلقائياً</p>
+    <p class="text-xl text-white">{{ _('No assigned subscriptions') }}</p>
+    <p class="text-gray-400">{{ _('Subscriptions will be assigned to you automatically') }}</p>
 </div>
 {% endif %}
 {% endblock %}

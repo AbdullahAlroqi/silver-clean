@@ -16,6 +16,21 @@ def create_app(config_class=Config):
     db.init_app(app)
     migrate.init_app(app, db)
     login.init_app(app)
+    
+    def get_locale():
+        from flask import session, request
+        # Check if language is in session
+        if 'lang' in session:
+            return session['lang']
+        # Check if language is in request args (for testing)
+        if request.args.get('lang'):
+            return request.args.get('lang')
+        # Default to Arabic
+        return 'ar'
+
+    # Initialize Babel
+    from flask_babel import Babel
+    babel = Babel(app, locale_selector=get_locale)
 
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -35,7 +50,7 @@ def create_app(config_class=Config):
     @app.context_processor
     def inject_settings():
         from app.models import SiteSettings
-        return dict(site_settings=SiteSettings.get_settings())
+        return dict(site_settings=SiteSettings.get_settings(), get_locale=get_locale)
 
     return app
 

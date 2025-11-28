@@ -72,3 +72,31 @@
 </div>
 </div>
 {% endblock %}
+
+<script>
+    // تحويل الأرقام العربية إلى إنجليزية تلقائياً
+    document.addEventListener('DOMContentLoaded', function () {
+        const phoneInput = document.getElementById('phone');
+
+        if (phoneInput) {
+            phoneInput.addEventListener('input', function (e) {
+                const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                const englishNumerals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+                let value = e.target.value;
+                let converted = value;
+
+                // تحويل كل رقم عربي إلى إنجليزي
+                arabicNumerals.forEach((arabic, index) => {
+                    const regex = new RegExp(arabic, 'g');
+                    converted = converted.replace(regex, englishNumerals[index]);
+                });
+
+                // تحديث القيمة إذا تم التحويل
+                if (value !== converted) {
+                    e.target.value = converted;
+                }
+            });
+        }
+    });
+</script>

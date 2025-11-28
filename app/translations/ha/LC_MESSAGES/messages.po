@@ -1,0 +1,201 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-11-28 04:16+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: app/templates/employee/subscriptions.html:6
+msgid "Assigned Subscriptions"
+msgstr "Biyan Kuɗi da aka Sanya"
+
+#: app/templates/employee/subscriptions.html:7
+msgid "active subscription"
+msgstr "biyan kuɗi mai aiki"
+
+#: app/templates/employee/subscriptions.html:11
+msgid "Back"
+msgstr "Baya"
+
+#: app/templates/employee/subscriptions.html:21
+msgid "Subscription"
+msgstr "Biyan kuɗi"
+
+#: app/templates/employee/subscriptions.html:22
+msgid "Active"
+msgstr "Mai aiki"
+
+#: app/templates/employee/subscriptions.html:29
+msgid "Washes Remaining"
+msgstr "Sauran wanki"
+
+#: app/templates/employee/subscriptions.html:35
+msgid "Customer"
+msgstr "Abokin ciniki"
+
+#: app/templates/employee/subscriptions.html:42
+msgid "Package"
+msgstr "Kunshin"
+
+#: app/templates/employee/subscriptions.html:44
+msgid "washes"
+msgstr "wanki"
+
+#: app/templates/employee/subscriptions.html:45
+msgid "days"
+msgstr "kwanaki"
+
+#: app/templates/employee/subscriptions.html:51
+msgid "Vehicle"
+msgstr "Mota"
+
+#: app/templates/employee/subscriptions.html:58
+msgid "Duration"
+msgstr "Tsawon lokaci"
+
+#: app/templates/employee/subscriptions.html:64
+msgid "Neighborhood"
+msgstr "Unguwa"
+
+#: app/templates/employee/subscriptions.html:71
+msgid "Preferred Time"
+msgstr "Lokacin da aka fi so"
+
+#: app/templates/employee/subscriptions.html:74
+msgid "Morning (8 AM - 12 PM)"
+msgstr "Safiya (8 na safe - 12 na rana)"
+
+#: app/templates/employee/subscriptions.html:76
+msgid "Afternoon (12 PM - 4 PM)"
+msgstr "Rana (12 na rana - 4 na yamma)"
+
+#: app/templates/employee/subscriptions.html:78
+msgid "Evening (4 PM - 8 PM)"
+msgstr "Yamma (4 na yamma - 8 na dare)"
+
+#: app/templates/employee/subscriptions.html:80
+msgid "Any time"
+msgstr "Kowane lokaci"
+
+#: app/templates/employee/subscriptions.html:102
+msgid "Contact via WhatsApp"
+msgstr "Tuntube mu ta WhatsApp"
+
+#: app/templates/employee/subscriptions.html:109
+msgid "Are you sure you want to complete this wash?"
+msgstr "Shin kun tabbata kuna son kammala wannan wanki?"
+
+#: app/templates/employee/subscriptions.html:111
+msgid "Complete Wash"
+msgstr "Kammala Wanki"
+
+#: app/templates/employee/subscriptions.html:117
+msgid "No washes remaining"
+msgstr "Babu sauran wanki"
+
+#: app/templates/employee/subscriptions.html:128
+msgid "No assigned subscriptions"
+msgstr "Babu biyan kuɗi da aka sanya"
+
+#: app/templates/employee/subscriptions.html:129
+msgid "Subscriptions will be assigned to you automatically"
+msgstr "Za a sanya muku biyan kuɗi ta atomatik"
+
+msgid "Welcome, %(username)s"
+msgstr "Barka da zuwa, %(username)s"
+
+msgid "Employee Dashboard"
+msgstr "Dashboard na Ma'aikata"
+
+msgid "Active Bookings"
+msgstr "Ayyukan Yanzu"
+
+msgid "Subscriptions"
+msgstr "Biyan Kuɗi"
+
+msgid "History"
+msgstr "Tarihi"
+
+msgid "Completed Today"
+msgstr "An Kammala Yau"
+
+msgid "Statistics"
+msgstr "Alkaluma"
+
+msgid "Performance and Reports"
+msgstr "Ayyuka da Rahotanni"
+
+msgid "active booking"
+msgstr "aiki mai gudana"
+
+msgid "Booking"
+msgstr "Yin rajista"
+
+msgid "Assigned"
+msgstr "An sanya"
+
+msgid "En Route"
+msgstr "Akan hanya"
+
+msgid "Arrived"
+msgstr "Ya isa"
+
+msgid "In Progress"
+msgstr "Ana kan aiki"
+
+msgid "Service"
+msgstr "Sabis"
+
+msgid "Additional Products"
+msgstr "Ƙarin Kayayyaki"
+
+msgid "Quantity"
+msgstr "Yawa"
+
+msgid "Free Wash"
+msgstr "Wanki Kyauta"
+
+msgid "Used Free Wash"
+msgstr "An yi amfani da Wanki Kyauta"
+
+msgid "Free"
+msgstr "Kyauta"
+
+msgid "Discount Code Applied"
+msgstr "An yi amfani da Lambar Rangwame"
+
+msgid "Discount"
+msgstr "Rangwame"
+
+msgid "Total"
+msgstr "Jimla"
+
+msgid "Start Service"
+msgstr "Fara Sabis"
+
+msgid "Complete Service"
+msgstr "Kammala Sabis"
+
+msgid "No active bookings"
+msgstr "Babu ayyuka masu gudana"
+
+msgid "All bookings completed"
+msgstr "Duk ayyukan an kammala su!"
+
+msgid "SAR"
+msgstr "SAR"
+
+msgid "Price"
+msgstr "Farashi"
+
+msgid "Products"
+msgstr "Kayayyaki"
+
+msgid "No vehicle selected"
+msgstr "Ba a zaɓi mota ba"

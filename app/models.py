@@ -159,6 +159,7 @@ class Subscription(db.Model):
     package_id = db.Column(db.Integer, db.ForeignKey('subscription_package.id'), nullable=True)
     plan_type = db.Column(db.String(64)) # Keep for legacy or ad-hoc
     remaining_washes = db.Column(db.Integer, default=0)
+    preferred_time = db.Column(db.String(20), nullable=True)  # 'morning', 'afternoon', 'evening', 'flexible'
     start_date = db.Column(db.Date)
     end_date = db.Column(db.Date)
     status = db.Column(db.String(20), default='pending')  # 'pending', 'active', 'rejected', 'expired'

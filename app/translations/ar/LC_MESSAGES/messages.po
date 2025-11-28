@@ -1,0 +1,201 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-11-28 04:16+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: app/templates/employee/subscriptions.html:6
+msgid "Assigned Subscriptions"
+msgstr "الاشتراكات المسندة"
+
+#: app/templates/employee/subscriptions.html:7
+msgid "active subscription"
+msgstr "اشتراك نشط"
+
+#: app/templates/employee/subscriptions.html:11
+msgid "Back"
+msgstr "رجوع"
+
+#: app/templates/employee/subscriptions.html:21
+msgid "Subscription"
+msgstr "اشتراك"
+
+#: app/templates/employee/subscriptions.html:22
+msgid "Active"
+msgstr "نشط"
+
+#: app/templates/employee/subscriptions.html:29
+msgid "Washes Remaining"
+msgstr "غسلات متبقية"
+
+#: app/templates/employee/subscriptions.html:35
+msgid "Customer"
+msgstr "العميل"
+
+#: app/templates/employee/subscriptions.html:42
+msgid "Package"
+msgstr "الباقة"
+
+#: app/templates/employee/subscriptions.html:44
+msgid "washes"
+msgstr "غسلات"
+
+#: app/templates/employee/subscriptions.html:45
+msgid "days"
+msgstr "أيام"
+
+#: app/templates/employee/subscriptions.html:51
+msgid "Vehicle"
+msgstr "المركبة"
+
+#: app/templates/employee/subscriptions.html:58
+msgid "Duration"
+msgstr "المدة"
+
+#: app/templates/employee/subscriptions.html:64
+msgid "Neighborhood"
+msgstr "الحي"
+
+#: app/templates/employee/subscriptions.html:71
+msgid "Preferred Time"
+msgstr "الوقت المفضل"
+
+#: app/templates/employee/subscriptions.html:74
+msgid "Morning (8 AM - 12 PM)"
+msgstr "صباحاً (8 ص - 12 م)"
+
+#: app/templates/employee/subscriptions.html:76
+msgid "Afternoon (12 PM - 4 PM)"
+msgstr "ظهراً (12 م - 4 م)"
+
+#: app/templates/employee/subscriptions.html:78
+msgid "Evening (4 PM - 8 PM)"
+msgstr "مساءً (4 م - 8 م)"
+
+#: app/templates/employee/subscriptions.html:80
+msgid "Any time"
+msgstr "في أي وقت"
+
+#: app/templates/employee/subscriptions.html:102
+msgid "Contact via WhatsApp"
+msgstr "تواصل واتساب"
+
+#: app/templates/employee/subscriptions.html:109
+msgid "Are you sure you want to complete this wash?"
+msgstr "هل أنت متأكد أنك تريد إكمال هذه الغسلة؟"
+
+#: app/templates/employee/subscriptions.html:111
+msgid "Complete Wash"
+msgstr "إتمام غسلة"
+
+#: app/templates/employee/subscriptions.html:117
+msgid "No washes remaining"
+msgstr "لا توجد غسلات متبقية"
+
+#: app/templates/employee/subscriptions.html:128
+msgid "No assigned subscriptions"
+msgstr "لا يوجد اشتراكات مسندة"
+
+#: app/templates/employee/subscriptions.html:129
+msgid "Subscriptions will be assigned to you automatically"
+msgstr "سيتم إسناد الاشتراكات لك تلقائياً"
+
+msgid "Welcome, %(username)s"
+msgstr "مرحباً، %(username)s"
+
+msgid "Employee Dashboard"
+msgstr "لوحة تحكم الموظف"
+
+msgid "Active Bookings"
+msgstr "الحجوزات الجارية"
+
+msgid "Subscriptions"
+msgstr "الاشتراكات"
+
+msgid "History"
+msgstr "السجل"
+
+msgid "Completed Today"
+msgstr "المكتملة اليوم"
+
+msgid "Statistics"
+msgstr "الإحصائيات"
+
+msgid "Performance and Reports"
+msgstr "أداء وتقارير"
+
+msgid "active booking"
+msgstr "حجز نشط"
+
+msgid "Booking"
+msgstr "حجز"
+
+msgid "Assigned"
+msgstr "تم التعيين"
+
+msgid "En Route"
+msgstr "في الطريق"
+
+msgid "Arrived"
+msgstr "وصل الموظف"
+
+msgid "In Progress"
+msgstr "جاري العمل"
+
+msgid "Service"
+msgstr "الخدمة"
+
+msgid "Additional Products"
+msgstr "منتجات إضافية"
+
+msgid "Quantity"
+msgstr "الكمية"
+
+msgid "Free Wash"
+msgstr "غسلة مجانية"
+
+msgid "Used Free Wash"
+msgstr "تم استخدام غسلة مجانية"
+
+msgid "Free"
+msgstr "مجاناً"
+
+msgid "Discount Code Applied"
+msgstr "كود خصم مطبق"
+
+msgid "Discount"
+msgstr "خصم"
+
+msgid "Total"
+msgstr "المجموع الكلي"
+
+msgid "Start Service"
+msgstr "بدء الخدمة"
+
+msgid "Complete Service"
+msgstr "إنهاء الخدمة"
+
+msgid "No active bookings"
+msgstr "لا يوجد حجوزات جارية"
+
+msgid "All bookings completed"
+msgstr "جميع الحجوزات مكتملة!"
+
+msgid "SAR"
+msgstr "ر.س"
+
+msgid "Price"
+msgstr "السعر"
+
+msgid "Products"
+msgstr "منتجات"
+
+msgid "No vehicle selected"
+msgstr "لم يتم تحديد مركبة"

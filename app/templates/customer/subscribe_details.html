@@ -92,21 +92,41 @@
         <p class="text-sm text-gray-400 mb-3">يمكنك تحديد الوقت المفضل للغسيل، وسيتم التواصل معك لتأكيد المواعيد</p>
 
         <div class="grid grid-cols-2 gap-3">
-            <label class="flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition">
+            <label
+                class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-transparent">
                 <input type="radio" name="preferred_time" value="morning" class="ml-2">
-                <span class="text-white">صباحاً (8 AM - 12 PM)</span>
+                <div class="flex-1">
+                    <i class="fas fa-sun text-yellow-400 ml-1"></i>
+                    <span class="text-white">صباحاً</span>
+                    <p class="text-xs text-gray-400">8 AM - 12 PM</p>
+                </div>
             </label>
-            <label class="flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition">
+            <label
+                class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-transparent">
                 <input type="radio" name="preferred_time" value="afternoon" class="ml-2">
-                <span class="text-white">ظهراً (12 PM - 4 PM)</span>
+                <div class="flex-1">
+                    <i class="fas fa-cloud-sun text-orange-400 ml-1"></i>
+                    <span class="text-white">ظهراً</span>
+                    <p class="text-xs text-gray-400">12 PM - 4 PM</p>
+                </div>
             </label>
-            <label class="flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition">
+            <label
+                class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-transparent">
                 <input type="radio" name="preferred_time" value="evening" class="ml-2">
-                <span class="text-white">مساءً (4 PM - 8 PM)</span>
+                <div class="flex-1">
+                    <i class="fas fa-moon text-blue-400 ml-1"></i>
+                    <span class="text-white">مساءً</span>
+                    <p class="text-xs text-gray-400">4 PM - 8 PM</p>
+                </div>
             </label>
-            <label class="flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition">
+            <label
+                class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-accent">
                 <input type="radio" name="preferred_time" value="flexible" class="ml-2" checked>
-                <span class="text-white">في أي وقت</span>
+                <div class="flex-1">
+                    <i class="fas fa-clock text-gray-400 ml-1"></i>
+                    <span class="text-white">في أي وقت</span>
+                    <p class="text-xs text-gray-400">مرن</p>
+                </div>
             </label>
         </div>
     </div>
@@ -114,7 +134,7 @@
     <!-- Submit -->
     <div class="flex gap-3">
         <button type="submit" {% if not vehicles %}disabled{% endif %}
-            class="flex-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-4 rounded-lg font-bold transition">
+            class="flex-1 bg-accent hover:bg-blue-600 disabled:bg-gray-700 disabled:cursor-not-allowed text-white py-4 rounded-lg font-bold transition">
             <i class="fas fa-check ml-2"></i>إرسال طلب الاشتراك
         </button>
         <a href="{{ url_for('customer.subscribe_flow') }}"
@@ -148,6 +168,22 @@
                     neighborhoodSelect.appendChild(option);
                 });
             });
+    });
+
+    // Visual feedback for time selection
+    document.querySelectorAll('.time-option input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            // Remove accent border from all
+            document.querySelectorAll('.time-option').forEach(label => {
+                label.classList.remove('border-accent');
+                label.classList.add('border-transparent');
+            });
+            // Add accent border to selected
+            if (this.checked) {
+                this.closest('.time-option').classList.remove('border-transparent');
+                this.closest('.time-option').classList.add('border-accent');
+            }
+        });
     });
 </script>
 {% endblock %}

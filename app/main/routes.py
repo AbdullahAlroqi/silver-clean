@@ -86,7 +86,15 @@ def subscribe():
     if current_user.is_authenticated:
         # Check if subscription already exists
         existing = PushSubscription.query.filter_by(endpoint=subscription_info['endpoint']).first()
-        if not existing:
+        if existing:
+            # Update user_id if account changed (important for account switching)
+            if existing.user_id != current_user.id:
+                existing.user_id = current_user.id
+                db.session.commit()
+                return jsonify({'status': 'updated'}), 200
+            return jsonify({'status': 'already_exists'}), 200
+        else:
+            # Create new subscription
             sub = PushSubscription(
                 user_id=current_user.id,
                 endpoint=subscription_info['endpoint'],

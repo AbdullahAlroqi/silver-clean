@@ -1,10 +1,16 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="{{ get_locale() }}" dir="{{ 'rtl' if get_locale() == 'ar' else 'ltr' }}">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Silver Clean</title>
+    <title>{{ site_settings.site_name or 'Silver Clean' }}</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ site_settings.site_name or 'Silver Clean' }}">
+
     <link rel="icon" type="image/png"
         href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}">
     <link rel="apple-touch-icon"
@@ -33,19 +39,33 @@
 <body class="bg-darkbg text-white font-sans flex flex-col min-h-screen">
     <nav class="bg-primary p-4 shadow-md">
         <div class="container mx-auto flex justify-between items-center">
-            <div class="flex items-center">
-                <a href="{{ url_for('main.index') }}" class="flex items-center gap-2 text-xl font-bold text-white">
-                    <img src="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}"
-                        alt="{{ site_settings.site_name }}" class="h-10 w-10 rounded-full object-cover">
-                    <span>{{ site_settings.site_name or 'Silver Clean' }}</span>
-                </a>
-            </div>
+            <a href="{{ url_for('main.index') }}" class="text-2xl font-bold text-accent flex items-center gap-2">
+                <img src="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}"
+                    alt="Logo" class="h-10 w-10 object-contain">
+                {{ site_settings.site_name or 'Silver Clean' }}
+            </a>
+
             <div class="flex items-center gap-4">
-                <button id="enable-notifications-btn"
-                    class="hidden bg-accent hover:bg-blue-600 text-white text-sm font-bold py-1 px-3 rounded transition">
-                    <i class="fas fa-bell"></i> تفعيل الإشعارات
-                </button>
                 {% if current_user.is_authenticated %}
+
+                {% if current_user.role == 'employee' %}
+                <div class="relative group">
+                    <button class="text-secondary hover:text-white transition flex items-center gap-1">
+                        <i class="fas fa-globe"></i>
+                        <span class="uppercase">{{ get_locale() }}</span>
+                    </button>
+                    <div
+                        class="absolute right-0 mt-2 w-32 bg-darkbg border border-gray-700 rounded shadow-lg hidden group-hover:block z-50">
+                        <a href="{{ url_for('employee.set_language', lang='ar') }}"
+                            class="block px-4 py-2 text-white hover:bg-gray-700 text-right">العربية</a>
+                        <a href="{{ url_for('employee.set_language', lang='en') }}"
+                            class="block px-4 py-2 text-white hover:bg-gray-700 text-right">English</a>
+                        <a href="{{ url_for('employee.set_language', lang='ha') }}"
+                            class="block px-4 py-2 text-white hover:bg-gray-700 text-right">Hausa</a>
+                    </div>
+                </div>
+                {% endif %}
+
                 <a href="{{ url_for('main.notifications') }}" class="text-white hover:text-accent transition relative">
                     <i class="fas fa-bell text-xl"></i>
                     <span id="notification-badge"
@@ -58,7 +78,8 @@
             </div>
         </div>
     </nav>
-    <div class="container mx-auto p-4 flex-grow">
+
+    <div class="container mx-auto mt-4 px-4">
         {% with messages = get_flashed_messages() %}
         {% if messages %}
         <div class="bg-accent text-white p-3 mb-4 rounded shadow-lg">
@@ -68,6 +89,9 @@
         </div>
         {% endif %}
         {% endwith %}
+    </div>
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
         {% block content %}{% endblock %}
     </div>
 
@@ -106,17 +130,13 @@
     </a>
     {% endif %}
 
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register("{{ url_for('static', filename='sw.js') }}")
-                .then(function (registration) {
-                    console.log('Service Worker Registered');
-                })
-                .catch(function (err) {
-                    console.log('Service Worker Failed to Register', err);
-                });
-        }
-    </script>
+    <!-- Notification Permission Button (shown only if permission not granted) -->
+    <button id="enable-notifications-btn"
+        class="hidden fixed bottom-24 left-6 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-600 transition z-50">
+        <i class="fas fa-bell mr-2"></i>
+        <span class="text-sm">تفعيل الإشعارات</span>
+    </button>
+
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
 </body>
 

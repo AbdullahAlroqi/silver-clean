@@ -1,0 +1,207 @@
+# Translations template for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-11-28 04:16+0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: app/templates/employee/subscriptions.html:6
+msgid "Assigned Subscriptions"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:7
+msgid "active subscription"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:11
+msgid "Back"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:21
+msgid "Subscription"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:22
+msgid "Active"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:29
+msgid "Washes Remaining"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:35
+msgid "Customer"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:42
+msgid "Package"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:44
+msgid "washes"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:45
+msgid "days"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:51
+msgid "Vehicle"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:58
+msgid "Duration"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:64
+msgid "Neighborhood"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:71
+msgid "Preferred Time"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:74
+msgid "Morning (8 AM - 12 PM)"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:76
+msgid "Afternoon (12 PM - 4 PM)"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:78
+msgid "Evening (4 PM - 8 PM)"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:80
+msgid "Any time"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:102
+msgid "Contact via WhatsApp"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:109
+msgid "Are you sure you want to complete this wash?"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:111
+msgid "Complete Wash"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:117
+msgid "No washes remaining"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:128
+msgid "No assigned subscriptions"
+msgstr ""
+
+#: app/templates/employee/subscriptions.html:129
+msgid "Subscriptions will be assigned to you automatically"
+msgstr ""
+
+msgid "Welcome, %(username)s"
+msgstr ""
+
+msgid "Employee Dashboard"
+msgstr ""
+
+msgid "Active Bookings"
+msgstr ""
+
+msgid "Subscriptions"
+msgstr ""
+
+msgid "History"
+msgstr ""
+
+msgid "Completed Today"
+msgstr ""
+
+msgid "Statistics"
+msgstr ""
+
+msgid "Performance and Reports"
+msgstr ""
+
+msgid "active booking"
+msgstr ""
+
+msgid "Booking"
+msgstr ""
+
+msgid "Assigned"
+msgstr ""
+
+msgid "En Route"
+msgstr ""
+
+msgid "Arrived"
+msgstr ""
+
+msgid "In Progress"
+msgstr ""
+
+msgid "Service"
+msgstr ""
+
+msgid "Additional Products"
+msgstr ""
+
+msgid "Quantity"
+msgstr ""
+
+msgid "Free Wash"
+msgstr ""
+
+msgid "Used Free Wash"
+msgstr ""
+
+msgid "Free"
+msgstr ""
+
+msgid "Discount Code Applied"
+msgstr ""
+
+msgid "Discount"
+msgstr ""
+
+msgid "Total"
+msgstr ""
+
+msgid "Start Service"
+msgstr ""
+
+msgid "Complete Service"
+msgstr ""
+
+msgid "No active bookings"
+msgstr ""
+
+msgid "All bookings completed"
+msgstr ""
+
+msgid "SAR"
+msgstr ""
+
+msgid "Price"
+msgstr ""
+
+msgid "Products"
+msgstr ""
+
+msgid "No vehicle selected"
+msgstr ""

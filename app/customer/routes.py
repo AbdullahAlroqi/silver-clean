@@ -199,6 +199,18 @@ def book():
                 flash('الحي غير موجود')
                 return redirect(url_for('customer.book'))
             
+            # Check for existing active bookings for the same vehicle on the same day
+            existing_booking = Booking.query.filter(
+                Booking.customer_id == current_user.id,
+                Booking.vehicle_id == form.vehicle_id.data,
+                Booking.date == booking_date,
+                Booking.status.notin_(['cancelled', 'completed'])
+            ).first()
+            
+            if existing_booking:
+                flash('لديك حجز آخر لنفس السيارة في نفس اليوم. الرجاء اختيار يوم آخر أو إلغاء الحجز السابق.')
+                return redirect(url_for('customer.book'))
+            
             employees = neighborhood.employees.filter_by(role='employee').all()
             available_employee = None
             

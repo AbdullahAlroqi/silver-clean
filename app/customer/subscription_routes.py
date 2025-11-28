@@ -81,6 +81,7 @@ def subscribe_details(package_id):
             package_id=package.id,
             vehicle_id=vehicle_id,
             neighborhood_id=neighborhood_id,
+            preferred_time=preferred_time,  # Save preferred time
             plan_type=package.name_ar,
             remaining_washes=package.wash_count,
             start_date=datetime.now().date(),
