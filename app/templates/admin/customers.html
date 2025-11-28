@@ -80,6 +80,10 @@
                             title="تعديل الغسلات">
                             <i class="fas fa-gift"></i>
                         </button>
+                        <button onclick="deleteCustomer({{ customer.id }}, '{{ customer.username }}')"
+                            class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs" title="حذف العميل">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 </td>
             </tr>
@@ -183,6 +187,16 @@
 
     function closeWashesModal() {
         document.getElementById('washesModal').classList.add('hidden');
+    }
+
+    function deleteCustomer(customerId, customerName) {
+        if (confirm('هل أنت متأكد من حذف العميل "' + customerName + '"?\n\nسيتم حذف جميع البيانات المرتبطة:\n• المركبات\n• الحجوزات\n• الاشتراكات\n• الإشعارات\n\n⚠️ هذا الإجراء لا يمكن التراجع عنه!')) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/admin/customers/' + customerId + '/delete';
+            document.body.appendChild(form);
+            form.submit();
+        }
     }
 </script>
 {% endblock %}
