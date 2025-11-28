@@ -512,6 +512,48 @@ def update_washes(id):
     flash(f'تم {action} {abs(washes)} غسلة مجانية للعميل {customer.username}')
     return redirect(url_for('admin.customers'))
 
+@bp.route('/customers/<int:id>/delete', methods=['POST'])
+def delete_customer(id):
+    """Delete customer and all related data"""
+    from app.models import Vehicle
+    
+    customer = User.query.get_or_404(id)
+    
+    # Verify customer role
+    if customer.role != 'customer':
+        flash('لا يمكن حذف هذا المستخدم', 'error')
+        return redirect(url_for('admin.customers'))
+    
+    # Delete related data in correct order
+    # 1. Delete vehicles
+    Vehicle.query.filter_by(user_id=customer.id).delete()
+    
+    # 2. Delete booking products first, then bookings
+    for booking in Booking.query.filter_by(customer_id=customer.id).all():
+        BookingProduct.query.filter_by(booking_id=booking.id).delete()
+        db.session.delete(booking)
+    
+    # 3. Update bookings where customer is employee (set to NULL)
+    Booking.query.filter_by(employee_id=customer.id).update({'employee_id': None})
+    
+    # 4. Delete subscriptions
+    Subscription.query.filter_by(customer_id=customer.id).delete()
+    
+    # 5. Delete notifications
+    Notification.query.filter_by(user_id=customer.id).delete()
+    
+    # 6. Delete push subscriptions
+    PushSubscription.query.filter_by(user_id=customer.id).delete()
+    
+    # Finally, delete the customer
+    username = customer.username
+    db.session.delete(customer)
+    db.session.commit()
+    
+    flash(f'تم حذف العميل {username} وجميع بياناته بنجاح', 'success')
+    return redirect(url_for('admin.customers'))
+
+
 @bp.route('/customers/<int:id>/stats')
 def customer_stats(id):
     customer = User.query.get_or_404(id)
