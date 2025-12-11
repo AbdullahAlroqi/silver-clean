@@ -78,8 +78,12 @@
                         <a href="{{ url_for('admin.delete_subscription', id=sub.id) }}" class="text-red-400"
                             onclick="return confirm('حذف؟')"><i class="fas fa-trash"></i></a>
                         {% endif %}
-                        <a href="{{ url_for('admin.whatsapp_customer', id=sub.id) }}" target="_blank"
-                            class="text-green-500"><i class="fab fa-whatsapp"></i></a>
+                        {% set phone = sub.customer.phone %}
+                        {% if phone and phone.startswith('0') %}
+                        {% set phone = '+966' ~ phone[1:] %}
+                        {% endif %}
+                        <a href="https://wa.me/{{ phone }}" target="_blank" class="text-green-500"><i
+                                class="fab fa-whatsapp"></i></a>
                     </div>
                 </td>
             </tr>
@@ -231,6 +235,11 @@
                     <input type="number" name="remaining_washes" id="editWashes" min="0"
                         class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
                 </div>
+                <div>
+                    <label class="block text-sm mb-2">تاريخ الانتهاء</label>
+                    <input type="date" name="end_date" id="editEndDate"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                </div>
             </div>
             <div class="flex gap-2">
                 <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">حفظ</button>
@@ -356,6 +365,15 @@
 
         document.getElementById('editForm').action = `/admin/subscriptions/${id}/edit`;
         document.getElementById('editWashes').value = sub.remaining_washes;
+
+        if (sub.end_date) {
+            // Format date as YYYY-MM-DD for input type="date"
+            const dateObj = new Date(sub.end_date);
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            document.getElementById('editEndDate').value = `${year}-${month}-${day}`;
+        }
 
         if (sub.city_id) {
             document.getElementById('editCity').value = sub.city_id;

@@ -2,7 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app import db
 from app.customer import bp
-from app.customer.forms import VehicleForm, BookingForm
+from app.customer.forms import VehicleForm, BookingForm, EditProfileForm, ChangePasswordForm
 from app.models import Vehicle, Service, Booking, City, Neighborhood, VehicleSize
 
 @bp.before_request
@@ -13,7 +13,17 @@ def before_request():
 @bp.route('/')
 def index():
     upcoming_bookings = current_user.bookings.filter(Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])).all()
-    return render_template('customer/index.html', upcoming_bookings=upcoming_bookings)
+    
+    # Check for unrated completed bookings
+    unrated_booking = Booking.query.filter(
+        Booking.customer_id == current_user.id, 
+        Booking.status == 'completed', 
+        (Booking.rating == None) | (Booking.rating == 0)
+    ).order_by(Booking.date.desc(), Booking.time.desc()).first()
+    
+    return render_template('customer/index.html', 
+                         upcoming_bookings=upcoming_bookings,
+                         unrated_booking=unrated_booking)
 
 @bp.route('/bookings')
 def my_bookings():
@@ -267,7 +277,8 @@ def book():
                 status='assigned',
                 discount_code_id=discount_code.id if discount_code else None,
                 used_free_wash=use_free_wash,
-                vehicle_size_price=0.0
+                vehicle_size_price=0.0,
+                payment_method=request.form.get('payment_method', 'cash')
             )
             
             # Get vehicle size price
@@ -604,3 +615,71 @@ def subscribe_details(package_id):
 @bp.route('/loyalty')
 def loyalty():
     return render_template('customer/loyalty.html')
+
+@bp.route('/profile', methods=['GET', 'POST'])
+def profile():
+    profile_form = EditProfileForm()
+    password_form = ChangePasswordForm()
+    
+    if 'submit_profile' in request.form and profile_form.validate_on_submit():
+        current_user.username = profile_form.username.data
+        current_user.email = profile_form.email.data
+        current_user.phone = profile_form.phone.data
+        db.session.commit()
+        flash('تم تحديث الملف الشخصي بنجاح')
+        return redirect(url_for('customer.profile'))
+        
+    if 'submit_password' in request.form and password_form.validate_on_submit():
+        if not current_user.check_password(password_form.current_password.data):
+            flash('كلمة المرور الحالية غير صحيحة', 'error')
+        else:
+            current_user.set_password(password_form.new_password.data)
+            db.session.commit()
+            flash('تم تغيير كلمة المرور بنجاح')
+            return redirect(url_for('customer.profile'))
+            
+    # Pre-populate profile form
+    if request.method == 'GET':
+        profile_form.username.data = current_user.username
+        profile_form.email.data = current_user.email
+        profile_form.phone.data = current_user.phone
+        
+    return render_template('customer/profile.html', 
+                         profile_form=profile_form, 
+                         password_form=password_form)
+
+@bp.route('/booking/<int:booking_id>/rate', methods=['GET', 'POST'])
+@login_required
+def rate_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    
+    # Security check: ensure booking belongs to current user
+    if booking.customer_id != current_user.id:
+        flash('لا يمكنك تقييم هذا الحجز', 'error')
+        return redirect(url_for('main.index'))
+        
+    # Ensure booking is completed
+    if booking.status != 'completed':
+        flash('لا يمكن تقييم الحجز قبل اكتماله', 'warning')
+        return redirect(url_for('customer.my_bookings'))
+        
+    # Check if already rated
+    if booking.rating:
+        flash('لقد قمت بتقييم هذا الحجز مسبقاً', 'info')
+        return redirect(url_for('customer.my_bookings'))
+
+    if request.method == 'POST':
+        rating = request.form.get('rating')
+        comment = request.form.get('comment')
+        
+        if rating:
+            booking.rating = int(rating)
+            booking.rating_comment = comment
+            booking.rating_date = datetime.utcnow()
+            db.session.commit()
+            flash('شكراً لك! تم استلام تقييمك بنجاح', 'success')
+            return redirect(url_for('customer.my_bookings'))
+        else:
+            flash('الرجاء اختيار التقييم', 'error')
+            
+    return render_template('customer/rate_booking.html', booking=booking)

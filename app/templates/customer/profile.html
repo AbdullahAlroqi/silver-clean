@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-white mb-8">الملف الشخصي</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Edit Profile Section -->
+        <div class="bg-primary p-6 rounded-lg shadow-lg border border-gray-700">
+            <h2 class="text-xl font-bold text-accent mb-6">تعديل البيانات الشخصية</h2>
+            <form action="" method="post" class="space-y-4">
+                {{ profile_form.hidden_tag() }}
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">اسم المستخدم</label>
+                    {{ profile_form.username(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                    focus:outline-none focus:border-accent") }}
+                    {% for error in profile_form.username.errors %}
+                    <span class="text-red-500 text-xs">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">البريد الإلكتروني</label>
+                    {{ profile_form.email(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                    focus:outline-none focus:border-accent") }}
+                    {% for error in profile_form.email.errors %}
+                    <span class="text-red-500 text-xs">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">رقم الجوال</label>
+                    {{ profile_form.phone(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                    focus:outline-none focus:border-accent") }}
+                    {% for error in profile_form.phone.errors %}
+                    <span class="text-red-500 text-xs">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="pt-4">
+                    {{ profile_form.submit_profile(class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-2
+                    px-4 rounded transition duration-200") }}
+                </div>
+            </form>
+        </div>
+
+        <!-- Change Password Section -->
+        <div class="bg-primary p-6 rounded-lg shadow-lg border border-gray-700">
+            <h2 class="text-xl font-bold text-accent mb-6">تغيير كلمة المرور</h2>
+            <form action="" method="post" class="space-y-4">
+                {{ password_form.hidden_tag() }}
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">كلمة المرور الحالية</label>
+                    {{ password_form.current_password(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2
+                    text-white focus:outline-none focus:border-accent") }}
+                    {% for error in password_form.current_password.errors %}
+                    <span class="text-red-500 text-xs">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">كلمة المرور الجديدة</label>
+                    {{ password_form.new_password(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2
+                    text-white focus:outline-none focus:border-accent") }}
+                    {% for error in password_form.new_password.errors %}
+                    <span class="text-red-500 text-xs">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">تأكيد كلمة المرور</label>
+                    {{ password_form.confirm_password(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2
+                    text-white focus:outline-none focus:border-accent") }}
+                    {% for error in password_form.confirm_password.errors %}
+                    <span class="text-red-500 text-xs">{{ error }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="pt-4">
+                    {{ password_form.submit_password(class="w-full bg-green-600 hover:bg-green-700 text-white font-bold
+                    py-2 px-4 rounded transition duration-200") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

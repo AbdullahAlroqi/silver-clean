@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-md">
+    <div class="bg-primary rounded-lg shadow-lg p-6 text-center">
+        <div class="mb-6">
+            <i class="fas fa-check-circle text-green-500 text-6xl mb-4 animate-bounce"></i>
+            <h1 class="text-2xl font-bold text-white mb-2">تم الانتهاء من الغسيل!</h1>
+            <p class="text-gray-300">نأمل أن تكون راضياً عن خدمتنا. رأيك يهمنا!</p>
+        </div>
+
+        <form action="" method="post" class="space-y-6">
+            <!-- Star Rating -->
+            <div class="flex flex-col items-center">
+                <label class="text-lg font-medium text-white mb-2">كيف تقيم الموظف {{ booking.employee.username
+                    }}؟</label>
+                <div class="flex flex-row-reverse justify-center gap-2 text-3xl">
+                    <input type="radio" name="rating" value="5" id="star5" class="hidden peer/5">
+                    <label for="star5"
+                        class="cursor-pointer text-gray-600 peer-checked/5:text-yellow-400 hover:text-yellow-400 peer-hover/5:text-yellow-400 transition"><i
+                            class="fas fa-star"></i></label>
+
+                    <input type="radio" name="rating" value="4" id="star4" class="hidden peer/4">
+                    <label for="star4"
+                        class="cursor-pointer text-gray-600 peer-checked/4:text-yellow-400 hover:text-yellow-400 peer-hover/4:text-yellow-400 peer-checked/5:text-yellow-400 peer-hover/5:text-yellow-400 transition"><i
+                            class="fas fa-star"></i></label>
+
+                    <input type="radio" name="rating" value="3" id="star3" class="hidden peer/3">
+                    <label for="star3"
+                        class="cursor-pointer text-gray-600 peer-checked/3:text-yellow-400 hover:text-yellow-400 peer-hover/3:text-yellow-400 peer-checked/4:text-yellow-400 peer-hover/4:text-yellow-400 peer-checked/5:text-yellow-400 peer-hover/5:text-yellow-400 transition"><i
+                            class="fas fa-star"></i></label>
+
+                    <input type="radio" name="rating" value="2" id="star2" class="hidden peer/2">
+                    <label for="star2"
+                        class="cursor-pointer text-gray-600 peer-checked/2:text-yellow-400 hover:text-yellow-400 peer-hover/2:text-yellow-400 peer-checked/3:text-yellow-400 peer-hover/3:text-yellow-400 peer-checked/4:text-yellow-400 peer-hover/4:text-yellow-400 peer-checked/5:text-yellow-400 peer-hover/5:text-yellow-400 transition"><i
+                            class="fas fa-star"></i></label>
+
+                    <input type="radio" name="rating" value="1" id="star1" class="hidden peer/1">
+                    <label for="star1"
+                        class="cursor-pointer text-gray-600 peer-checked/1:text-yellow-400 hover:text-yellow-400 peer-hover/1:text-yellow-400 peer-checked/2:text-yellow-400 peer-hover/2:text-yellow-400 peer-checked/3:text-yellow-400 peer-hover/3:text-yellow-400 peer-checked/4:text-yellow-400 peer-hover/4:text-yellow-400 peer-checked/5:text-yellow-400 peer-hover/5:text-yellow-400 transition"><i
+                            class="fas fa-star"></i></label>
+                </div>
+            </div>
+
+            <!-- Comment -->
+            <div>
+                <label for="comment" class="block text-sm font-medium text-gray-300 mb-2 text-right">ملاحظاتك
+                    (اختياري)</label>
+                <textarea name="comment" id="comment" rows="3"
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-accent"
+                    placeholder="اكتب تعليقك هنا..."></textarea>
+            </div>
+
+            <button type="submit"
+                class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200 transform hover:scale-105">
+                إرسال التقييم
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+    /* Custom logic to handle star coloring based on selection and hover */
+    /* This is a simplified CSS-only star rating. 
+       The logic is: if a radio is checked, it and all preceding siblings (which are actually visually AFTER it due to flex-row-reverse) get colored. 
+       However, standard CSS sibling selectors only select *following* siblings.
+       So we use flex-row-reverse to visually order them 1-2-3-4-5 but in DOM they are 5-4-3-2-1.
+       Thus, clicking '5' (first in DOM) colors itself.
+       Clicking '4' (second in DOM) colors itself.
+       Wait, the standard trick is:
+       DOM: 5, 4, 3, 2, 1
+       Visual: 1, 2, 3, 4, 5 (via flex-reverse)
+       If I hover 4 (2nd in DOM), 4 and 5 (previous siblings in DOM, but next in CSS selector?) No, CSS selects next siblings.
+       So if I hover 4, I can select 3, 2, 1. That's backwards.
+       
+       Let's stick to the peer class logic I wrote above, but double check it.
+       peer-checked/5 means "if peer with name/id 5 is checked".
+       Actually, tailwind peer logic is based on previous sibling.
+       Input 5 is first. Label 5 is next.
+       Input 4 is next. Label 4 is next.
+       
+       The standard CSS trick:
+       .rating { flex-direction: row-reverse; }
+       .rating input { display: none; }
+       .rating label:hover, .rating label:hover ~ label, .rating input:checked ~ label { color: yellow; }
+       
+       Let's implement that via custom CSS for simplicity and reliability.
+    */
+</style>
+<script>
+    // Simple script to handle the visual state if CSS is tricky
+    const stars = document.querySelectorAll('input[name="rating"]');
+    const labels = document.querySelectorAll('label[for^="star"]');
+
+    // Actually, let's use the CSS-only approach which is robust
+    // I'll inject a style block to handle the peer logic correctly or just use standard CSS
+</script>
+
+<style>
+    .star-rating {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .star-rating input {
+        display: none;
+    }
+
+    .star-rating label {
+        cursor: pointer;
+        color: #4B5563;
+        /* gray-600 */
+        font-size: 1.875rem;
+        /* 3xl */
+        transition: color 0.2s;
+    }
+
+    .star-rating label:hover,
+    .star-rating label:hover~label,
+    .star-rating input:checked~label {
+        color: #FACC15;
+        /* yellow-400 */
+    }
+</style>
+
+<!-- Replace the complex tailwind structure with this clean one -->
+<script>
+    document.querySelector('.flex-row-reverse').className = 'star-rating';
+    // Remove the inner inputs/labels and rebuild or just replace the inner HTML
+    const container = document.querySelector('.star-rating');
+    container.innerHTML = `
+        <input type="radio" name="rating" value="5" id="star5"><label for="star5"><i class="fas fa-star"></i></label>
+        <input type="radio" name="rating" value="4" id="star4"><label for="star4"><i class="fas fa-star"></i></label>
+        <input type="radio" name="rating" value="3" id="star3"><label for="star3"><i class="fas fa-star"></i></label>
+        <input type="radio" name="rating" value="2" id="star2"><label for="star2"><i class="fas fa-star"></i></label>
+        <input type="radio" name="rating" value="1" id="star1"><label for="star1"><i class="fas fa-star"></i></label>
+    `;
+</script>
+{% endblock %}

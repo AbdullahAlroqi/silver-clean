@@ -13,6 +13,9 @@
     </div>
 </div>
 
+<!-- Debug Info -->
+
+
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
     <a href="{{ url_for('customer.book') }}"
         class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
@@ -60,7 +63,26 @@
                 <h4 class="font-bold text-white">{{ booking.service.name_ar }}</h4>
                 <p class="text-sm text-gray-400">{{ booking.vehicle.brand }} - {{ booking.vehicle.plate_number }}</p>
             </div>
-            <span class="bg-blue-900 text-blue-200 text-xs px-2 py-1 rounded">{{ booking.status }}</span>
+            {% set status_map = {
+            'pending': 'قيد الانتظار',
+            'assigned': 'تم التعيين',
+            'en_route': 'في الطريق',
+            'arrived': 'وصل الموظف',
+            'in_progress': 'جاري التنفيذ',
+            'completed': 'مكتمل',
+            'cancelled': 'ملغي'
+            } %}
+            {% set status_colors = {
+            'pending': 'bg-gray-600 text-gray-200',
+            'assigned': 'bg-blue-600 text-white',
+            'en_route': 'bg-yellow-600 text-white',
+            'arrived': 'bg-orange-600 text-white',
+            'in_progress': 'bg-purple-600 text-white',
+            'completed': 'bg-green-600 text-white',
+            'cancelled': 'bg-red-600 text-white'
+            } %}
+            <span class="{{ status_colors[booking.status] }} text-xs px-2 py-1 rounded">{{ status_map[booking.status]
+                }}</span>
         </div>
         <div class="flex items-center text-gray-300 text-sm">
             <i class="far fa-clock ml-2"></i>
@@ -71,4 +93,30 @@
     <p class="text-gray-500 text-center">لا يوجد حجوزات قادمة.</p>
     {% endfor %}
 </div>
+
+{% if unrated_booking %}
+<div id="ratingModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+    <div class="bg-primary rounded-lg p-6 max-w-sm w-full mx-4 text-center">
+        <div class="mb-4">
+            <i class="fas fa-star text-yellow-400 text-5xl mb-2 animate-pulse"></i>
+            <h3 class="text-xl font-bold text-white">كيف كانت خدمتك؟</h3>
+            <p class="text-gray-300 mt-2">نرجو تقييم خدمة الغسيل للمركبة <br> <span class="text-accent">{{
+                    unrated_booking.vehicle.brand }}</span></p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{{ url_for('customer.rate_booking', booking_id=unrated_booking.id) }}"
+                class="flex-1 bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+                تقييم الآن
+            </a>
+            <button onclick="document.getElementById('ratingModal').style.display='none'"
+                class="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition">
+                لاحقاً
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
 {% endblock %}

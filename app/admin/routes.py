@@ -4,7 +4,7 @@ from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
 from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
 from urllib.parse import quote
@@ -644,6 +644,34 @@ def edit_customer(id):
         return redirect(url_for('admin.customers'))
     
     return render_template('admin/edit_customer.html', customer=customer)
+
+@bp.route('/ratings')
+def ratings():
+    # Filters
+    employee_id = request.args.get('employee_id')
+    period = request.args.get('period', 'all')
+    
+    query = Booking.query.filter(Booking.rating.isnot(None)).order_by(Booking.rating_date.desc())
+    
+    if employee_id:
+        query = query.filter(Booking.employee_id == int(employee_id))
+        
+    if period != 'all':
+        today = date.today()
+        if period == 'today':
+            query = query.filter(func.date(Booking.rating_date) == today)
+        elif period == 'month':
+            query = query.filter(
+                extract('year', Booking.rating_date) == today.year,
+                extract('month', Booking.rating_date) == today.month
+            )
+        elif period == 'year':
+            query = query.filter(extract('year', Booking.rating_date) == today.year)
+            
+    ratings = query.all()
+    employees = User.query.filter_by(role='employee').all()
+    
+    return render_template('admin/ratings.html', ratings=ratings, employees=employees)
 
 @bp.route('/customers/export')
 def export_customers():
@@ -1334,6 +1362,12 @@ def edit_subscription(id):
     if remaining_washes:
         subscription.remaining_washes = int(remaining_washes)
     
+    # Update end date
+    end_date_str = request.form.get('end_date')
+    if end_date_str:
+        from datetime import datetime
+        subscription.end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    
     db.session.commit()
     flash('تم تحديث الاشتراك بنجاح')
     return redirect(url_for('admin.subscriptions', status='active'))
@@ -1863,6 +1897,71 @@ def reports():
         Subscription.status == 'active'
     )
     
+    # Payment Method Stats
+    cash_bookings = Booking.query.join(Neighborhood).filter(
+        Booking.date >= from_date,
+        Booking.date <= to_date,
+        Booking.status == 'completed',
+        Booking.payment_method == 'cash'
+    )
+    
+    card_bookings = Booking.query.join(Neighborhood).filter(
+        Booking.date >= from_date,
+        Booking.date <= to_date,
+        Booking.status == 'completed',
+        Booking.payment_method == 'card'
+    )
+    
+    if city_id:
+        cash_bookings = cash_bookings.filter(Neighborhood.city_id == city_id)
+        card_bookings = card_bookings.filter(Neighborhood.city_id == city_id)
+        
+    cash_count = cash_bookings.count()
+    card_count = card_bookings.count()
+    
+    # Calculate totals for cash/card
+    cash_total = 0
+    for b in cash_bookings.all():
+        price = b.service.price + (b.vehicle_size_price or 0)
+        # Add products
+        for bp in b.products:
+            price += bp.product.price * bp.quantity
+        # Apply discount/free wash
+        if b.used_free_wash:
+            price = 0 # Or just products if free wash only covers service? Assuming free wash covers service only.
+            # If free wash covers service, products are still paid?
+            # Let's assume free wash makes service 0.
+            # Re-calculate products only
+            p_total = sum(bp.product.price * bp.quantity for bp in b.products)
+            price = p_total
+        elif b.discount_code:
+            if b.discount_code.discount_type == 'percentage':
+                disc = (b.service.price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
+                price -= disc
+            else:
+                price -= b.discount_code.value
+            price = max(0, price)
+        
+        cash_total += price
+
+    card_total = 0
+    for b in card_bookings.all():
+        price = b.service.price + (b.vehicle_size_price or 0)
+        for bp in b.products:
+            price += bp.product.price * bp.quantity
+        if b.used_free_wash:
+             p_total = sum(bp.product.price * bp.quantity for bp in b.products)
+             price = p_total
+        elif b.discount_code:
+            if b.discount_code.discount_type == 'percentage':
+                disc = (b.service.price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
+                price -= disc
+            else:
+                price -= b.discount_code.value
+            price = max(0, price)
+        
+        card_total += price
+
     # Filter for supervisor
     if current_user.role == 'supervisor':
         supervisor_neighborhood_ids = []
@@ -2006,6 +2105,10 @@ def reports():
                            total_revenue=total_revenue,
                            top_services=top_services,
                            employee_stats=employee_stats,
+                           cash_count=cash_count,
+                           cash_total=cash_total,
+                           card_count=card_count,
+                           card_total=card_total,
                            from_date=from_date.strftime('%Y-%m-%d'),
                            city_id=city_id,
                            to_date=to_date.strftime('%Y-%m-%d'))
@@ -2051,6 +2154,8 @@ def settings():
         settings.facebook_url = form.facebook_url.data
         settings.twitter_url = form.twitter_url.data
         settings.instagram_url = form.instagram_url.data
+        settings.tiktok_url = form.tiktok_url.data
+        settings.mawthooq_url = form.mawthooq_url.data
         settings.terms_content = form.terms_content.data
         
         if form.logo.data:
@@ -2084,6 +2189,8 @@ def settings():
         form.facebook_url.data = settings.facebook_url
         form.twitter_url.data = settings.twitter_url
         form.instagram_url.data = settings.instagram_url
+        form.tiktok_url.data = settings.tiktok_url
+        form.mawthooq_url.data = settings.mawthooq_url
         form.terms_content.data = settings.terms_content
 
     return render_template('admin/settings.html', form=form, settings=settings)

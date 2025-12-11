@@ -93,18 +93,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Poll for unread notifications count
     async function checkUnreadNotifications() {
+        const isLoggedIn = document.body.getAttribute('data-user-logged-in') === 'true';
+        if (!isLoggedIn) return;
+
         try {
             const response = await fetch('/api/notifications/unread-count');
             if (response.ok) {
-                const data = await response.json();
-                const badge = document.getElementById('notification-badge');
+                // Check content type to ensure it's JSON (avoid HTML redirects)
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await response.json();
+                    const badge = document.getElementById('notification-badge');
 
-                if (badge) {
-                    if (data.count > 0) {
-                        badge.textContent = data.count;
-                        badge.classList.remove('hidden');
-                    } else {
-                        badge.classList.add('hidden');
+                    if (badge) {
+                        if (data.count > 0) {
+                            badge.textContent = data.count;
+                            badge.classList.remove('hidden');
+                        } else {
+                            badge.classList.add('hidden');
+                        }
                     }
                 }
             }

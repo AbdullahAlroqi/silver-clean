@@ -66,10 +66,11 @@ class SiteSettingsForm(FlaskForm):
     primary_color = StringField('Primary Color')
     accent_color = StringField('Accent Color')
     whatsapp_number = StringField('WhatsApp Number')
-    facebook_url = StringField('Facebook URL')
+    facebook_url = StringField('Snapchat URL')
     twitter_url = StringField('Twitter URL')
     instagram_url = StringField('Instagram URL')
     tiktok_url = StringField('TikTok URL')
+    mawthooq_url = StringField('Mawthooq URL')
     terms_content = TextAreaField('Terms and Conditions')
     submit = SubmitField('Save Settings')
 

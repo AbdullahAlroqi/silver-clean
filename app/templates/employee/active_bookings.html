@@ -51,6 +51,16 @@
                     <p class="text-accent font-bold">{{ booking.service.price + (booking.vehicle_size_price or 0) }}
                         {{ _('SAR') }}</p>
                 </div>
+                <div class="mt-2 flex items-center gap-2">
+                    <span class="text-gray-400 text-sm">{{ _('Payment Method') }}:</span>
+                    <span class="font-bold text-white flex items-center gap-1">
+                        {% if booking.payment_method == 'card' %}
+                        <i class="fas fa-credit-card text-blue-500"></i> {{ _('Card') }}
+                        {% else %}
+                        <i class="fas fa-money-bill-wave text-green-500"></i> {{ _('Cash') }}
+                        {% endif %}
+                    </span>
+                </div>
             </div>
             <div class="col-span-2">
                 <p class="text-gray-400 text-sm mb-2">{{ _('Vehicle') }}</p>

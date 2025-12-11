@@ -13,7 +13,7 @@
 
     <h2 class="text-3xl font-bold text-white mb-8 text-center">حجز خدمة جديدة</h2>
 
-    <!-- Progress Steps (Now 5 steps) -->
+    <!-- Progress Steps (Now 4 steps) -->
     <div class="mb-8">
         <div class="flex justify-between items-center">
             <div class="flex-1 text-center">
@@ -27,27 +27,20 @@
                 <div id="step2-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     2</div>
-                <p class="text-xs text-gray-400">الخدمة</p>
+                <p class="text-xs text-gray-400">الخدمة والدفع</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line2"></div>
             <div class="flex-1 text-center">
                 <div id="step3-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     3</div>
-                <p class="text-xs text-gray-400">السيارة</p>
+                <p class="text-xs text-gray-400">الموعد</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line3"></div>
             <div class="flex-1 text-center">
                 <div id="step4-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     4</div>
-                <p class="text-xs text-gray-400">الموعد</p>
-            </div>
-            <div class="flex-1 h-1 bg-gray-700" id="line4"></div>
-            <div class="flex-1 text-center">
-                <div id="step5-indicator"
-                    class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
-                    5</div>
                 <p class="text-xs text-gray-400">المراجعة</p>
             </div>
         </div>
@@ -86,11 +79,11 @@
                 </div>
             </div>
 
-            <!-- Step 2: Service & Vehicle -->
+            <!-- Step 2: Service, Vehicle & Payment -->
             <div id="step2" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
                     <i class="fas fa-spray-can ml-3"></i>
-                    اختر الخدمة والسيارة
+                    اختر الخدمة، السيارة وطريقة الدفع
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
@@ -102,6 +95,29 @@
                         <label class="block text-sm font-medium text-gray-300 mb-2">المركبة</label>
                         {{ form.vehicle_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3
                         text-white focus:outline-none focus:ring-2 focus:ring-accent") }}
+                    </div>
+                </div>
+
+                <!-- Payment Method Section -->
+                <div class="mt-6 border-t border-gray-700 pt-6">
+                    <h4 class="text-lg font-bold text-white mb-4">طريقة الدفع</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="payment_method" value="cash" class="peer sr-only" checked>
+                            <div
+                                class="bg-darkbg border border-gray-600 rounded-lg p-4 hover:border-accent peer-checked:border-accent peer-checked:bg-accent/10 transition flex items-center gap-3">
+                                <i class="fas fa-money-bill-wave text-green-500 text-xl"></i>
+                                <span class="text-white font-bold">كاش</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="payment_method" value="card" class="peer sr-only">
+                            <div
+                                class="bg-darkbg border border-gray-600 rounded-lg p-4 hover:border-accent peer-checked:border-accent peer-checked:bg-accent/10 transition flex items-center gap-3">
+                                <i class="fas fa-credit-card text-blue-500 text-xl"></i>
+                                <span class="text-white font-bold">شبكة / مدى</span>
+                            </div>
+                        </label>
                     </div>
                 </div>
 
@@ -165,34 +181,8 @@
                 </div>
             </div>
 
-            <!-- Step 3: Confirmation -->
+            <!-- Step 3: Time & Products (Previously Step 4) -->
             <div id="step3" class="step-content hidden">
-                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
-                    <i class="fas fa-car ml-3"></i>
-                    تأكيد الاختيار
-                </h3>
-                <div class="bg-darkbg p-6 rounded-lg">
-                    <p class="text-gray-300 mb-4">
-                        الخدمة: <span class="text-accent font-bold" id="service-name"></span>
-                    </p>
-                    <p class="text-gray-300">
-                        السيارة: <span class="text-accent font-bold" id="vehicle-name"></span>
-                    </p>
-                </div>
-                <div class="mt-6 flex justify-between">
-                    <button type="button" onclick="prevStep(2)"
-                        class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
-                        <i class="fas fa-arrow-right mr-2"></i> السابق
-                    </button>
-                    <button type="button" onclick="nextStep(4)"
-                        class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
-                        التالي <i class="fas fa-arrow-left mr-2"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Step 4: Time & Products -->
-            <div id="step4" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
                     <i class="fas fa-clock ml-3"></i>
                     اختر الموعد
@@ -231,19 +221,19 @@
                 </div>
 
                 <div class="mt-6 flex justify-between">
-                    <button type="button" onclick="prevStep(3)"
+                    <button type="button" onclick="prevStep(2)"
                         class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
                         <i class="fas fa-arrow-right mr-2"></i> السابق
                     </button>
-                    <button type="button" onclick="nextStep(5)"
+                    <button type="button" onclick="nextStep(4)"
                         class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
                         مراجعة الطلب <i class="fas fa-arrow-left mr-2"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- Step 5: Order Review -->
-            <div id="step5" class="step-content hidden">
+            <!-- Step 4: Order Review (Previously Step 5) -->
+            <div id="step4" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
                     <i class="fas fa-file-invoice ml-3"></i>
                     مراجعة الطلب
@@ -271,6 +261,8 @@
                         <div class="text-gray-300 space-y-2">
                             <p><span class="text-gray-400">الخدمة:</span> <span id="review-service"></span></p>
                             <p><span class="text-gray-400">السيارة:</span> <span id="review-vehicle"></span></p>
+                            <p><span class="text-gray-400">طريقة الدفع:</span> <span id="review-payment"
+                                    class="font-bold text-accent"></span></p>
                             <p><span class="text-gray-400">التاريخ:</span> <span id="review-date"></span></p>
                             <p><span class="text-gray-400">الوقت:</span> <span id="review-time"></span></p>
                         </div>
@@ -320,7 +312,7 @@
                 </div>
 
                 <div class="mt-6 flex justify-between">
-                    <button type="button" onclick="prevStep(4)"
+                    <button type="button" onclick="prevStep(3)"
                         class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
                         <i class="fas fa-arrow-right mr-2"></i> السابق
                     </button>
@@ -349,7 +341,7 @@
         document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
         document.getElementById('step' + step).classList.remove('hidden');
 
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= 4; i++) {
             const indicator = document.getElementById('step' + i + '-indicator');
             const line = document.getElementById('line' + i);
 
@@ -374,8 +366,8 @@
         }
         currentStep = step;
 
-        // Update review when reaching step 5
-        if (step === 5) {
+        // Update review when reaching step 4
+        if (step === 4) {
             updateOrderReview();
         }
     }
@@ -395,11 +387,7 @@
                 alert('الرجاء اختيار الخدمة والسيارة');
                 return;
             }
-            const serviceName = document.getElementById('service-select').options[document.getElementById('service-select').selectedIndex].text;
-            const vehicleName = document.querySelector('[name="vehicle_id"]').options[document.querySelector('[name="vehicle_id"]').selectedIndex].text;
-            document.getElementById('service-name').textContent = serviceName;
-            document.getElementById('vehicle-name').textContent = vehicleName;
-        } else if (currentStep === 4) {
+        } else if (currentStep === 3) {
             const date = dateInput.value;
             const time = document.getElementById('time-select').value;
             if (!date || !time) {
@@ -428,6 +416,10 @@
 
         const vehicleSelect = document.querySelector('[name="vehicle_id"]');
         document.getElementById('review-vehicle').textContent = vehicleSelect.options[vehicleSelect.selectedIndex].text;
+
+        // Payment Method
+        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+        document.getElementById('review-payment').textContent = paymentMethod === 'cash' ? 'كاش' : 'شبكة / مدى';
 
         // Date & Time
         document.getElementById('review-date').textContent = dateInput.value;

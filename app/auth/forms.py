@@ -38,6 +38,18 @@ class RegistrationForm(FlaskForm):
         phone.data = converted_phone
         
         # Check if phone already exists
-        user = User.query.filter_by(phone=converted_phone).first()
         if user:
             raise ValidationError('رقم الجوال هذا مستخدم بالفعل.')
+
+class ResetPasswordRequestForm(FlaskForm):
+    email = StringField('البريد الإلكتروني', validators=[DataRequired(), Email()])
+    submit = SubmitField('إرسال رمز التحقق')
+
+class ResetCodeForm(FlaskForm):
+    code = StringField('رمز التحقق', validators=[DataRequired(), Length(min=6, max=6)])
+    submit = SubmitField('تحقق')
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField('كلمة المرور الجديدة', validators=[DataRequired()])
+    confirm_password = PasswordField('تأكيد كلمة المرور', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('تغيير كلمة المرور')

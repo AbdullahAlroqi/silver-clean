@@ -128,6 +128,31 @@ def update_status(id, status):
                 print(f"🔔 Notification sent result: {success}")
             
         db.session.commit()
+        
+        # If completed, send rating request notification
+        if status == 'completed':
+            try:
+                # In-app notification
+                notification = Notification(
+                    user_id=booking.customer_id,
+                    title='تم الانتهاء من الغسيل! 🌟',
+                    message='نأمل أن تكون راضياً عن خدمتنا. يرجى تقييم تجربتك.',
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(notification)
+                db.session.commit()
+                
+                # Push notification
+                send_push_notification(
+                    booking.customer,
+                    {
+                        "title": 'تم الانتهاء من الغسيل! 🌟',
+                        "body": 'نأمل أن تكون راضياً عن خدمتنا. يرجى تقييم تجربتك.',
+                        "url": url_for('customer.rate_booking', booking_id=booking.id, _external=True)
+                    }
+                )
+            except Exception as e:
+                print(f"Error sending rating notification: {e}")
     
     return redirect(request.referrer or url_for('employee.active_bookings'))
 

@@ -36,7 +36,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
-<body class="bg-darkbg text-white font-sans flex flex-col min-h-screen">
+<body class="bg-darkbg text-white font-sans flex flex-col min-h-screen"
+    data-user-logged-in="{{ 'true' if current_user.is_authenticated else 'false' }}">
     <nav class="bg-primary p-4 shadow-md">
         <div class="container mx-auto flex justify-between items-center">
             <a href="{{ url_for('main.index') }}" class="text-2xl font-bold text-accent flex items-center gap-2">
@@ -64,6 +65,13 @@
                             class="block px-4 py-2 text-white hover:bg-gray-700 text-right">Hausa</a>
                     </div>
                 </div>
+                {% endif %}
+
+                {% if current_user.role == 'customer' %}
+                <a href="{{ url_for('customer.profile') }}" class="text-white hover:text-accent transition"
+                    title="الملف الشخصي">
+                    <i class="fas fa-user-circle text-xl"></i>
+                </a>
                 {% endif %}
 
                 <a href="{{ url_for('main.notifications') }}" class="text-white hover:text-accent transition relative">
@@ -96,29 +104,115 @@
     </div>
 
     <!-- Footer -->
-    <footer class="bg-primary text-white py-6 mt-auto">
-        <div class="container mx-auto px-4 text-center">
-            <div class="flex justify-center gap-4 mb-4">
-                {% if site_settings.facebook_url %}
-                <a href="{{ site_settings.facebook_url }}" target="_blank"
-                    class="text-2xl hover:text-accent transition"><i class="fab fa-facebook"></i></a>
-                {% endif %}
-                {% if site_settings.twitter_url %}
-                <a href="{{ site_settings.twitter_url }}" target="_blank"
-                    class="text-2xl hover:text-accent transition"><i class="fab fa-twitter"></i></a>
-                {% endif %}
-                {% if site_settings.instagram_url %}
-                <a href="{{ site_settings.instagram_url }}" target="_blank"
-                    class="text-2xl hover:text-accent transition"><i class="fab fa-instagram"></i></a>
-                {% endif %}
-                {% if site_settings.tiktok_url %}
-                <a href="{{ site_settings.tiktok_url }}" target="_blank"
-                    class="text-2xl hover:text-accent transition"><i class="fab fa-tiktok"></i></a>
-                {% endif %}
+    <footer class="bg-primary text-white pt-12 pb-6 mt-auto border-t border-gray-700">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 text-right">
+
+                <!-- Column 1: Brand & About -->
+                <div>
+                    <div class="flex items-center gap-2 mb-4">
+                        <img src="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}"
+                            alt="Logo" class="h-12 w-12 object-contain">
+                        <h3 class="text-2xl font-bold text-accent">{{ site_settings.site_name or 'Silver Clean' }}</h3>
+                    </div>
+                    <p class="text-gray-400 mb-6 leading-relaxed">
+                        سيلفر كلين هي خيارك الأمثل لغسيل السيارات المتنقل في المملكة. نقدم خدمات احترافية بأعلى معايير
+                        الجودة والنظافة، نصلك أينما كنت لنوفر عليك الوقت والجهد.
+                    </p>
+                    <div class="flex gap-4">
+                        {% if site_settings.tiktok_url %}
+                        <a href="{{ site_settings.tiktok_url }}" target="_blank"
+                            class="bg-darkbg hover:bg-accent text-white w-10 h-10 rounded-lg flex items-center justify-center transition duration-300">
+                            <i class="fab fa-tiktok"></i>
+                        </a>
+                        {% endif %}
+                        {% if site_settings.instagram_url %}
+                        <a href="{{ site_settings.instagram_url }}" target="_blank"
+                            class="bg-darkbg hover:bg-accent text-white w-10 h-10 rounded-lg flex items-center justify-center transition duration-300">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        {% endif %}
+                        {% if site_settings.twitter_url %}
+                        <a href="{{ site_settings.twitter_url }}" target="_blank"
+                            class="bg-darkbg hover:bg-accent text-white w-10 h-10 rounded-lg flex items-center justify-center transition duration-300">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        {% endif %}
+                        {% if site_settings.facebook_url %}
+                        <a href="{{ site_settings.facebook_url }}" target="_blank"
+                            class="bg-darkbg hover:bg-accent text-white w-10 h-10 rounded-lg flex items-center justify-center transition duration-300">
+                            <i class="fab fa-snapchat"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Column 2: Important Links -->
+                <div>
+                    <h4 class="text-xl font-bold text-white mb-6 relative inline-block">
+                        روابط مهمة
+                        <span class="absolute bottom-[-8px] right-0 w-12 h-1 bg-accent rounded-full"></span>
+                    </h4>
+                    <ul class="space-y-3 text-gray-400">
+                        <li><a href="{{ url_for('main.terms') }}"
+                                class="hover:text-accent transition flex items-center gap-2"><i
+                                    class="fas fa-chevron-left text-xs"></i> الشروط والأحكام</a></li>
+                    </ul>
+                    {% if site_settings.mawthooq_url %}
+                    <div class="mt-6">
+                        <a href="{{ site_settings.mawthooq_url }}" target="_blank" class="inline-block">
+                            <img src="https://cdn.salla.sa/lGZvvQ/HggGV5wkFqvfBqtIJOikWbdNWOEYaPPY6kCP5BGy.png"
+                                alt="Mawthooq" class="h-16 object-contain hover:opacity-90 transition">
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Column 3: Contact Us -->
+                <div>
+                    <h4 class="text-xl font-bold text-white mb-6 relative inline-block">
+                        تواصل معنا
+                        <span class="absolute bottom-[-8px] right-0 w-12 h-1 bg-accent rounded-full"></span>
+                    </h4>
+                    <ul class="space-y-4 text-gray-400">
+                        {% if site_settings.whatsapp_number %}
+                        <li class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-darkbg rounded-lg flex items-center justify-center text-accent">
+                                <i class="fab fa-whatsapp text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">واتساب</p>
+                                <a href="https://wa.me/{{ site_settings.whatsapp_number }}" target="_blank"
+                                    class="hover:text-white dir-ltr block">{{ site_settings.whatsapp_number }}</a>
+                            </div>
+                        </li>
+                        {% endif %}
+                        <li class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-darkbg rounded-lg flex items-center justify-center text-accent">
+                                <i class="fas fa-envelope text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">البريد الإلكتروني</p>
+                                <a href="mailto:info@silverclean.com" class="hover:text-white">info@silverclean.com</a>
+                            </div>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-darkbg rounded-lg flex items-center justify-center text-accent">
+                                <i class="fas fa-file-invoice-dollar text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">الرقم الضريبي</p>
+                                <span class="text-white">311402606500003</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
             </div>
-            <p class="mb-2">&copy; 2025 {{ site_settings.site_name or 'Silver Clean' }}. جميع الحقوق محفوظة.</p>
-            <a href="{{ url_for('main.terms') }}" class="text-sm text-gray-400 hover:text-white underline">الشروط
-                والأحكام</a>
+
+            <div class="border-t border-gray-700 pt-6 text-center text-gray-500 text-sm">
+                <p>&copy; 2025 {{ site_settings.site_name or 'Silver Clean' }}. جميع الحقوق محفوظة.</p>
+            </div>
         </div>
     </footer>
 

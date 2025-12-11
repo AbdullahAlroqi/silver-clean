@@ -31,6 +31,8 @@ class User(UserMixin, db.Model):
     points = db.Column(db.Integer, default=0)
     free_washes = db.Column(db.Integer, default=0)
     push_subscription = db.Column(db.Text) # JSON string for Web Push subscription
+    reset_code = db.Column(db.String(6), nullable=True)
+    reset_code_expiration = db.Column(db.DateTime, nullable=True)
     
     # Relationships
     vehicles = db.relationship('Vehicle', backref='owner', lazy='dynamic')
@@ -117,9 +119,16 @@ class Booking(db.Model):
     location_lat = db.Column(db.Float)
     location_lng = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Rating fields
+    rating = db.Column(db.Integer, nullable=True)
+    rating_comment = db.Column(db.Text, nullable=True)
+    rating_date = db.Column(db.DateTime, nullable=True)
+
     discount_code_id = db.Column(db.Integer, db.ForeignKey('discount_code.id'), nullable=True)
     used_free_wash = db.Column(db.Boolean, default=False)
     vehicle_size_price = db.Column(db.Float, default=0.0) # Store price adjustment at time of booking
+    payment_method = db.Column(db.String(20), default='cash') # 'cash' or 'card'
     
     # Relationships
     vehicle = db.relationship('Vehicle')
@@ -198,6 +207,7 @@ class SiteSettings(db.Model):
     twitter_url = db.Column(db.String(200), default='')
     instagram_url = db.Column(db.String(200), default='')
     tiktok_url = db.Column(db.String(200), default='')
+    mawthooq_url = db.Column(db.String(200), default='')
     terms_content = db.Column(db.Text, default='')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 from flask_login import login_user, logout_user, current_user
 from app import db
 from app.auth import bp
-from app.auth.forms import LoginForm, RegistrationForm
+from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetCodeForm, ResetPasswordForm
 from app.models import User
 
 def convert_arabic_to_english_numerals(text):
@@ -87,3 +87,86 @@ def register():
         flash('تم التسجيل بنجاح! يمكنك الآن تسجيل الدخول.')
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', title='التسجيل', form=form)
+
+@bp.route('/reset_password_request', methods=['GET', 'POST'])
+def reset_password_request():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+    form = ResetPasswordRequestForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            import random
+            import string
+            from datetime import datetime, timedelta
+            from app.auth.email import send_password_reset_email
+            
+            # Generate 6-digit code
+            code = ''.join(random.choices(string.digits, k=6))
+            user.reset_code = code
+            user.reset_code_expiration = datetime.utcnow() + timedelta(minutes=15)
+            db.session.commit()
+            
+            send_password_reset_email(user, code)
+            
+            # Store email in session to verify later
+            from flask import session
+            session['reset_email'] = user.email
+            flash('تم إرسال رمز التحقق إلى بريدك الإلكتروني.')
+            return redirect(url_for('auth.verify_code'))
+        else:
+            flash('البريد الإلكتروني غير مسجل لدينا.', 'error')
+    return render_template('auth/reset_request.html', title='استعادة كلمة المرور', form=form)
+
+@bp.route('/verify_code', methods=['GET', 'POST'])
+def verify_code():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+    
+    from flask import session
+    email = session.get('reset_email')
+    if not email:
+        return redirect(url_for('auth.reset_password_request'))
+        
+    form = ResetCodeForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=email).first()
+        from datetime import datetime
+        if user and user.reset_code == form.code.data and user.reset_code_expiration > datetime.utcnow():
+            session['reset_verified'] = True
+            return redirect(url_for('auth.reset_password'))
+        else:
+            flash('رمز التحقق غير صحيح أو منتهي الصلاحية.', 'error')
+            
+    return render_template('auth/verify_code.html', title='التحقق من الرمز', form=form)
+
+@bp.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+        
+    from flask import session
+    if not session.get('reset_verified'):
+        return redirect(url_for('auth.reset_password_request'))
+        
+    email = session.get('reset_email')
+    if not email:
+        return redirect(url_for('auth.reset_password_request'))
+        
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.set_password(form.password.data)
+            user.reset_code = None
+            user.reset_code_expiration = None
+            db.session.commit()
+            
+            # Clear session
+            session.pop('reset_email', None)
+            session.pop('reset_verified', None)
+            
+            flash('تم تغيير كلمة المرور بنجاح.')
+            return redirect(url_for('auth.login'))
+            
+    return render_template('auth/reset_password.html', title='تغيير كلمة المرور', form=form)
