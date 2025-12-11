@@ -2116,14 +2116,18 @@ def reports():
 # --- Settings (Loyalty, Admin Accounts, Backup) ---
 @bp.route('/settings/loyalty', methods=['GET', 'POST'])
 def loyalty_settings():
-    # Simple implementation: store in a config file or database
-    # For now, just show current value (hardcoded 10)
-    if request.method == 'POST':
-        threshold = request.form.get('threshold', 10)
-        # TODO: Save to database settings table
-        flash(f'تم تحديث عتبة الولاء إلى {threshold} نقطة')
+    settings = SiteSettings.get_settings()
     
-    return render_template('admin/loyalty_settings.html', current_threshold=10)
+    if request.method == 'POST':
+        threshold = request.form.get('threshold', type=int)
+        if threshold and threshold > 0:
+            settings.loyalty_points_threshold = threshold
+            db.session.commit()
+            flash(f'تم تحديث عتبة الولاء إلى {threshold} نقطة')
+        else:
+            flash('الرجاء إدخال قيمة صحيحة', 'error')
+    
+    return render_template('admin/loyalty_settings.html', current_threshold=settings.loyalty_points_threshold)
 
 @bp.route('/backup/export-json')
 def backup_json():

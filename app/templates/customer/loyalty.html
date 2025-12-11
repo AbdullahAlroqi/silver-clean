@@ -24,11 +24,12 @@
         </div>
 
         <div class="w-full bg-gray-700 rounded-full h-4 mb-4">
-            {% set progress = (current_user.points / 10 * 100) if current_user.points < 10 else 100 %} <div
-                class="bg-yellow-500 h-4 rounded-full" style="width: {{ progress }}%">
+            {% set threshold = site_settings.loyalty_points_threshold %}
+            {% set progress = (current_user.points / threshold * 100) if current_user.points < threshold else 100 %}
+                <div class="bg-yellow-500 h-4 rounded-full" style="width: {{ progress }}%">
         </div>
     </div>
-    <p class="text-sm text-gray-300">اجمع 10 نقاط لتحصل على غسلة مجانية!</p>
+    <p class="text-sm text-gray-300">اجمع {{ threshold }} نقاط لتحصل على غسلة مجانية!</p>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-right">
@@ -42,7 +43,7 @@
         <h4 class="font-bold text-white mb-2">
             <i class="fas fa-gift text-purple-500 ml-2"></i>المكافآت
         </h4>
-        <p class="text-gray-400 text-sm">عند وصولك إلى 10 نقاط، ستحصل تلقائياً على كوبون غسيل مجاني.</p>
+        <p class="text-gray-400 text-sm">عند وصولك إلى {{ threshold }} نقاط، ستحصل تلقائياً على كوبون غسيل مجاني.</p>
     </div>
 </div>
 </div>

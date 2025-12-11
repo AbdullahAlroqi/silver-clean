@@ -614,7 +614,9 @@ def subscribe_details(package_id):
 
 @bp.route('/loyalty')
 def loyalty():
-    return render_template('customer/loyalty.html')
+    from app.models import SiteSettings
+    settings = SiteSettings.get_settings()
+    return render_template('customer/loyalty.html', site_settings=settings)
 
 @bp.route('/profile', methods=['GET', 'POST'])
 def profile():

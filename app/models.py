@@ -210,6 +210,7 @@ class SiteSettings(db.Model):
     mawthooq_url = db.Column(db.String(200), default='')
     terms_content = db.Column(db.Text, default='')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    loyalty_points_threshold = db.Column(db.Integer, default=10)
     
     @staticmethod
     def get_settings():
