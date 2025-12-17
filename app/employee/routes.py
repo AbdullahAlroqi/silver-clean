@@ -9,17 +9,19 @@ from app.notifications import send_push_notification
 
 def check_expired_bookings():
     """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
+    from app.utils.timezone import get_saudi_time
     # Find ALL bookings that are still active
     expired_bookings = Booking.query.filter(
         Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress']),
     ).all()
     
+    now = get_saudi_time()
     for booking in expired_bookings:
         # Calculate booking datetime
         booking_datetime = datetime.combine(booking.date, booking.time)
         
         # Check if 4 hours have passed since the booking time
-        if datetime.now() > booking_datetime + timedelta(hours=4):
+        if now.replace(tzinfo=None) > booking_datetime + timedelta(hours=4):
             # Cancel the booking
             booking.status = 'cancelled'
             
