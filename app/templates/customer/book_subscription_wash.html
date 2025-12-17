@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Back Button -->
+<div class="mb-6">
+    <a href="{{ url_for('customer.subscriptions') }}"
+        class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold transition">
+        <i class="fas fa-arrow-right"></i>
+        رجوع
+    </a>
+</div>
+
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-white mb-2">حجز غسلة من الاشتراك</h2>
+    <p class="text-gray-400">{{ subscription.package.name_ar if subscription.package else subscription.plan_type }}</p>
+</div>
+
+<!-- Subscription Info -->
+<div class="bg-primary rounded-lg shadow-lg p-6 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-darkbg rounded-lg p-3">
+            <p class="text-xs text-gray-400 mb-1">الغسلات المتبقية</p>
+            <p class="text-xl font-bold text-green-400">{{ subscription.remaining_washes }}</p>
+        </div>
+        {% if subscription.vehicle %}
+        <div class="bg-darkbg rounded-lg p-3">
+            <p class="text-xs text-gray-400 mb-1">المركبة</p>
+            <p class="text-sm font-bold text-white">{{ subscription.vehicle.brand }}</p>
+            <p class="text-xs text-gray-400">{{ subscription.vehicle.plate_number }}</p>
+        </div>
+        {% endif %}
+        {% if subscription.neighborhood %}
+        <div class="bg-darkbg rounded-lg p-3">
+            <p class="text-xs text-gray-400 mb-1">الحي</p>
+            <p class="text-sm font-bold text-white">{{ subscription.neighborhood.name_ar }}</p>
+        </div>
+        {% endif %}
+        <div class="bg-darkbg rounded-lg p-3">
+            <p class="text-xs text-gray-400 mb-1">انتهاء الاشتراك</p>
+            <p class="text-sm font-bold text-white">{{ subscription.end_date.strftime('%Y-%m-%d') }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Form -->
+<form method="POST" class="bg-primary rounded-lg shadow-lg p-6">
+    <div class="space-y-6">
+        <!-- Date Selection -->
+        <div>
+            <label class="block text-gray-300 text-sm font-bold mb-2" for="date">
+                <i class="fas fa-calendar-alt ml-2"></i>اختر التاريخ
+            </label>
+            <input type="date" id="date" name="date" required
+                class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
+        </div>
+
+        <!-- Time Selection -->
+        <div>
+            <label class="block text-gray-300 text-sm font-bold mb-2" for="time">
+                <i class="fas fa-clock ml-2"></i>اختر الوقت
+            </label>
+            <select id="time" name="time" required
+                class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
+                <option value="">-- اختر التاريخ أولاً --</option>
+            </select>
+            <p id="time-loading" class="text-gray-400 text-sm mt-2 hidden">
+                <i class="fas fa-spinner fa-spin ml-2"></i>جاري تحميل الأوقات المتاحة...
+            </p>
+            <p id="no-times" class="text-yellow-400 text-sm mt-2 hidden">
+                <i class="fas fa-exclamation-triangle ml-2"></i>لا توجد أوقات متاحة في هذا اليوم
+            </p>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="submit-btn" disabled
+            class="w-full bg-accent hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition flex items-center justify-center gap-2">
+            <i class="fas fa-check-circle"></i>
+            تأكيد الحجز
+        </button>
+    </div>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var dateInput = document.getElementById('date');
+        var timeSelect = document.getElementById('time');
+        var timeLoading = document.getElementById('time-loading');
+        var noTimes = document.getElementById('no-times');
+        var submitBtn = document.getElementById('submit-btn');
+        var neighborhoodId = {{ subscription.neighborhood_id }};
+        var serviceId = 1;
+
+    // Set min date to today
+    var today = new Date().toISOString().split('T')[0];
+    dateInput.min = today;
+
+    dateInput.addEventListener('change', function () {
+        var selectedDate = this.value;
+        if (!selectedDate) return;
+
+        // Show loading
+        timeLoading.classList.remove('hidden');
+        noTimes.classList.add('hidden');
+        timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+        submitBtn.disabled = true;
+
+        fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId)
+            .then(function (response) { return response.json(); })
+            .then(function (times) {
+                timeLoading.classList.add('hidden');
+                timeSelect.innerHTML = '';
+
+                if (times.length === 0) {
+                    noTimes.classList.remove('hidden');
+                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
+                    submitBtn.disabled = true;
+                } else {
+                    var defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = '-- اختر الوقت --';
+                    timeSelect.appendChild(defaultOption);
+
+                    times.forEach(function (time) {
+                        var option = document.createElement('option');
+                        option.value = time;
+                        option.textContent = time;
+                        timeSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(function (error) {
+                timeLoading.classList.add('hidden');
+                noTimes.classList.remove('hidden');
+                noTimes.textContent = 'حدث خطأ في تحميل الأوقات';
+                console.error('Error:', error);
+            });
+    });
+
+    timeSelect.addEventListener('change', function () {
+        submitBtn.disabled = !this.value;
+    });
+});
+</script>
+{% endblock %}

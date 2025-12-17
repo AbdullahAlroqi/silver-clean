@@ -5,10 +5,46 @@ from app.customer import bp
 from app.customer.forms import VehicleForm, BookingForm, EditProfileForm, ChangePasswordForm
 from app.models import Vehicle, Service, Booking, City, Neighborhood, VehicleSize
 
+def check_expired_bookings():
+    """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
+    from datetime import datetime, timedelta
+    from app.models import Subscription
+    
+    # Find ALL bookings that are still active (assigned, en_route, arrived, in_progress)
+    # and have passed their scheduled time by more than 4 hours
+    expired_bookings = Booking.query.filter(
+        Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress']),
+    ).all()
+    
+    for booking in expired_bookings:
+        # Calculate booking datetime
+        booking_datetime = datetime.combine(booking.date, booking.time)
+        
+        # Check if 4 hours have passed since the booking time
+        if datetime.now() > booking_datetime + timedelta(hours=4):
+            # Cancel the booking
+            booking.status = 'cancelled'
+            
+            # If it's a subscription booking, restore the wash
+            if booking.subscription_id and booking.subscription:
+                booking.subscription.remaining_washes += 1
+                # Reactivate subscription if it was expired due to no washes
+                if booking.subscription.status == 'expired' and booking.subscription.remaining_washes > 0:
+                    booking.subscription.status = 'active'
+            
+            db.session.commit()
+            print(f"Auto-cancelled expired booking #{booking.id}")
+
 @bp.before_request
 def before_request():
     if not current_user.is_authenticated or current_user.role != 'customer':
         return redirect(url_for('auth.login'))
+    
+    # Check for expired bookings (regular and subscription)
+    try:
+        check_expired_bookings()
+    except Exception as e:
+        print(f"Error checking expired bookings: {e}")
 
 @bp.route('/')
 def index():
@@ -612,6 +648,138 @@ def subscribe_details(package_id):
                          vehicles=available_vehicles,
                          cities=cities)
 
+@bp.route('/subscription/<int:subscription_id>/book', methods=['GET', 'POST'])
+def book_subscription_wash(subscription_id):
+    """Book a wash from active subscription"""
+    from datetime import datetime, timedelta
+    from app.models import Subscription, Service
+    
+    # Get subscription and verify ownership
+    subscription = Subscription.query.get_or_404(subscription_id)
+    if subscription.customer_id != current_user.id:
+        flash('غير مصرح لك بالوصول لهذا الاشتراك', 'error')
+        return redirect(url_for('customer.subscriptions'))
+    
+    # Check subscription is active and has remaining washes
+    if subscription.status != 'active':
+        flash('الاشتراك غير فعال', 'error')
+        return redirect(url_for('customer.subscriptions'))
+    
+    if subscription.remaining_washes <= 0:
+        flash('لا توجد غسلات متبقية في هذا الاشتراك', 'error')
+        return redirect(url_for('customer.subscriptions'))
+    
+    # Get default service (first one or a specific wash service)
+    default_service = Service.query.first()
+    
+    if request.method == 'POST':
+        booking_date_str = request.form.get('date')
+        booking_time_str = request.form.get('time')
+        
+        if not all([booking_date_str, booking_time_str]):
+            flash('الرجاء اختيار التاريخ والوقت', 'error')
+            return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+        
+        try:
+            booking_date = datetime.strptime(booking_date_str, '%Y-%m-%d').date()
+            booking_time = datetime.strptime(booking_time_str, '%H:%M').time()
+        except ValueError:
+            flash('تنسيق التاريخ أو الوقت غير صحيح', 'error')
+            return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+        
+        # Find available employee (same logic as regular booking)
+        neighborhood = subscription.neighborhood
+        if not neighborhood:
+            flash('الحي غير محدد في الاشتراك', 'error')
+            return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+        
+        employees = neighborhood.employees.filter_by(role='employee').all()
+        available_employee = None
+        
+        for employee in employees:
+            # Check if employee has schedule for this day
+            day_of_week = booking_date.weekday()
+            schedule = employee.schedules.filter_by(day_of_week=day_of_week, is_active=True).first()
+            
+            if not schedule:
+                continue
+            
+            # Check if booking time is within schedule
+            booking_datetime = datetime.combine(booking_date, booking_time)
+            end_datetime = booking_datetime + timedelta(minutes=90)
+            
+            if booking_time < schedule.start_time or end_datetime.time() > schedule.end_time:
+                continue
+            
+            # Check for conflicts with existing bookings
+            conflicts = Booking.query.filter(
+                Booking.employee_id == employee.id,
+                Booking.date == booking_date,
+                Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
+            ).all()
+            
+            has_conflict = False
+            for existing_booking in conflicts:
+                existing_start = datetime.combine(booking_date, existing_booking.time)
+                existing_end = existing_start + timedelta(minutes=90)
+                
+                if existing_start < end_datetime and existing_end > booking_datetime:
+                    has_conflict = True
+                    break
+            
+            if not has_conflict:
+                available_employee = employee
+                break
+        
+        if not available_employee:
+            flash('عذراً، لا يوجد موظفين متاحين في هذا الوقت', 'error')
+            return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+        
+        # Create booking linked to subscription
+        booking = Booking(
+            customer_id=current_user.id,
+            employee_id=available_employee.id,
+            vehicle_id=subscription.vehicle_id,
+            service_id=default_service.id if default_service else None,
+            neighborhood_id=subscription.neighborhood_id,
+            date=booking_date,
+            time=booking_time,
+            status='assigned',
+            subscription_id=subscription.id,  # Link to subscription
+            used_free_wash=False,
+            vehicle_size_price=0.0,
+            payment_method='subscription'
+        )
+        
+        db.session.add(booking)
+        
+        # Decrement remaining washes
+        subscription.remaining_washes -= 1
+        if subscription.remaining_washes == 0:
+            subscription.status = 'expired'
+        
+        db.session.commit()
+        
+        # Notify employee
+        try:
+            from app.notifications import send_push_notification
+            notification_data = {
+                "title": "حجز جديد (اشتراك) 🆕",
+                "body": f"حجز جديد #{booking.id}\nالعميل: {current_user.username}\nالموعد: {booking.date} {booking.time.strftime('%H:%M')}",
+                "icon": "/static/images/logo.png",
+                "badge": "/static/images/logo.png",
+                "url": "/employee/bookings/active",
+                "data": {"booking_id": booking.id}
+            }
+            send_push_notification(available_employee, notification_data)
+        except Exception as e:
+            print(f"Failed to send notification: {e}")
+        
+        flash('تم حجز الغسلة بنجاح!', 'success')
+        return redirect(url_for('customer.subscriptions'))
+    
+    return render_template('customer/book_subscription_wash.html', subscription=subscription)
+
 @bp.route('/loyalty')
 def loyalty():
     from app.models import SiteSettings
@@ -685,3 +853,105 @@ def rate_booking(booking_id):
             flash('الرجاء اختيار التقييم', 'error')
             
     return render_template('customer/rate_booking.html', booking=booking)
+
+
+# ===== Gift Feature Routes =====
+
+@bp.route('/gift')
+def gift():
+    """Main gift page with two options"""
+    return render_template('customer/gift.html')
+
+
+@bp.route('/gift/wash', methods=['GET', 'POST'])
+def gift_wash():
+    """Gift a single wash"""
+    from app.models import Service, Product, GiftOrder, GiftOrderProduct
+    
+    services = Service.query.all()
+    products = Product.query.all()  # Get all products
+    
+    if request.method == 'POST':
+        service_id = request.form.get('service_id')
+        recipient_name = request.form.get('recipient_name')
+        recipient_phone = request.form.get('recipient_phone')
+        
+        # Validate phone (9 digits)
+        if not recipient_phone or len(recipient_phone) != 9 or not recipient_phone.isdigit():
+            flash('الرجاء إدخال رقم جوال صحيح (9 أرقام بدون صفر)', 'error')
+            return render_template('customer/gift_wash.html', services=services, products=products)
+        
+        # Format phone number with Saudi country code
+        formatted_phone = '+966' + recipient_phone
+        
+        # Create gift order
+        gift_order = GiftOrder(
+            sender_id=current_user.id,
+            recipient_name=recipient_name,
+            recipient_phone=formatted_phone,
+            gift_type='wash',
+            service_id=service_id,
+            status='pending'
+        )
+        db.session.add(gift_order)
+        db.session.flush()  # Get ID for products
+        
+        # Add selected products
+        for product in products:
+            qty = request.form.get(f'product_{product.id}', 0, type=int)
+            if qty > 0:
+                gift_product = GiftOrderProduct(
+                    gift_order_id=gift_order.id,
+                    product_id=product.id,
+                    quantity=qty
+                )
+                db.session.add(gift_product)
+        
+        db.session.commit()
+        return redirect(url_for('customer.gift_success'))
+    
+    return render_template('customer/gift_wash.html', services=services, products=products)
+
+
+@bp.route('/gift/subscription', methods=['GET', 'POST'])
+def gift_subscription():
+    """Gift a subscription package"""
+    from app.models import SubscriptionPackage, GiftOrder
+    
+    packages = SubscriptionPackage.query.filter_by(is_active=True).all()
+    
+    if request.method == 'POST':
+        package_id = request.form.get('package_id')
+        recipient_name = request.form.get('recipient_name')
+        recipient_phone = request.form.get('recipient_phone')
+        
+        # Validate phone (9 digits)
+        if not recipient_phone or len(recipient_phone) != 9 or not recipient_phone.isdigit():
+            flash('الرجاء إدخال رقم جوال صحيح (9 أرقام بدون صفر)', 'error')
+            return render_template('customer/gift_subscription.html', packages=packages)
+        
+        # Format phone number with Saudi country code
+        formatted_phone = '+966' + recipient_phone
+        
+        # Create gift order
+        gift_order = GiftOrder(
+            sender_id=current_user.id,
+            recipient_name=recipient_name,
+            recipient_phone=formatted_phone,
+            gift_type='subscription',
+            package_id=package_id,
+            status='pending'
+        )
+        db.session.add(gift_order)
+        db.session.commit()
+        
+        return redirect(url_for('customer.gift_success'))
+    
+    return render_template('customer/gift_subscription.html', packages=packages)
+
+
+@bp.route('/gift/success')
+def gift_success():
+    """Gift order success page"""
+    return render_template('customer/gift_success.html')
+

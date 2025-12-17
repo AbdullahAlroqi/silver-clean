@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h2 class="text-2xl font-bold text-white">
+            <i class="fas fa-gift text-pink-400 ml-2"></i>
+            حجوزات الهدايا
+        </h2>
+    </div>
+    <a href="{{ url_for('admin.index') }}"
+        class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+        <i class="fas fa-arrow-right ml-2"></i> رجوع
+    </a>
+</div>
+
+<!-- Tabs -->
+<div class="mb-6 border-b border-gray-700">
+    <nav class="flex gap-4">
+        <button onclick="showTab('pending')" id="tab-pending"
+            class="tab-btn px-4 py-3 text-white font-bold border-b-2 border-yellow-500 transition">
+            <i class="fas fa-clock ml-2 text-yellow-400"></i>
+            جديدة
+            <span class="bg-yellow-600 text-white text-xs px-2 py-1 rounded-full mr-2">{{ pending_orders|length
+                }}</span>
+        </button>
+        <button onclick="showTab('accepted')" id="tab-accepted"
+            class="tab-btn px-4 py-3 text-gray-400 font-bold border-b-2 border-transparent hover:text-white transition">
+            <i class="fas fa-check-circle ml-2 text-green-400"></i>
+            مقبولة
+            <span class="bg-green-600 text-white text-xs px-2 py-1 rounded-full mr-2">{{ accepted_orders|length
+                }}</span>
+        </button>
+        <button onclick="showTab('rejected')" id="tab-rejected"
+            class="tab-btn px-4 py-3 text-gray-400 font-bold border-b-2 border-transparent hover:text-white transition">
+            <i class="fas fa-times-circle ml-2 text-red-400"></i>
+            مرفوضة
+            <span class="bg-red-600 text-white text-xs px-2 py-1 rounded-full mr-2">{{ rejected_orders|length }}</span>
+        </button>
+    </nav>
+</div>
+
+<!-- Macro for order card -->
+{% macro order_card(order, show_actions=false, status_badge=none) %}
+<div
+    class="bg-primary p-6 rounded-lg shadow-lg border-r-4 {% if order.gift_type == 'wash' %}border-blue-500{% else %}border-purple-500{% endif %}">
+    <!-- Type Badge & Status -->
+    <div class="flex justify-between items-start mb-4">
+        <span
+            class="px-3 py-1 rounded-full text-sm font-bold {% if order.gift_type == 'wash' %}bg-blue-600 text-white{% else %}bg-purple-600 text-white{% endif %}">
+            {% if order.gift_type == 'wash' %}
+            <i class="fas fa-car-side ml-1"></i> غسلة واحدة
+            {% else %}
+            <i class="fas fa-crown ml-1"></i> اشتراك
+            {% endif %}
+        </span>
+        {% if status_badge %}
+        <span
+            class="{% if status_badge == 'مقبول' %}bg-green-600{% else %}bg-red-600{% endif %} text-white text-xs px-2 py-1 rounded-full">{{
+            status_badge }}</span>
+        {% else %}
+        <span class="text-gray-400 text-sm">{{ order.created_at.strftime('%Y-%m-%d %H:%M') if order.created_at else ''
+            }}</span>
+        {% endif %}
+    </div>
+
+    <!-- Gift Details with Price -->
+    <div class="mb-4 bg-gray-800 rounded-lg p-3">
+        <p class="text-gray-400 text-xs mb-1">نوع الهدية:</p>
+        <div class="flex justify-between items-center">
+            <p class="text-white font-bold">
+                {% if order.gift_type == 'wash' %}
+                {{ order.service.name_ar if order.service else 'غسلة' }}
+                {% else %}
+                {{ order.package.name_ar if order.package else 'اشتراك' }}
+                {% endif %}
+            </p>
+            <p class="text-accent font-bold text-lg">
+                {% if order.gift_type == 'wash' and order.service %}
+                {{ order.service.price }} ريال
+                {% elif order.gift_type == 'subscription' and order.package %}
+                {{ order.package.price }} ريال
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <!-- Products if any with prices -->
+    {% if order.products %}
+    <div class="mb-4 bg-gray-800 rounded-lg p-3">
+        <p class="text-gray-400 text-xs mb-2">منتجات إضافية:</p>
+        {% set products_total = namespace(value=0) %}
+        {% for gp in order.products %}
+        {% set item_price = (gp.product.price * gp.quantity) if gp.product else 0 %}
+        {% set products_total.value = products_total.value + item_price %}
+        <div class="flex justify-between text-sm mb-1">
+            <span class="text-white">• {{ gp.product.name_ar if gp.product else 'منتج' }} ({{ gp.quantity }})</span>
+            <span class="text-green-400">{{ item_price }} ريال</span>
+        </div>
+        {% endfor %}
+        <div class="border-t border-gray-600 mt-2 pt-2 flex justify-between">
+            <span class="text-gray-400 text-sm">إجمالي المنتجات:</span>
+            <span class="text-green-400 font-bold">{{ products_total.value }} ريال</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Total Price for Wash -->
+    {% if order.gift_type == 'wash' %}
+    {% set service_price = order.service.price if order.service else 0 %}
+    {% set calc = namespace(products_price=0) %}
+    {% for gp in order.products %}
+    {% set calc.products_price = calc.products_price + (gp.product.price * gp.quantity if gp.product else 0) %}
+    {% endfor %}
+    {% set total = service_price + calc.products_price %}
+    <div class="mb-4 bg-accent/20 rounded-lg p-3 border border-accent">
+        <div class="flex justify-between items-center">
+            <span class="text-white font-bold">الإجمالي الكلي:</span>
+            <span class="text-accent font-bold text-xl">{{ total }} ريال</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Sender Info -->
+    <div class="bg-darkbg rounded-lg p-3 mb-3">
+        <p class="text-gray-400 text-xs mb-1">المهدي:</p>
+        <div class="flex justify-between items-center">
+            <div>
+                <p class="text-white font-bold">{{ order.sender.username if order.sender else 'غير معروف' }}</p>
+                <p class="text-gray-400 text-sm">{{ order.sender.phone if order.sender else '' }}</p>
+            </div>
+            {% if order.sender and order.sender.phone %}
+            {% set phone = order.sender.phone %}
+            {% if phone.startswith('0') %}{% set phone = '+966' ~ phone[1:] %}{% endif %}
+            <a href="https://wa.me/{{ phone|replace('+', '') }}" target="_blank"
+                class="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg text-sm">
+                <i class="fab fa-whatsapp"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recipient Info -->
+    <div class="bg-darkbg rounded-lg p-3 mb-4">
+        <p class="text-gray-400 text-xs mb-1">المهدى له:</p>
+        <div class="flex justify-between items-center">
+            <div>
+                <p class="text-pink-400 font-bold">{{ order.recipient_name }}</p>
+                <p class="text-gray-400 text-sm">{{ order.recipient_phone }}</p>
+            </div>
+            {% if order.recipient_phone %}
+            <a href="https://wa.me/{{ order.recipient_phone|replace('+', '') }}" target="_blank"
+                class="bg-pink-600 hover:bg-pink-500 text-white px-3 py-2 rounded-lg text-sm">
+                <i class="fab fa-whatsapp"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Actions (only for pending) -->
+    {% if show_actions %}
+    <div class="flex gap-2">
+        <a href="{{ url_for('admin.accept_gift_order', id=order.id) }}"
+            class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded text-center transition">
+            <i class="fas fa-check ml-1"></i> قبول
+        </a>
+        <a href="{{ url_for('admin.reject_gift_order', id=order.id) }}"
+            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-center transition">
+            <i class="fas fa-times ml-1"></i> رفض
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+<!-- Pending Orders Tab -->
+<div id="content-pending" class="tab-content">
+    {% if pending_orders %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for order in pending_orders %}
+        {{ order_card(order, show_actions=true) }}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-primary p-8 rounded-lg text-center">
+        <i class="fas fa-inbox text-4xl text-gray-500 mb-4"></i>
+        <p class="text-gray-400">لا توجد طلبات هدايا جديدة</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Accepted Orders Tab -->
+<div id="content-accepted" class="tab-content hidden">
+    {% if accepted_orders %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for order in accepted_orders %}
+        {{ order_card(order, show_actions=false, status_badge='مقبول') }}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-primary p-8 rounded-lg text-center">
+        <i class="fas fa-inbox text-4xl text-gray-500 mb-4"></i>
+        <p class="text-gray-400">لا توجد طلبات مقبولة</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Rejected Orders Tab -->
+<div id="content-rejected" class="tab-content hidden">
+    {% if rejected_orders %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for order in rejected_orders %}
+        {{ order_card(order, show_actions=false, status_badge='مرفوض') }}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-primary p-8 rounded-lg text-center">
+        <i class="fas fa-inbox text-4xl text-gray-500 mb-4"></i>
+        <p class="text-gray-400">لا توجد طلبات مرفوضة</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function showTab(tab) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.tab-btn').forEach(el => {
+            el.classList.remove('border-yellow-500', 'border-green-500', 'border-red-500', 'text-white');
+            el.classList.add('border-transparent', 'text-gray-400');
+        });
+
+        document.getElementById('content-' + tab).classList.remove('hidden');
+        var btn = document.getElementById('tab-' + tab);
+        btn.classList.remove('border-transparent', 'text-gray-400');
+        btn.classList.add('text-white');
+
+        if (tab === 'pending') btn.classList.add('border-yellow-500');
+        else if (tab === 'accepted') btn.classList.add('border-green-500');
+        else if (tab === 'rejected') btn.classList.add('border-red-500');
+    }
+</script>
+{% endblock %}

@@ -2,7 +2,46 @@
 
 {% block content %}
 <div class="mb-6">
-    <h2 class="text-2xl font-bold text-white mb-2">مرحباً، {{ current_user.username }}</h2>
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-white">مرحباً، {{ current_user.username }}</h2>
+
+        <!-- Dropdown Menu Button -->
+        <div class="relative">
+            <button id="menuToggle"
+                class="bg-primary hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                <i class="fas fa-bars"></i>
+                <span>القائمة</span>
+                <i class="fas fa-chevron-down text-xs"></i>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="dropdownMenu"
+                class="hidden absolute left-0 mt-2 w-56 bg-primary rounded-lg shadow-xl border border-gray-700 z-50 overflow-hidden">
+                <a href="{{ url_for('customer.vehicles') }}"
+                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition border-b border-gray-700">
+                    <i class="fas fa-car text-blue-400 w-5"></i>
+                    <span>مركباتي</span>
+                </a>
+                <a href="{{ url_for('customer.my_bookings') }}"
+                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition border-b border-gray-700">
+                    <i class="fas fa-list text-green-400 w-5"></i>
+                    <span>حجوزاتي</span>
+                </a>
+                <a href="{{ url_for('customer.subscriptions') }}"
+                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition border-b border-gray-700">
+                    <i class="fas fa-star text-yellow-400 w-5"></i>
+                    <span>اشتراكاتي</span>
+                </a>
+                <a href="{{ url_for('customer.loyalty') }}"
+                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition">
+                    <i class="fas fa-trophy text-purple-400 w-5"></i>
+                    <span>برنامج الولاء</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Points Card -->
     <div class="bg-primary p-4 rounded-lg shadow flex justify-between items-center cursor-pointer hover:bg-gray-700 transition"
         onclick="window.location.href='{{ url_for('customer.loyalty') }}'">
         <div>
@@ -13,44 +52,30 @@
     </div>
 </div>
 
-<!-- Debug Info -->
-
-
+<!-- Main Action Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
     <a href="{{ url_for('customer.book') }}"
         class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-calendar-plus text-4xl text-gray-700 mb-3"></i>
+        <i class="fas fa-calendar-plus text-4xl text-accent mb-3"></i>
         <h3 class="text-xl font-bold text-white">حجز خدمة جديدة</h3>
-    </a>
-
-    <a href="{{ url_for('customer.my_bookings') }}"
-        class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-list text-4xl text-gray-700 mb-3"></i>
-        <h3 class="text-xl font-bold text-white">حجوزاتي</h3>
-    </a>
-
-    <a href="{{ url_for('customer.subscriptions') }}"
-        class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-star text-4xl text-gray-700 mb-3"></i>
-        <h3 class="text-xl font-bold text-white">اشتراكاتي</h3>
     </a>
 
     <a href="{{ url_for('customer.subscribe_flow') }}"
         class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-gift text-4xl text-gray-700 mb-3"></i>
+        <i class="fas fa-crown text-4xl text-yellow-400 mb-3"></i>
         <h3 class="text-xl font-bold text-white">اشتراك جديد</h3>
     </a>
 
-    <a href="{{ url_for('customer.vehicles') }}"
+    <a href="{{ url_for('customer.gift') }}"
         class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-car text-4xl text-gray-700 mb-3"></i>
-        <h3 class="text-xl font-bold text-white">مركباتي</h3>
+        <i class="fas fa-gift text-4xl text-pink-400 mb-3"></i>
+        <h3 class="text-xl font-bold text-white">اهدي لمن تحب</h3>
     </a>
 
-    <a href="{{ url_for('customer.loyalty') }}"
+    <a href="{{ url_for('customer.subscriptions') }}"
         class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-trophy text-4xl text-gray-700 mb-3"></i>
-        <h3 class="text-xl font-bold text-white">برنامج الولاء</h3>
+        <i class="fas fa-star text-4xl text-yellow-400 mb-3"></i>
+        <h3 class="text-xl font-bold text-white">اشتراكاتي</h3>
     </a>
 </div>
 
@@ -116,7 +141,24 @@
     </div>
 </div>
 {% endif %}
-{% endblock %}
 
-{% block scripts %}
+<script>
+    (function () {
+        var menuToggle = document.getElementById('menuToggle');
+        var dropdownMenu = document.getElementById('dropdownMenu');
+
+        if (menuToggle && dropdownMenu) {
+            menuToggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                dropdownMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!menuToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                    dropdownMenu.classList.add('hidden');
+                }
+            });
+        }
+    })();
+</script>
 {% endblock %}

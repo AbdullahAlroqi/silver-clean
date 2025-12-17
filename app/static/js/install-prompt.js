@@ -5,102 +5,105 @@ let installBanner;
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
-    installButton = document.getElementById('install-app-btn');
-    installBanner = document.getElementById('install-banner');
+  installButton = document.getElementById('install-app-btn');
+  installBanner = document.getElementById('install-banner');
 
-    // Check if already installed
-    if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-        console.log('App is already installed');
-        return;
+  // Check if already installed
+  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+    console.log('App is already installed');
+    return;
+  }
+
+  // Check if user already dismissed the banner (within last 24 hours)
+  const dismissedTime = localStorage.getItem('install-prompt-dismissed-time');
+  if (dismissedTime) {
+    const hoursSinceDismissed = (Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60);
+    if (hoursSinceDismissed < 24) {
+      return; // Still within 24 hours, don't show
     }
+  }
 
-    // Check if user already dismissed the banner
-    const dismissed = localStorage.getItem('install-prompt-dismissed');
-    if (dismissed === 'true') {
-        return;
+  // Show install banner after a delay (better UX)
+  setTimeout(() => {
+    if (installBanner && !deferredPrompt) {
+      installBanner.style.display = 'flex';
     }
-
-    // Show install banner after a delay (better UX)
-    setTimeout(() => {
-        if (installBanner && !deferredPrompt) {
-            installBanner.style.display = 'flex';
-        }
-    }, 3000); // Show after 3 seconds
+  }, 3000); // Show after 3 seconds
 });
 
 // Capture the install prompt event
 window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('beforeinstallprompt event fired');
+  console.log('beforeinstallprompt event fired');
 
-    // Prevent the default browser install prompt
-    e.preventDefault();
+  // Prevent the default browser install prompt
+  e.preventDefault();
 
-    // Store the event for later use
-    deferredPrompt = e;
+  // Store the event for later use
+  deferredPrompt = e;
 
-    // Show our custom install UI
-    if (installBanner) {
-        installBanner.style.display = 'flex';
-    }
+  // Show our custom install UI
+  if (installBanner) {
+    installBanner.style.display = 'flex';
+  }
 
-    if (installButton) {
-        installButton.style.display = 'flex';
-    }
+  if (installButton) {
+    installButton.style.display = 'flex';
+  }
 });
 
 // Handle install button click
 function installApp() {
-    if (!deferredPrompt) {
-        console.log('No deferred prompt available');
+  if (!deferredPrompt) {
+    console.log('No deferred prompt available');
 
-        // For iOS devices (Safari doesn't support beforeinstallprompt)
-        if (isIOS()) {
-            showIOSInstructions();
-        }
-        return;
+    // For iOS devices (Safari doesn't support beforeinstallprompt)
+    if (isIOS()) {
+      showIOSInstructions();
+    }
+    return;
+  }
+
+  // Hide the banner
+  if (installBanner) {
+    installBanner.style.display = 'none';
+  }
+
+  // Show the install prompt
+  deferredPrompt.prompt();
+
+  // Wait for the user's response
+  deferredPrompt.userChoice.then((choiceResult) => {
+    if (choiceResult.outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+    } else {
+      console.log('User dismissed the install prompt');
     }
 
-    // Hide the banner
-    if (installBanner) {
-        installBanner.style.display = 'none';
-    }
-
-    // Show the install prompt
-    deferredPrompt.prompt();
-
-    // Wait for the user's response
-    deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the install prompt');
-        } else {
-            console.log('User dismissed the install prompt');
-        }
-
-        // Clear the deferred prompt
-        deferredPrompt = null;
-    });
+    // Clear the deferred prompt
+    deferredPrompt = null;
+  });
 }
 
 // Dismiss the install banner
 function dismissInstallBanner() {
-    if (installBanner) {
-        installBanner.style.display = 'none';
-    }
+  if (installBanner) {
+    installBanner.style.display = 'none';
+  }
 
-    // Save dismissal preference
-    localStorage.setItem('install-prompt-dismissed', 'true');
+  // Save dismissal time (will show again after 24 hours)
+  localStorage.setItem('install-prompt-dismissed-time', Date.now().toString());
 }
 
 // Check if device is iOS
 function isIOS() {
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    return /iphone|ipad|ipod/.test(userAgent);
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  return /iphone|ipad|ipod/.test(userAgent);
 }
 
 // Show instructions for iOS users
 function showIOSInstructions() {
-    const modal = document.createElement('div');
-    modal.style.cssText = `
+  const modal = document.createElement('div');
+  modal.style.cssText = `
     position: fixed;
     top: 0;
     left: 0;
@@ -115,8 +118,8 @@ function showIOSInstructions() {
     animation: fadeIn 0.3s ease;
   `;
 
-    const content = document.createElement('div');
-    content.style.cssText = `
+  const content = document.createElement('div');
+  content.style.cssText = `
     background: linear-gradient(135deg, #1F1F1F 0%, #2D2D2D 100%);
     border-radius: 20px;
     padding: 30px;
@@ -127,7 +130,7 @@ function showIOSInstructions() {
     border: 1px solid rgba(255, 255, 255, 0.1);
   `;
 
-    content.innerHTML = `
+  content.innerHTML = `
     <h2 style="color: #4DA8DA; margin-bottom: 20px; font-size: 24px; font-weight: bold;">
       <i class="fas fa-mobile-alt" style="margin-left: 10px;"></i>
       إضافة إلى الشاشة الرئيسية
@@ -160,38 +163,38 @@ function showIOSInstructions() {
     </button>
   `;
 
-    modal.appendChild(content);
-    document.body.appendChild(modal);
+  modal.appendChild(content);
+  document.body.appendChild(modal);
 
-    // Close on outside click
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    });
+  // Close on outside click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
 }
 
 // Listen for successful app installation
 window.addEventListener('appinstalled', () => {
-    console.log('PWA was installed successfully');
+  console.log('PWA was installed successfully');
 
-    // Hide install UI
-    if (installBanner) {
-        installBanner.style.display = 'none';
-    }
+  // Hide install UI
+  if (installBanner) {
+    installBanner.style.display = 'none';
+  }
 
-    if (installButton) {
-        installButton.style.display = 'none';
-    }
+  if (installButton) {
+    installButton.style.display = 'none';
+  }
 
-    // Show success message
-    showSuccessMessage();
+  // Show success message
+  showSuccessMessage();
 });
 
 // Show success message after installation
 function showSuccessMessage() {
-    const message = document.createElement('div');
-    message.style.cssText = `
+  const message = document.createElement('div');
+  message.style.cssText = `
     position: fixed;
     top: 20px;
     left: 50%;
@@ -207,18 +210,18 @@ function showSuccessMessage() {
     animation: slideDown 0.5s ease;
   `;
 
-    message.innerHTML = `
+  message.innerHTML = `
     <i class="fas fa-check-circle" style="margin-left: 8px;"></i>
     تم تثبيت التطبيق بنجاح!
   `;
 
-    document.body.appendChild(message);
+  document.body.appendChild(message);
 
-    // Remove after 3 seconds
-    setTimeout(() => {
-        message.style.animation = 'slideUp 0.5s ease';
-        setTimeout(() => message.remove(), 500);
-    }, 3000);
+  // Remove after 3 seconds
+  setTimeout(() => {
+    message.style.animation = 'slideUp 0.5s ease';
+    setTimeout(() => message.remove(), 500);
+  }, 3000);
 }
 
 // CSS Animations

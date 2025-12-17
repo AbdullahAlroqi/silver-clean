@@ -4,13 +4,44 @@ from flask_login import login_required, current_user
 from app import db
 from app.employee import bp
 from app.models import Booking, User, Subscription
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from app.notifications import send_push_notification
+
+def check_expired_bookings():
+    """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
+    # Find ALL bookings that are still active
+    expired_bookings = Booking.query.filter(
+        Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress']),
+    ).all()
+    
+    for booking in expired_bookings:
+        # Calculate booking datetime
+        booking_datetime = datetime.combine(booking.date, booking.time)
+        
+        # Check if 4 hours have passed since the booking time
+        if datetime.now() > booking_datetime + timedelta(hours=4):
+            # Cancel the booking
+            booking.status = 'cancelled'
+            
+            # If it's a subscription booking, restore the wash
+            if booking.subscription_id and booking.subscription:
+                booking.subscription.remaining_washes += 1
+                if booking.subscription.status == 'expired' and booking.subscription.remaining_washes > 0:
+                    booking.subscription.status = 'active'
+            
+            db.session.commit()
+            print(f"Auto-cancelled expired booking #{booking.id}")
 
 @bp.before_request
 def before_request():
     if not current_user.is_authenticated or current_user.role != 'employee':
         return redirect(url_for('auth.login'))
+    
+    # Check for expired bookings (regular and subscription)
+    try:
+        check_expired_bookings()
+    except Exception as e:
+        print(f"Error checking expired bookings: {e}")
 
 @bp.route('/set-language/<lang>')
 def set_language(lang):

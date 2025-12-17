@@ -2382,3 +2382,50 @@ def delete_admin(id):
     db.session.commit()
     flash('تم حذف المسؤول', 'success')
     return redirect(url_for('admin.admins'))
+
+
+# ===== Gift Orders Management =====
+
+@bp.route('/gift-orders')
+def gift_orders():
+    """List all gift orders with tabs for status"""
+    from app.models import GiftOrder
+    
+    status_filter = request.args.get('status', 'pending')
+    
+    pending_orders = GiftOrder.query.filter_by(status='pending').order_by(GiftOrder.created_at.desc()).all()
+    accepted_orders = GiftOrder.query.filter_by(status='accepted').order_by(GiftOrder.created_at.desc()).all()
+    rejected_orders = GiftOrder.query.filter_by(status='rejected').order_by(GiftOrder.created_at.desc()).all()
+    
+    return render_template('admin/gift_orders.html',
+                         pending_orders=pending_orders,
+                         accepted_orders=accepted_orders,
+                         rejected_orders=rejected_orders,
+                         status_filter=status_filter)
+
+
+@bp.route('/gift-orders/<int:id>/accept')
+def accept_gift_order(id):
+    """Accept a gift order"""
+    from app.models import GiftOrder
+    
+    gift_order = GiftOrder.query.get_or_404(id)
+    gift_order.status = 'accepted'
+    db.session.commit()
+    
+    flash('تم قبول طلب الهدية', 'success')
+    return redirect(url_for('admin.gift_orders'))
+
+
+@bp.route('/gift-orders/<int:id>/reject')
+def reject_gift_order(id):
+    """Reject a gift order"""
+    from app.models import GiftOrder
+    
+    gift_order = GiftOrder.query.get_or_404(id)
+    gift_order.status = 'rejected'
+    db.session.commit()
+    
+    flash('تم رفض طلب الهدية', 'warning')
+    return redirect(url_for('admin.gift_orders'))
+

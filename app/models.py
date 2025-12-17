@@ -126,6 +126,7 @@ class Booking(db.Model):
     rating_date = db.Column(db.DateTime, nullable=True)
 
     discount_code_id = db.Column(db.Integer, db.ForeignKey('discount_code.id'), nullable=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=True)  # For subscription wash bookings
     used_free_wash = db.Column(db.Boolean, default=False)
     vehicle_size_price = db.Column(db.Float, default=0.0) # Store price adjustment at time of booking
     payment_method = db.Column(db.String(20), default='cash') # 'cash' or 'card'
@@ -136,6 +137,7 @@ class Booking(db.Model):
     neighborhood = db.relationship('Neighborhood')
     products = db.relationship('BookingProduct', backref='booking', lazy='dynamic')
     discount_code = db.relationship('DiscountCode')
+    subscription = db.relationship('Subscription', backref='wash_bookings')  # Link to subscription
 
 class DiscountCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -241,3 +243,34 @@ class BookingProduct(db.Model):
     
     # Relationship
     product = db.relationship('Product')
+
+class GiftOrder(db.Model):
+    """Gift order for gifting a wash or subscription to someone"""
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'))  # المهدي
+    recipient_name = db.Column(db.String(100))  # اسم المهدى له
+    recipient_phone = db.Column(db.String(20))  # رقم جوال المهدى له (+966...)
+    
+    gift_type = db.Column(db.String(20))  # 'wash' or 'subscription'
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
+    package_id = db.Column(db.Integer, db.ForeignKey('subscription_package.id'), nullable=True)
+    
+    status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    sender = db.relationship('User', backref='gift_orders')
+    service = db.relationship('Service')
+    package = db.relationship('SubscriptionPackage')
+
+class GiftOrderProduct(db.Model):
+    """Products included in a gift order"""
+    id = db.Column(db.Integer, primary_key=True)
+    gift_order_id = db.Column(db.Integer, db.ForeignKey('gift_order.id'))
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
+    quantity = db.Column(db.Integer, default=1)
+    
+    # Relationships
+    gift_order = db.relationship('GiftOrder', backref='products')
+    product = db.relationship('Product')
+

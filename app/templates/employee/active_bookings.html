@@ -48,13 +48,20 @@
                 <p class="text-gray-400 text-sm mb-1">{{ _('Service') }}</p>
                 <div class="flex items-center justify-between bg-gray-800 p-3 rounded">
                     <p class="text-white">{{ booking.service.name_ar }}</p>
+                    {% if booking.subscription_id %}
+                    <span class="bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">مشترك (0
+                        ريال)</span>
+                    {% else %}
                     <p class="text-accent font-bold">{{ booking.service.price + (booking.vehicle_size_price or 0) }}
                         {{ _('SAR') }}</p>
+                    {% endif %}
                 </div>
                 <div class="mt-2 flex items-center gap-2">
                     <span class="text-gray-400 text-sm">{{ _('Payment Method') }}:</span>
                     <span class="font-bold text-white flex items-center gap-1">
-                        {% if booking.payment_method == 'card' %}
+                        {% if booking.subscription_id %}
+                        <i class="fas fa-sync-alt text-purple-500"></i> اشتراك
+                        {% elif booking.payment_method == 'card' %}
                         <i class="fas fa-credit-card text-blue-500"></i> {{ _('Card') }}
                         {% else %}
                         <i class="fas fa-money-bill-wave text-green-500"></i> {{ _('Cash') }}
@@ -185,6 +192,11 @@
                     <span class="text-white font-bold text-lg">{{ _('Total') }}:</span>
                 </div>
                 <div class="text-left">
+                    {% if booking.subscription_id %}
+                    {# Subscription booking - already paid through subscription #}
+                    <span class="text-purple-400 font-bold text-2xl">0.0 {{ _('SAR') }}</span>
+                    <p class="text-xs text-gray-400 mt-1">(اشتراك - مدفوع مسبقاً)</p>
+                    {% else %}
                     {% set products_total = namespace(value=0) %}
                     {% for bp in booking.products %}
                     {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
@@ -218,6 +230,7 @@
                         {% endif %}
                         {% if products_total.value > 0 %} + {{ _('Products') }}: {{ products_total.value }}{% endif %})
                     </p>
+                    {% endif %}
                 </div>
             </div>
 
