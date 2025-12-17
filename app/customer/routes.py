@@ -368,7 +368,7 @@ def book():
                 except Exception as e:
                     print(f"Failed to send notification to employee: {e}")
             flash('تم الحجز بنجاح!')
-            return redirect(url_for('customer.index'))
+            return redirect(url_for('customer.booking_success'))
 
     return render_template('customer/booking_form.html', form=form)
 
@@ -641,7 +641,7 @@ def subscribe_details(package_id):
         db.session.commit()
         
         flash('تم إرسال طلب الاشتراك بنجاح!')
-        return redirect(url_for('customer.subscriptions'))
+        return redirect(url_for('customer.subscription_success'))
     
     return render_template('customer/subscribe_details.html', 
                          package=package, 
@@ -853,6 +853,19 @@ def rate_booking(booking_id):
             flash('الرجاء اختيار التقييم', 'error')
             
     return render_template('customer/rate_booking.html', booking=booking)
+
+
+# ===== Success Pages =====
+
+@bp.route('/booking/success')
+def booking_success():
+    """Booking success confirmation page"""
+    return render_template('customer/booking_success.html')
+
+@bp.route('/subscription/success')
+def subscription_success():
+    """Subscription success confirmation page"""
+    return render_template('customer/subscription_success.html')
 
 
 # ===== Gift Feature Routes =====

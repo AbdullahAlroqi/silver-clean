@@ -17,16 +17,6 @@
         <p class="text-sm text-gray-400">{{ _('active booking') }}</p>
     </a>
 
-    <a href="{{ url_for('employee.subscriptions') }}"
-        class="bg-primary hover:bg-gray-700 p-6 rounded-lg shadow-lg transition">
-        <div class="flex items-center justify-between mb-2">
-            <i class="fas fa-box text-3xl text-purple-500"></i>
-            <span class="text-3xl font-bold text-white">{{ active_subscriptions_count }}</span>
-        </div>
-        <h3 class="text-lg font-bold text-white">{{ _('Subscriptions') }}</h3>
-        <p class="text-sm text-gray-400">{{ _('Assigned Subscriptions') }}</p>
-    </a>
-
     <a href="{{ url_for('employee.history') }}"
         class="bg-primary hover:bg-gray-700 p-6 rounded-lg shadow-lg transition">
         <div class="flex items-center justify-between mb-2">

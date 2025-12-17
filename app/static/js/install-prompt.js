@@ -41,6 +41,15 @@ window.addEventListener('beforeinstallprompt', (e) => {
   // Store the event for later use
   deferredPrompt = e;
 
+  // Check if dismissed within last 24 hours
+  const dismissedTime = localStorage.getItem('install-prompt-dismissed-time');
+  if (dismissedTime) {
+    const hoursSinceDismissed = (Date.now() - parseInt(dismissedTime)) / (1000 * 60 * 60);
+    if (hoursSinceDismissed < 24) {
+      return; // Don't show, still within 24 hours
+    }
+  }
+
   // Show our custom install UI
   if (installBanner) {
     installBanner.style.display = 'flex';

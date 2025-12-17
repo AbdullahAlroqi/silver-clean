@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center py-12">
+    <div
+        class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full mb-6 animate-bounce">
+        <i class="fas fa-check text-white text-4xl"></i>
+    </div>
+
+    <h2 class="text-3xl font-bold text-white mb-4">تم تقديم طلب الاشتراك بنجاح!</h2>
+
+    <div class="bg-primary rounded-lg shadow-lg p-6 max-w-md mx-auto mb-6">
+        <div class="flex items-center justify-center gap-3 mb-4">
+            <i class="fas fa-crown text-yellow-400 text-2xl"></i>
+            <i class="fas fa-arrow-left text-gray-400"></i>
+            <i class="fas fa-star text-purple-400 text-2xl"></i>
+        </div>
+        <p class="text-gray-300 text-lg">سيتم مراجعة طلبك والتواصل معك قريباً</p>
+        <p class="text-gray-400 text-sm mt-2">شكراً لاختيارك باقات الاشتراك</p>
+    </div>
+
+    <div class="flex justify-center gap-4">
+        <a href="{{ url_for('customer.subscriptions') }}"
+            class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-lg font-bold transition">
+            <i class="fas fa-star"></i>
+            اشتراكاتي
+        </a>
+        <a href="{{ url_for('customer.index') }}"
+            class="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-500 text-white px-6 py-3 rounded-lg font-bold transition">
+            <i class="fas fa-home"></i>
+            الرئيسية
+        </a>
+    </div>
+</div>
+{% endblock %}
