@@ -127,7 +127,8 @@
 
                     <!-- Free Wash Option -->
                     {% if current_user.free_washes > 0 %}
-                    <div class="bg-green-900 bg-opacity-20 border border-green-600 rounded-lg p-4 mb-4">
+                    <div id="free-wash-container"
+                        class="bg-green-900 bg-opacity-20 border border-green-600 rounded-lg p-4 mb-4 transition-all duration-300">
                         <label class="flex items-center cursor-pointer">
                             <input type="checkbox" id="use_free_wash" name="use_free_wash"
                                 class="w-5 h-5 rounded text-green-600 focus:ring-green-500 ml-3">
@@ -140,6 +141,8 @@
                                     متاحة</p>
                             </div>
                         </label>
+                        <p id="free-wash-warning" class="text-red-400 text-xs mt-2 hidden">هذه الخدمة لا تشمل الغسلة
+                            المجانية</p>
                     </div>
                     {% endif %}
 
@@ -328,7 +331,6 @@
     let currentStep = 1;
     let servicePrice = 0;
     let vehicleSizePrice = 0;
-
     let productsData = [];
 
     const dateInput = document.getElementById('date-input');
@@ -345,36 +347,31 @@
             const indicator = document.getElementById('step' + i + '-indicator');
             const line = document.getElementById('line' + i);
 
-            if (i < step) {
-                indicator.classList.remove('bg-gray-700');
-                indicator.classList.add('bg-green-600');
-                if (line) {
-                    line.classList.remove('bg-gray-700');
-                    line.classList.add('bg-green-600');
-                }
-            } else if (i === step) {
-                indicator.classList.remove('bg-gray-700', 'bg-green-600');
-                indicator.classList.add('bg-accent');
-            } else {
-                indicator.classList.remove('bg-accent', 'bg-green-600');
-                indicator.classList.add('bg-gray-700');
-                if (line) {
-                    line.classList.remove('bg-green-600');
-                    line.classList.add('bg-gray-700');
+            if (indicator) {
+                if (i < step) {
+                    indicator.classList.remove('bg-gray-700');
+                    indicator.classList.add('bg-green-600');
+                    if (line) {
+                        line.classList.remove('bg-gray-700');
+                        line.classList.add('bg-green-600');
+                    }
+                } else if (i === step) {
+                    indicator.classList.remove('bg-gray-700', 'bg-green-600');
+                    indicator.classList.add('bg-accent');
+                } else {
+                    indicator.classList.remove('bg-accent', 'bg-green-600');
+                    indicator.classList.add('bg-gray-700');
+                    if (line) {
+                        line.classList.remove('bg-green-600');
+                        line.classList.add('bg-gray-700');
+                    }
                 }
             }
         }
         currentStep = step;
 
-        // Update review when reaching step 4
-        if (step === 4) {
-            updateOrderReview();
-        }
-
-        // Load products when reaching step 3
-        if (step === 3) {
-            loadProducts();
-        }
+        if (step === 4) updateOrderReview();
+        if (step === 3) loadProducts();
     }
 
     function nextStep(step) {
@@ -410,14 +407,10 @@
     function loadProducts() {
         const neighborhoodId = document.getElementById('neighborhood-select').value;
         const productsContainer = document.getElementById('products-container');
-
-        // Add loading state
         productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2"><i class="fas fa-spinner fa-spin mr-2"></i>جاري تحميل المنتجات...</p>';
 
         const params = new URLSearchParams();
-        if (neighborhoodId) {
-            params.append('neighborhood_id', neighborhoodId);
-        }
+        if (neighborhoodId) params.append('neighborhood_id', neighborhoodId);
 
         fetch('/customer/api/products?' + params)
             .then(response => response.json())
@@ -427,28 +420,23 @@
                     productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2">لا توجد منتجات متاحة في هذا الموقع</p>';
                     return;
                 }
-                productsContainer.innerHTML = ''; // Clear loading/empty message
+                productsContainer.innerHTML = '';
                 products.forEach(product => {
                     const card = document.createElement('div');
                     card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
-
                     const img = product.image_url
-                        ? '<img src="' + product.image_url + '" alt="' + product.name_ar + '" class="w-20 h-20 object-cover rounded-lg mb-3">'
+                        ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-20 h-20 object-cover rounded-lg mb-3">`
                         : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
 
-                    card.innerHTML = img + '<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">' + product.name_ar +
-                        '</h5><span class="text-accent font-bold">' + product.price + ' ريال</span></div>' +
-                        '<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">' +
-                        '<input type="checkbox" name="product_' + product.id + '" value="' + product.id + '" class="ml-2 w-5 h-5">' +
-                        '<span class="text-gray-300">إضافة</span></label>' +
-                        '<input type="number" name="quantity_' + product.id + '" min="1" value="1" disabled ' +
-                        'class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>';
+                    card.innerHTML = img + `<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">${product.name_ar}</h5><span class="text-accent font-bold">${product.price} ريال</span></div>` +
+                        `<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">` +
+                        `<input type="checkbox" name="product_${product.id}" value="${product.id}" class="ml-2 w-5 h-5">` +
+                        `<span class="text-gray-300">إضافة</span></label>` +
+                        `<input type="number" name="quantity_${product.id}" min="1" value="1" disabled class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>`;
 
                     const checkbox = card.querySelector('input[type="checkbox"]');
                     const qty = card.querySelector('input[type="number"]');
-                    checkbox.addEventListener('change', function () {
-                        qty.disabled = !this.checked;
-                    });
+                    checkbox.addEventListener('change', () => qty.disabled = !checkbox.checked);
                     productsContainer.appendChild(card);
                 });
             })
@@ -459,13 +447,11 @@
     }
 
     function updateOrderReview() {
-        // City & Neighborhood
         const citySelect = document.getElementById('city-select');
         const neighborhoodSelect = document.getElementById('neighborhood-select');
         document.getElementById('review-city').textContent = citySelect.options[citySelect.selectedIndex].text;
         document.getElementById('review-neighborhood').textContent = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
 
-        // Service & Vehicle
         const serviceSelect = document.getElementById('service-select');
         const serviceTxt = serviceSelect.options[serviceSelect.selectedIndex].text;
         document.getElementById('review-service').textContent = serviceTxt;
@@ -473,21 +459,16 @@
         const vehicleSelect = document.querySelector('[name="vehicle_id"]');
         document.getElementById('review-vehicle').textContent = vehicleSelect.options[vehicleSelect.selectedIndex].text;
 
-        // Payment Method
         const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
         document.getElementById('review-payment').textContent = paymentMethod === 'cash' ? 'كاش' : 'شبكة / مدى';
 
-        // Date & Time
         document.getElementById('review-date').textContent = dateInput.value;
         document.getElementById('review-time').textContent = document.getElementById('time-select').value;
 
-        // Extract service price from service text (assumes format: "Service Name (XXX ريال)")
         const priceMatch = serviceTxt.match(/\((\d+(?:\.\d+)?)\s*ريال\)/);
         servicePrice = priceMatch ? parseFloat(priceMatch[1]) : 0;
 
-        // Fetch vehicle size price
         const vehicleId = vehicleSelect.value;
-
         if (vehicleId) {
             fetch(`/customer/api/vehicle/${vehicleId}/size-price`)
                 .then(response => response.json())
@@ -495,8 +476,7 @@
                     vehicleSizePrice = data.size_price || 0;
                     updateTotals();
                 })
-                .catch(error => {
-                    console.error('Error fetching vehicle size price:', error);
+                .catch(() => {
                     vehicleSizePrice = 0;
                     updateTotals();
                 });
@@ -510,55 +490,43 @@
         const totalServicePrice = servicePrice + vehicleSizePrice;
         document.getElementById('review-service-price').textContent = totalServicePrice + ' ريال';
 
-        // Products
-        const selectedProducts = [];
         let productsTotal = 0;
+        const selectedProducts = [];
         productsData.forEach(product => {
             const checkbox = document.querySelector(`input[name="product_${product.id}"]:checked`);
             if (checkbox) {
                 const qty = parseInt(document.querySelector(`input[name="quantity_${product.id}"]`).value) || 1;
-                const productTotal = product.price * qty;
-                productsTotal += productTotal;
-                selectedProducts.push({ name: product.name_ar, qty, price: product.price, total: productTotal });
+                const pTotal = product.price * qty;
+                productsTotal += pTotal;
+                selectedProducts.push({ name: product.name_ar, qty, total: pTotal });
             }
         });
 
         if (selectedProducts.length > 0) {
             document.getElementById('review-products-section').style.display = 'block';
             document.getElementById('review-products-total-row').style.display = 'flex';
-            document.getElementById('review-products-list').innerHTML = selectedProducts.map(p =>
-                `<p>${p.name} × ${p.qty} = ${p.total} ريال</p>`
-            ).join('');
+            document.getElementById('review-products-list').innerHTML = selectedProducts.map(p => `<p>${p.name} × ${p.qty} = ${p.total} ريال</p>`).join('');
             document.getElementById('review-products-total').textContent = productsTotal + ' ريال';
         } else {
             document.getElementById('review-products-section').style.display = 'none';
             document.getElementById('review-products-total-row').style.display = 'none';
         }
 
-        // Calculate total
         let total = (servicePrice + vehicleSizePrice) + productsTotal;
-
-        // Check for free wash
         const freeWash = document.getElementById('use_free_wash')?.checked || false;
+
         if (freeWash) {
             document.getElementById('review-free-wash-row').style.display = 'flex';
             document.getElementById('review-discount-row').style.display = 'none';
-            total = productsTotal; // Free wash = service is free
+            total = productsTotal;
         } else {
             document.getElementById('review-free-wash-row').style.display = 'none';
+            const dValue = parseFloat(document.getElementById('discount_value').value) || 0;
+            const dType = document.getElementById('discount_type').value;
+            const dVerified = document.getElementById('discount_verified').value === '1';
 
-            // Check for discount code
-            const discountValue = parseFloat(document.getElementById('discount_value').value) || 0;
-            const discountType = document.getElementById('discount_type').value;
-            const discountVerified = document.getElementById('discount_verified').value === '1';
-
-            if (discountVerified && discountValue > 0) {
-                let discount = 0;
-                if (discountType === 'percentage') {
-                    discount = (servicePrice * discountValue) / 100;
-                } else {
-                    discount = discountValue;
-                }
+            if (dVerified && dValue > 0) {
+                let discount = dType === 'percentage' ? (servicePrice * dValue) / 100 : dValue;
                 total = Math.max(0, (servicePrice + vehicleSizePrice) - discount) + productsTotal;
                 document.getElementById('review-discount-row').style.display = 'flex';
                 document.getElementById('review-discount').textContent = `- ${discount.toFixed(2)} ريال`;
@@ -566,7 +534,6 @@
                 document.getElementById('review-discount-row').style.display = 'none';
             }
         }
-
         document.getElementById('review-total').textContent = total.toFixed(2) + ' ريال';
     }
 
@@ -574,9 +541,12 @@
     const neighborhoodSelect = document.getElementById('neighborhood-select');
     const serviceSelect = document.getElementById('service-select');
     const timeSelect = document.getElementById('time-select');
+    const freeWashCheckbox = document.getElementById('use_free_wash');
+    const discountCodeInput = document.getElementById('discount_code');
+    const serviceEligibility = {{ service_eligibility|tojson|safe if service_eligibility else '{}' }};
 
     if (citySelect) {
-        citySelect.addEventListener('change', function () {
+        citySelect.addEventListener('change', function() {
             const cityId = this.value;
             neighborhoodSelect.innerHTML = '<option value="">اختر الحي</option>';
             timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
@@ -597,13 +567,12 @@
 
     function loadAvailableTimes() {
         const date = dateInput.value;
-        const neighborhoodId = neighborhoodSelect.value;
-        const serviceId = serviceSelect.value;
-
+        const nId = neighborhoodSelect.value;
+        const sId = serviceSelect.value;
         timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
-        if (!date || !neighborhoodId || !serviceId) return;
+        if (!date || !nId || !sId) return;
 
-        const params = new URLSearchParams({ date: date, neighborhood_id: neighborhoodId, service_id: serviceId });
+        const params = new URLSearchParams({ date: date, neighborhood_id: nId, service_id: sId });
         fetch('/customer/api/available-times?' + params)
             .then(response => response.json())
             .then(times => {
@@ -622,20 +591,35 @@
 
     if (dateInput) dateInput.addEventListener('change', loadAvailableTimes);
     if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
-    if (serviceSelect) serviceSelect.addEventListener('change', loadAvailableTimes);
+    if (serviceSelect) {
+        serviceSelect.addEventListener('change', loadAvailableTimes);
+        serviceSelect.addEventListener('change', checkFreeWashEligibility);
+    }
 
-    if (dateInput) dateInput.addEventListener('change', loadAvailableTimes);
-    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
-    if (serviceSelect) serviceSelect.addEventListener('change', loadAvailableTimes);
+    function checkFreeWashEligibility() {
+        const sId = serviceSelect.value;
+        const container = document.getElementById('free-wash-container');
+        if (!freeWashCheckbox || !container) return;
 
-    // Initial load removed, handled in showStep(3)
-
-    // Free wash and discount code mutual exclusivity
-    const freeWashCheckbox = document.getElementById('use_free_wash');
-    const discountCodeInput = document.getElementById('discount_code');
+        if (sId && serviceEligibility[sId] === false) {
+            freeWashCheckbox.checked = false;
+            freeWashCheckbox.disabled = true;
+            freeWashCheckbox.dispatchEvent(new Event('change'));
+            container.classList.add('opacity-50', 'pointer-events-none');
+            const warn = document.getElementById('free-wash-warning');
+            if (warn) warn.style.display = 'block';
+        } else {
+            if ({{ 'true' if current_user.free_washes > 0 else 'false' }}) {
+                freeWashCheckbox.disabled = false;
+                container.classList.remove('opacity-50', 'pointer-events-none');
+            }
+            const warn = document.getElementById('free-wash-warning');
+            if (warn) warn.style.display = 'none';
+        }
+    }
 
     if (freeWashCheckbox) {
-        freeWashCheckbox.addEventListener('change', function () {
+        freeWashCheckbox.addEventListener('change', function() {
             if (this.checked) {
                 discountCodeInput.disabled = true;
                 discountCodeInput.value = '';
@@ -650,7 +634,7 @@
     }
 
     if (discountCodeInput) {
-        discountCodeInput.addEventListener('input', function () {
+        discountCodeInput.addEventListener('input', () => {
             document.getElementById('discount_message').innerHTML = '';
             document.getElementById('discount_verified').value = '0';
             document.getElementById('discount_value').value = '0';
@@ -660,53 +644,38 @@
 
     function verifyDiscount() {
         const code = discountCodeInput.value.trim();
-        const messageDiv = document.getElementById('discount_message');
-
+        const msgDiv = document.getElementById('discount_message');
         if (!code) {
-            messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>الرجاء إدخال كود الخصم</span>';
+            msgDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>الرجاء إدخال كود الخصم</span>';
             return;
         }
-
         if (freeWashCheckbox && freeWashCheckbox.checked) {
-            messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>لا يمكن استخدام كود خصم مع غسلة مجانية</span>';
+            msgDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>لا يمكن استخدام كود خصم مع غسلة مجانية</span>';
             return;
         }
-
-        // Show loading
-        messageDiv.innerHTML = '<span class="text-gray-400"><i class="fas fa-spinner fa-spin mr-1"></i>جاري التحقق...</span>';
-
+        msgDiv.innerHTML = '<span class="text-gray-400"><i class="fas fa-spinner fa-spin mr-1"></i>جاري التحقق...</span>';
         fetch('/customer/api/verify-discount', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code: code })
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.valid) {
-                    messageDiv.innerHTML = '<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>' + data.message +
-                        ' (' + data.discount_value + (data.discount_type === 'percentage' ? '%' : ' ريال') + ')</span>';
-                    document.getElementById('discount_verified').value = '1';
-                    document.getElementById('discount_value').value = data.discount_value;
-                    document.getElementById('discount_type').value = data.discount_type;
-                    if (freeWashCheckbox) {
-                        freeWashCheckbox.disabled = true;
-                    }
-                } else {
-                    messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-times-circle mr-1"></i>' + data.message + '</span>';
-                    document.getElementById('discount_verified').value = '0';
-                    document.getElementById('discount_value').value = '0';
-                    document.getElementById('discount_type').value = '';
-                    if (freeWashCheckbox) {
-                        freeWashCheckbox.disabled = false;
-                    }
-                }
-            })
-            .catch(error => {
-                messageDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>حدث خطأ في التحقق</span>';
-                console.error('Error:', error);
-            });
+        .then(r => r.json())
+        .then(data => {
+            if (data.valid) {
+                msgDiv.innerHTML = `<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>${data.message} (${data.discount_value}${data.discount_type === 'percentage' ? '%' : ' ريال'})</span>`;
+                document.getElementById('discount_verified').value = '1';
+                document.getElementById('discount_value').value = data.discount_value;
+                document.getElementById('discount_type').value = data.discount_type;
+                if (freeWashCheckbox) freeWashCheckbox.disabled = true;
+            } else {
+                msgDiv.innerHTML = `<span class="text-red-400"><i class="fas fa-times-circle mr-1"></i>${data.message}</span>`;
+                document.getElementById('discount_verified').value = '0';
+                document.getElementById('discount_value').value = '0';
+                document.getElementById('discount_type').value = '';
+                if (freeWashCheckbox) freeWashCheckbox.disabled = false;
+            }
+        })
+        .catch(() => msgDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>حدث خطأ في التحقق</span>');
     }
 
     showStep(1);

@@ -18,7 +18,7 @@ class VehicleForm(FlaskForm):
 
 class BookingForm(FlaskForm):
     vehicle_id = SelectField('السيارة', coerce=int, validators=[DataRequired()])
-    service_id = SelectField('الخدمة', coerce=int, validators=[DataRequired()])
+    service_id = SelectField('الخدمة', coerce=lambda x: int(x) if x else None, validators=[DataRequired()])
     city_id = SelectField('المدينة', coerce=lambda x: int(x) if x else None)
     neighborhood_id = SelectField('الحي', coerce=int, validators=[DataRequired()])
     date = DateField('التاريخ', validators=[DataRequired()])

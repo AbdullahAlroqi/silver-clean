@@ -20,6 +20,7 @@ class ServiceForm(FlaskForm):
     price = FloatField('السعر', validators=[DataRequired()])
     duration = IntegerField('المدة (دقيقة)', validators=[DataRequired()])
     description = TextAreaField('الوصف')
+    includes_free_wash = BooleanField(' يشمل الغسلة المجانية', default=True)
     submit = SubmitField('حفظ')
 
 class VehicleSizeForm(FlaskForm):

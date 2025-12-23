@@ -17,22 +17,34 @@
                 <th class="p-4">الاسم (إنجليزي)</th>
                 <th class="p-4">السعر</th>
                 <th class="p-4">المدة (دقيقة)</th>
+                <th class="p-4">غسلة مجانية</th>
+                <th class="p-4">عدد الحجوزات</th>
+                <th class="p-4">الإيرادات</th>
                 <th class="p-4">الإجراءات</th>
             </tr>
         </thead>
         <tbody class="text-gray-200">
-            {% for service in services %}
+            {% for item in services %}
             <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
-                <td class="p-4">{{ service.name_ar }}</td>
-                <td class="p-4">{{ service.name_en }}</td>
-                <td class="p-4">{{ service.price }} ريال</td>
-                <td class="p-4">{{ service.duration }}</td>
+                <td class="p-4">{{ item.service.name_ar }}</td>
+                <td class="p-4">{{ item.service.name_en }}</td>
+                <td class="p-4">{{ item.service.price }} ريال</td>
+                <td class="p-4">{{ item.service.duration }}</td>
+                <td class="p-4">
+                    {% if item.service.includes_free_wash %}
+                    <span class="text-green-500"><i class="fas fa-check"></i> نعم</span>
+                    {% else %}
+                    <span class="text-red-500"><i class="fas fa-times"></i> لا</span>
+                    {% endif %}
+                </td>
+                <td class="p-4">{{ item.completed_bookings_count }}</td>
+                <td class="p-4">{{ item.total_revenue }} ريال</td>
                 <td class="p-4 flex gap-2">
-                    <a href="{{ url_for('admin.edit_service', id=service.id) }}"
+                    <a href="{{ url_for('admin.edit_service', id=item.service.id) }}"
                         class="text-blue-400 hover:text-blue-300">
                         <i class="fas fa-edit"></i>
                     </a>
-                    <a href="{{ url_for('admin.delete_service', id=service.id) }}"
+                    <a href="{{ url_for('admin.delete_service', id=item.service.id) }}"
                         class="text-red-400 hover:text-red-300" onclick="return confirm('هل أنت متأكد من الحذف؟')">
                         <i class="fas fa-trash"></i>
                     </a>

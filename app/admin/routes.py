@@ -771,8 +771,23 @@ def export_customers():
 # --- Service Management ---
 @bp.route('/services')
 def services():
-    services = Service.query.all()
-    return render_template('admin/services.html', services=services)
+    services_list = Service.query.all()
+    services_data = []
+    
+    for service in services_list:
+        # Calculate completed bookings count
+        completed_bookings_count = Booking.query.filter_by(service_id=service.id, status='completed').count()
+        
+        # Calculate total revenue
+        total_revenue = completed_bookings_count * service.price
+        
+        services_data.append({
+            'service': service,
+            'completed_bookings_count': completed_bookings_count,
+            'total_revenue': total_revenue
+        })
+        
+    return render_template('admin/services.html', services=services_data)
 
 @bp.route('/services/add', methods=['GET', 'POST'])
 def add_service():
@@ -781,7 +796,8 @@ def add_service():
         try:
             service = Service(name_ar=form.name_ar.data, name_en=form.name_en.data, 
                               price=form.price.data, duration=form.duration.data, 
-                              description=form.description.data)
+                              description=form.description.data,
+                              includes_free_wash=form.includes_free_wash.data)
             db.session.add(service)
             db.session.commit()
             flash('تم إضافة الخدمة بنجاح', 'success')

@@ -173,7 +173,14 @@ def book():
     form = BookingForm()
     # Populate choices with placeholder
     form.vehicle_id.choices = [(v.id, f"{v.brand} - {v.plate_number}") for v in user_vehicles]
-    form.service_id.choices = [(s.id, f"{s.name_ar} ({s.price} ريال)") for s in Service.query.all()]
+    
+    # Add placeholder for service and populate choices
+    services_query = Service.query.all()
+    form.service_id.choices = [('', 'اختر الخدمة')] + [(s.id, f"{s.name_ar} ({s.price} ريال)") for s in services_query]
+    
+    # Create a dictionary for service eligibility (ID -> Boolean)
+    service_eligibility = {s.id: s.includes_free_wash for s in services_query}
+    
     # Add placeholder option for city
     form.city_id.choices = [('', 'اختر المدينة')] + [(c.id, c.name_ar) for c in City.query.filter_by(is_active=True).all()]
     
@@ -205,11 +212,19 @@ def book():
             booking_date = form.date.data
             booking_time = datetime.strptime(request.form.get('time'), '%H:%M').time()
             neighborhood_id = int(request.form.get('neighborhood_id'))
+            service_id = form.service_id.data
             
             # Check for free wash or discount code (mutual exclusivity)
             use_free_wash = request.form.get('use_free_wash') == 'on'
             discount_code_str = request.form.get('discount_code', '').strip()
             
+            # Validate Free Wash Eligibility for the selected service
+            if use_free_wash:
+                selected_service = Service.query.get(service_id)
+                if not selected_service or not selected_service.includes_free_wash:
+                    flash('عذراً، هذه الخدمة لا تشمل الغسلة المجانية', 'error')
+                    return redirect(url_for('customer.book'))
+
             if use_free_wash and discount_code_str:
                 flash('لا يمكن استخدام غسلة مجانية وكود خصم معاً')
                 return redirect(url_for('customer.book'))
@@ -386,9 +401,7 @@ def book():
             flash('تم الحجز بنجاح!')
             return redirect(url_for('customer.booking_success'))
 
-    return render_template('customer/booking_form.html', form=form)
-
-
+    return render_template('customer/booking_form.html', form=form, service_eligibility=service_eligibility)
 
 @bp.route('/api/vehicle/<int:vehicle_id>/size-price')
 def get_vehicle_size_price(vehicle_id):
