@@ -84,13 +84,6 @@
         </div>
         {% endif %}
 
-        {% if subscription.assigned_employee %}
-        <div class="flex items-center text-gray-300 text-sm mt-2">
-            <i class="fas fa-user ml-2 text-gray-500"></i>
-            <span>الموظف المخصص: {{ subscription.assigned_employee.username }}</span>
-        </div>
-        {% endif %}
-
         <!-- Book Wash Button for Active Subscriptions -->
         {% if subscription.status == 'active' and subscription.remaining_washes > 0 %}
         <div class="mt-4 pt-4 border-t border-gray-700">

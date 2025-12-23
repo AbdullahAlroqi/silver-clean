@@ -8,16 +8,33 @@
     </button>
 </div>
 
+<!-- Status Tabs -->
+<div class="mb-4 flex gap-2 border-b border-gray-700">
+    <a href="{{ url_for('admin.bookings', status='current', date=date_filter) }}"
+        class="px-4 py-2 {% if status_filter == 'current' or status_filter == 'all' %}bg-accent text-white{% else %}text-gray-400{% endif %} rounded-t">الجارية
+        ({{ current_count }})</a>
+    <a href="{{ url_for('admin.bookings', status='completed', date=date_filter) }}"
+        class="px-4 py-2 {% if status_filter == 'completed' %}bg-green-600 text-white{% else %}text-gray-400{% endif %} rounded-t">المنتهية
+        ({{ completed_count }})</a>
+    <a href="{{ url_for('admin.bookings', status='cancelled', date=date_filter) }}"
+        class="px-4 py-2 {% if status_filter == 'cancelled' %}bg-red-600 text-white{% else %}text-gray-400{% endif %} rounded-t">الملغية
+        ({{ cancelled_count }})</a>
+</div>
+
+<!-- Search and Date Filter -->
 <div class="mb-6">
-    <form action="{{ url_for('admin.bookings') }}" method="GET" class="flex gap-2">
+    <form action="{{ url_for('admin.bookings') }}" method="GET" class="flex gap-2 flex-wrap">
+        <input type="hidden" name="status" value="{{ status_filter }}">
         <input type="text" name="q" placeholder="بحث برقم الحجز، اسم العميل، أو رقم الهاتف..."
             value="{{ request.args.get('q', '') }}"
-            class="flex-1 bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+            class="flex-1 min-w-[200px] bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+        <input type="date" name="date" value="{{ date_filter }}"
+            class="bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
         <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-6 py-2 rounded">
             <i class="fas fa-search"></i> بحث
         </button>
-        {% if request.args.get('q') %}
-        <a href="{{ url_for('admin.bookings') }}"
+        {% if request.args.get('q') or date_filter %}
+        <a href="{{ url_for('admin.bookings', status=status_filter) }}"
             class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded flex items-center">
             <i class="fas fa-times"></i>
         </a>

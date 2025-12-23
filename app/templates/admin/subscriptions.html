@@ -28,6 +28,9 @@
     <a href="{{ url_for('admin.subscriptions', status='active') }}"
         class="px-4 py-2 {% if current_status == 'active' %}bg-accent text-white{% else %}text-gray-400{% endif %} rounded-t">الفعالة
         ({{ active_count }})</a>
+    <a href="{{ url_for('admin.subscriptions', status='expired') }}"
+        class="px-4 py-2 {% if current_status == 'expired' %}bg-orange-600 text-white{% else %}text-gray-400{% endif %} rounded-t">المنتهية
+        ({{ expired_count }})</a>
     <a href="{{ url_for('admin.subscriptions', status='rejected') }}"
         class="px-4 py-2 {% if current_status == 'rejected' %}bg-accent text-white{% else %}text-gray-400{% endif %} rounded-t">المرفوضة
         ({{ rejected_count }})</a>
@@ -150,13 +153,6 @@
                         <option value="">-- اختر --</option>
                     </select>
                 </div>
-                <div class="col-span-2">
-                    <label class="block text-sm mb-2">الموظف *</label>
-                    <select name="employee_id" id="createEmployee" required
-                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
-                        <option value="">-- اختر --</option>
-                    </select>
-                </div>
                 <div class="col-span-2 bg-gray-800 p-3 rounded">
                     <div class="flex justify-between text-sm mb-1">
                         <span>السعر الأصلي:</span>
@@ -186,11 +182,8 @@
     <div class="bg-primary p-6 rounded-lg max-w-md w-full mx-4">
         <h3 class="text-xl font-bold mb-4">قبول الاشتراك</h3>
         <form id="approveForm" method="post">
-            <label class="block text-sm mb-2">الموظف</label>
-            <select name="employee_id" id="employeeSelect" required
-                class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 mb-4">
-                <option value="">-- اختر --</option>
-            </select>
+            <p class="text-gray-300 mb-4">سيتم تفعيل الاشتراك وسيتمكن العميل من حجز الغسلات حسب توفر الموظفين في منطقته.
+            </p>
             <div class="flex gap-2">
                 <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">قبول</button>
                 <button type="button" onclick="closeApprove()"

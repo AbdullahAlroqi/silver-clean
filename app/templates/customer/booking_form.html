@@ -370,6 +370,11 @@
         if (step === 4) {
             updateOrderReview();
         }
+
+        // Load products when reaching step 3
+        if (step === 3) {
+            loadProducts();
+        }
     }
 
     function nextStep(step) {
@@ -400,6 +405,57 @@
 
     function prevStep(step) {
         showStep(step);
+    }
+
+    function loadProducts() {
+        const neighborhoodId = document.getElementById('neighborhood-select').value;
+        const productsContainer = document.getElementById('products-container');
+
+        // Add loading state
+        productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2"><i class="fas fa-spinner fa-spin mr-2"></i>جاري تحميل المنتجات...</p>';
+
+        const params = new URLSearchParams();
+        if (neighborhoodId) {
+            params.append('neighborhood_id', neighborhoodId);
+        }
+
+        fetch('/customer/api/products?' + params)
+            .then(response => response.json())
+            .then(products => {
+                productsData = products;
+                if (products.length === 0) {
+                    productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2">لا توجد منتجات متاحة في هذا الموقع</p>';
+                    return;
+                }
+                productsContainer.innerHTML = ''; // Clear loading/empty message
+                products.forEach(product => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
+
+                    const img = product.image_url
+                        ? '<img src="' + product.image_url + '" alt="' + product.name_ar + '" class="w-20 h-20 object-cover rounded-lg mb-3">'
+                        : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
+
+                    card.innerHTML = img + '<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">' + product.name_ar +
+                        '</h5><span class="text-accent font-bold">' + product.price + ' ريال</span></div>' +
+                        '<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">' +
+                        '<input type="checkbox" name="product_' + product.id + '" value="' + product.id + '" class="ml-2 w-5 h-5">' +
+                        '<span class="text-gray-300">إضافة</span></label>' +
+                        '<input type="number" name="quantity_' + product.id + '" min="1" value="1" disabled ' +
+                        'class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>';
+
+                    const checkbox = card.querySelector('input[type="checkbox"]');
+                    const qty = card.querySelector('input[type="number"]');
+                    checkbox.addEventListener('change', function () {
+                        qty.disabled = !this.checked;
+                    });
+                    productsContainer.appendChild(card);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading products:', error);
+                productsContainer.innerHTML = '<p class="text-red-500 text-center col-span-2">حدث خطأ في تحميل المنتجات</p>';
+            });
     }
 
     function updateOrderReview() {
@@ -568,39 +624,11 @@
     if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
     if (serviceSelect) serviceSelect.addEventListener('change', loadAvailableTimes);
 
-    fetch('/customer/api/products')
-        .then(response => response.json())
-        .then(products => {
-            productsData = products;
-            const container = document.getElementById('products-container');
-            if (products.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center col-span-2">لا توجد منتجات</p>';
-                return;
-            }
-            products.forEach(product => {
-                const card = document.createElement('div');
-                card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
+    if (dateInput) dateInput.addEventListener('change', loadAvailableTimes);
+    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
+    if (serviceSelect) serviceSelect.addEventListener('change', loadAvailableTimes);
 
-                const img = product.image_url
-                    ? '<img src="' + product.image_url + '" alt="' + product.name_ar + '" class="w-20 h-20 object-cover rounded-lg mb-3">'
-                    : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
-
-                card.innerHTML = img + '<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">' + product.name_ar +
-                    '</h5><span class="text-accent font-bold">' + product.price + ' ريال</span></div>' +
-                    '<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">' +
-                    '<input type="checkbox" name="product_' + product.id + '" value="' + product.id + '" class="ml-2 w-5 h-5">' +
-                    '<span class="text-gray-300">إضافة</span></label>' +
-                    '<input type="number" name="quantity_' + product.id + '" min="1" value="1" disabled ' +
-                    'class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>';
-
-                const checkbox = card.querySelector('input[type="checkbox"]');
-                const qty = card.querySelector('input[type="number"]');
-                checkbox.addEventListener('change', function () {
-                    qty.disabled = !this.checked;
-                });
-                container.appendChild(card);
-            });
-        });
+    // Initial load removed, handled in showStep(3)
 
     // Free wash and discount code mutual exclusivity
     const freeWashCheckbox = document.getElementById('use_free_wash');

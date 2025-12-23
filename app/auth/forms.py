@@ -38,6 +38,7 @@ class RegistrationForm(FlaskForm):
         phone.data = converted_phone
         
         # Check if phone already exists
+        user = User.query.filter_by(phone=converted_phone).first()
         if user:
             raise ValidationError('رقم الجوال هذا مستخدم بالفعل.')
 

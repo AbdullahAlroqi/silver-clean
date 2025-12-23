@@ -99,12 +99,13 @@
                         <i class="fas fa-car-side ml-3"></i>
                         <span>أحجام السيارات</span>
                     </a>
+                    {% endif %}
+
                     <a href="{{ url_for('admin.products') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-box ml-3"></i>
-                        <span>المنتجات</span>
+                        <span>المنتجات{% if current_user.role == 'supervisor' %} (المخزون){% endif %}</span>
                     </a>
-                    {% endif %}
 
                     <a href="{{ url_for('admin.bookings') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
@@ -168,11 +169,15 @@
                         <i class="fas fa-bell ml-3"></i>
                         <span>الإشعارات</span>
                     </a>
+                    {% endif %}
+
                     <a href="{{ url_for('admin.gift_orders') }}"
                         class="flex items-center px-6 py-3 text-pink-400 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-gift ml-3"></i>
                         <span>حجوزات الهدايا</span>
                     </a>
+
+                    {% if current_user.role == 'admin' %}
                     <a href="{{ url_for('admin.settings') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-cog ml-3"></i>

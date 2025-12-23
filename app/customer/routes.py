@@ -115,6 +115,14 @@ def cancel_booking(booking_id):
     
     # Cancel the booking
     booking.status = 'cancelled'
+    
+    # Restore wash if this is a subscription booking
+    if booking.subscription_id and booking.subscription:
+        booking.subscription.remaining_washes += 1
+        # Reactivate subscription if it was expired due to no washes
+        if booking.subscription.status == 'expired' and booking.subscription.remaining_washes > 0:
+            booking.subscription.status = 'active'
+    
     db.session.commit()
     
     flash('تم إلغاء الحجز بنجاح', 'success')
@@ -156,9 +164,15 @@ def delete_vehicle(id):
 # --- Booking System ---
 @bp.route('/book', methods=['GET', 'POST'])
 def book():
+    # Check if user has vehicles
+    user_vehicles = current_user.vehicles.all()
+    if not user_vehicles:
+        flash('يجب إضافة مركبة قبل الحجز', 'warning')
+        return redirect(url_for('customer.add_vehicle'))
+    
     form = BookingForm()
     # Populate choices with placeholder
-    form.vehicle_id.choices = [(v.id, f"{v.brand} - {v.plate_number}") for v in current_user.vehicles.all()]
+    form.vehicle_id.choices = [(v.id, f"{v.brand} - {v.plate_number}") for v in user_vehicles]
     form.service_id.choices = [(s.id, f"{s.name_ar} ({s.price} ريال)") for s in Service.query.all()]
     # Add placeholder option for city
     form.city_id.choices = [('', 'اختر المدينة')] + [(c.id, c.name_ar) for c in City.query.filter_by(is_active=True).all()]
@@ -390,14 +404,58 @@ def get_neighborhoods(city_id):
 
 @bp.route('/api/products')
 def get_products():
-    from app.models import Product
-    products = Product.query.filter(Product.stock_quantity > 0).all()
+    from app.models import Product, ProductStock, Neighborhood
+    
+    neighborhood_id = request.args.get('neighborhood_id')
+    available_products = []
+    
+    if neighborhood_id:
+        try:
+            neighborhood_id = int(neighborhood_id)
+            neighborhood = Neighborhood.query.get(neighborhood_id)
+            city_id = neighborhood.city_id if neighborhood else None
+            
+            all_products = Product.query.all()
+            
+            for p in all_products:
+                # Default to global stock
+                current_stock = p.stock_quantity
+                
+                if city_id:
+                    # Check city-wide stock (neighborhood_id is None)
+                    city_stock = ProductStock.query.filter_by(
+                        product_id=p.id, 
+                        city_id=city_id, 
+                        neighborhood_id=None
+                    ).first()
+                    
+                    if city_stock:
+                        current_stock = city_stock.quantity
+                    
+                    # Check specific neighborhood stock (overrides city/global)
+                    neigh_stock = ProductStock.query.filter_by(
+                        product_id=p.id, 
+                        neighborhood_id=neighborhood_id
+                    ).first()
+                    
+                    if neigh_stock:
+                        current_stock = neigh_stock.quantity
+                
+                if current_stock > 0:
+                    available_products.append(p)
+        except (ValueError, AttributeError):
+            # Fallback to global stock if invalid ID
+            available_products = Product.query.filter(Product.stock_quantity > 0).all()
+    else:
+        # No neighborhood specified, show globally available products
+        available_products = Product.query.filter(Product.stock_quantity > 0).all()
+
     return jsonify([{
         'id': p.id,
         'name_ar': p.name_ar,
         'price': float(p.price),
         'image_url': p.image_url if p.image_url else ''
-    } for p in products])
+    } for p in available_products])
 
 
 @bp.route('/api/verify-discount', methods=['POST'])
@@ -562,6 +620,12 @@ def subscriptions():
 @bp.route('/subscribe')
 def subscribe_flow():
     """Show available packages"""
+    # Check if user has vehicles
+    user_vehicles = current_user.vehicles.all()
+    if not user_vehicles:
+        flash('يجب إضافة مركبة قبل الاشتراك', 'warning')
+        return redirect(url_for('customer.add_vehicle'))
+    
     packages = SubscriptionPackage.query.filter_by(is_active=True).all()
     
     # Get all active/pending subscriptions for this user
@@ -881,29 +945,34 @@ def gift():
 @bp.route('/gift/wash', methods=['GET', 'POST'])
 def gift_wash():
     """Gift a single wash"""
-    from app.models import Service, Product, GiftOrder, GiftOrderProduct
+    from app.models import Service, Product, GiftOrder, GiftOrderProduct, City
     
     services = Service.query.all()
     products = Product.query.all()  # Get all products
+    cities = City.query.filter_by(is_active=True).all()
     
     if request.method == 'POST':
         service_id = request.form.get('service_id')
         recipient_name = request.form.get('recipient_name')
         recipient_phone = request.form.get('recipient_phone')
+        city_id = request.form.get('city_id')
+        neighborhood_id = request.form.get('neighborhood_id')
         
         # Validate phone (9 digits)
         if not recipient_phone or len(recipient_phone) != 9 or not recipient_phone.isdigit():
             flash('الرجاء إدخال رقم جوال صحيح (9 أرقام بدون صفر)', 'error')
-            return render_template('customer/gift_wash.html', services=services, products=products)
+            return render_template('customer/gift_wash.html', services=services, products=products, cities=cities)
         
         # Format phone number with Saudi country code
         formatted_phone = '+966' + recipient_phone
         
-        # Create gift order
+        # Create gift order with location
         gift_order = GiftOrder(
             sender_id=current_user.id,
             recipient_name=recipient_name,
             recipient_phone=formatted_phone,
+            city_id=int(city_id) if city_id else None,
+            neighborhood_id=int(neighborhood_id) if neighborhood_id else None,
             gift_type='wash',
             service_id=service_id,
             status='pending'
@@ -925,7 +994,7 @@ def gift_wash():
         db.session.commit()
         return redirect(url_for('customer.gift_success'))
     
-    return render_template('customer/gift_wash.html', services=services, products=products)
+    return render_template('customer/gift_wash.html', services=services, products=products, cities=cities)
 
 
 @bp.route('/gift/subscription', methods=['GET', 'POST'])

@@ -862,6 +862,7 @@ def delete_vehicle_size(id):
 # --- Products Management ---
 @bp.route('/products')
 def products():
+    from app.models import ProductStock
     all_products = Product.query.all()
     products_data = []
     total_sales_revenue = 0
@@ -884,8 +885,98 @@ def products():
             'revenue': revenue,
             'stock': product.stock_quantity
         })
+    
+    # Get cities for location stock management
+    # For supervisors, only show their assigned areas
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        supervisor_city_ids = set()
         
-    return render_template('admin/products.html', products=products_data, total_sales_revenue=total_sales_revenue)
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+            for n in current_user.supervisor_neighborhoods:
+                supervisor_city_ids.add(n.city_id)
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_city_ids.add(city.id)
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        cities = City.query.filter(City.id.in_(supervisor_city_ids), City.is_active==True).all()
+        # Only include neighborhoods in supervisor's scope
+        cities_json = json.dumps([{
+            'id': c.id,
+            'name_ar': c.name_ar,
+            'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods if n.id in supervisor_neighborhood_ids]
+        } for c in cities])
+    else:
+        cities = City.query.filter_by(is_active=True).all()
+        cities_json = json.dumps([{
+            'id': c.id,
+            'name_ar': c.name_ar,
+            'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods]
+        } for c in cities])
+    
+    return render_template('admin/products.html', products=products_data, 
+                           total_sales_revenue=total_sales_revenue, cities=cities, cities_json=cities_json)
+
+@bp.route('/products/update_stock/<int:product_id>', methods=['POST'])
+def update_stock(product_id):
+    """Update product stock - either global or per location"""
+    from app.models import ProductStock
+    
+    product = Product.query.get_or_404(product_id)
+    stock = request.form.get('stock', 0, type=int)
+    city_id = request.form.get('city_id', type=int)
+    neighborhood_id = request.form.get('neighborhood_id', type=int)
+    
+    if city_id:
+        # Location-based stock update
+        existing = ProductStock.query.filter_by(
+            product_id=product_id,
+            city_id=city_id,
+            neighborhood_id=neighborhood_id if neighborhood_id else None
+        ).first()
+        
+        if existing:
+            existing.quantity = stock
+        else:
+            new_stock = ProductStock(
+                product_id=product_id,
+                city_id=city_id,
+                neighborhood_id=neighborhood_id if neighborhood_id else None,
+                quantity=stock
+            )
+            db.session.add(new_stock)
+        
+        flash(f'تم تحديث المخزون للموقع المحدد')
+    else:
+        # Global stock update
+        product.stock_quantity = stock
+        flash('تم تحديث المخزون العام')
+    
+    db.session.commit()
+    return redirect(url_for('admin.products'))
+
+@bp.route('/products/location_stock/<int:product_id>')
+def get_location_stock(product_id):
+    """Get all location stocks for a product"""
+    from app.models import ProductStock
+    
+    stocks = ProductStock.query.filter_by(product_id=product_id).all()
+    result = []
+    
+    for s in stocks:
+        result.append({
+            'id': s.id,
+            'city_id': s.city_id,
+            'city_name': s.city.name_ar if s.city else '',
+            'neighborhood_id': s.neighborhood_id,
+            'neighborhood_name': s.neighborhood.name_ar if s.neighborhood else 'كل الأحياء',
+            'quantity': s.quantity
+        })
+    
+    return jsonify(result)
 
 @bp.route('/products/add', methods=['GET', 'POST'])
 def add_product():
@@ -1036,30 +1127,6 @@ def product_stats(id):
         .limit(20).all()
         
     return render_template('admin/product_stats.html', product=product, sold_quantity=sold_quantity, total_revenue=total_revenue, recent_bookings=recent_bookings)
-
-@bp.route('/products/update_stock/<int:id>', methods=['POST'])
-def update_stock(id):
-    product = Product.query.get_or_404(id)
-    stock_change = request.form.get('stock')
-    
-    if stock_change is not None:
-        try:
-            change_amount = int(stock_change)
-            # Add or subtract from current stock
-            current_stock = product.stock_quantity or 0
-            product.stock_quantity = max(0, current_stock + change_amount)  # Prevent negative stock
-            db.session.commit()
-            
-            if change_amount > 0:
-                flash(f'تم إضافة {change_amount} وحدة للمخزون. المخزون الحالي: {product.stock_quantity}', 'success')
-            elif change_amount < 0:
-                flash(f'تم خصم {abs(change_amount)} وحدة من المخزون. المخزون الحالي: {product.stock_quantity}', 'success')
-            else:
-                flash('لم يتم تغيير المخزون', 'info')
-        except ValueError:
-            flash('قيمة المخزون غير صالحة', 'error')
-            
-    return redirect(url_for('admin.products'))
 
 # --- Location Management ---
     if form.validate_on_submit():
@@ -1217,6 +1284,7 @@ def subscriptions():
     pending_count = Subscription.query.filter_by(status='pending').count()
     active_count = Subscription.query.filter_by(status='active').count()
     rejected_count = Subscription.query.filter_by(status='rejected').count()
+    expired_count = Subscription.query.filter_by(status='expired').count()
     
     # Prepare JSON data for JavaScript
     subs_json = json.dumps([{
@@ -1225,7 +1293,8 @@ def subscriptions():
         'employee_id': s.employee_id,
         'neighborhood_id': s.neighborhood_id,
         'city_id': s.neighborhood.city_id if s.neighborhood else None,
-        'remaining_washes': s.remaining_washes or 0
+        'remaining_washes': s.remaining_washes or 0,
+        'end_date': s.end_date.isoformat() if s.end_date else None
     } for s in subscriptions_result])
     
     cities = City.query.all()
@@ -1246,6 +1315,7 @@ def subscriptions():
                           pending_count=pending_count,
                           active_count=active_count,
                           rejected_count=rejected_count,
+                          expired_count=expired_count,
                           subscriptions_json=subs_json,
                           cities=cities,
                           cities_json=cities_json,
@@ -1283,10 +1353,10 @@ def create_subscription():
         flash('الباقة غير موجودة')
         return redirect(url_for('admin.subscriptions'))
     
-    # Create subscription
+    # Create subscription (employee is now optional - booking will find available employee)
     subscription = Subscription(
         customer_id=int(customer_id),
-        employee_id=int(employee_id),
+        employee_id=int(employee_id) if employee_id else None,
         neighborhood_id=int(neighborhood_id),
         package_id=int(package_id),
         remaining_washes=int(package.wash_count),
@@ -1306,19 +1376,17 @@ def approve_subscription(id):
     subscription = Subscription.query.get_or_404(id)
     employee_id = request.form.get('employee_id')
     
-    if not employee_id:
-        flash('يجب اختيار موظف')
-        return redirect(url_for('admin.subscriptions'))
-    
+    # Employee is now optional - bookings will find available employee in neighborhood
     subscription.status = 'active'
-    subscription.employee_id = int(employee_id)
+    if employee_id:
+        subscription.employee_id = int(employee_id)
     
     # Set remaining washes from package
     if subscription.package:
         subscription.remaining_washes = int(subscription.package.wash_count)
     
     db.session.commit()
-    flash(f'تم قبول الاشتراك وإسناده للموظف')
+    flash('تم قبول الاشتراك بنجاح')
     return redirect(url_for('admin.subscriptions', status='active'))
 
 @bp.route('/subscriptions/<int:id>/reject')
@@ -1436,7 +1504,9 @@ def bookings():
         else:
             query = query.filter_by(id=-1)  # Empty result
     
-    if status_filter != 'all':
+    if status_filter == 'current':
+        query = query.filter(Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress']))
+    elif status_filter != 'all':
         query = query.filter_by(status=status_filter)
     if employee_filter != 'all':
         query = query.filter_by(employee_id=int(employee_filter))
@@ -1460,7 +1530,7 @@ def bookings():
                 User.username.ilike(f'%{search_query}%')
             )
             
-    bookings_list = query.order_by(Booking.date.desc(), Booking.time.desc()).all()
+    bookings_list = query.order_by(Booking.id.desc()).all()
     
     # Filter cities and neighborhoods for supervisor
     if current_user.role == 'supervisor':
@@ -1497,9 +1567,16 @@ def bookings():
     customers = User.query.filter_by(role='customer').all()
     services = Service.query.all()
     
+    # Get counts for status tabs
+    current_statuses = ['pending', 'assigned', 'en_route', 'arrived', 'in_progress']
+    current_count = Booking.query.filter(Booking.status.in_(current_statuses)).count()
+    completed_count = Booking.query.filter_by(status='completed').count()
+    cancelled_count = Booking.query.filter_by(status='cancelled').count()
+    
     return render_template('admin/bookings.html', bookings=bookings_list, employees=employees, 
                            status_filter=status_filter, employee_filter=employee_filter, date_filter=date_filter,
-                           customers=customers, services=services, cities=cities, cities_json=cities_json, today=today)
+                           customers=customers, services=services, cities=cities, cities_json=cities_json, today=today,
+                           current_count=current_count, completed_count=completed_count, cancelled_count=cancelled_count)
 
 @bp.route('/bookings/create', methods=['POST'])
 def create_booking():
@@ -2393,9 +2470,27 @@ def gift_orders():
     
     status_filter = request.args.get('status', 'pending')
     
-    pending_orders = GiftOrder.query.filter_by(status='pending').order_by(GiftOrder.created_at.desc()).all()
-    accepted_orders = GiftOrder.query.filter_by(status='accepted').order_by(GiftOrder.created_at.desc()).all()
-    rejected_orders = GiftOrder.query.filter_by(status='rejected').order_by(GiftOrder.created_at.desc()).all()
+    # Get base query
+    base_query = GiftOrder.query
+    
+    # Filter for supervisors - only show gifts for their neighborhoods
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+        
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        
+        if supervisor_neighborhood_ids:
+            base_query = base_query.filter(GiftOrder.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            base_query = base_query.filter_by(id=-1)  # Empty result
+    
+    pending_orders = base_query.filter_by(status='pending').order_by(GiftOrder.created_at.desc()).all()
+    accepted_orders = base_query.filter_by(status='accepted').order_by(GiftOrder.created_at.desc()).all()
+    rejected_orders = base_query.filter_by(status='rejected').order_by(GiftOrder.created_at.desc()).all()
     
     return render_template('admin/gift_orders.html',
                          pending_orders=pending_orders,

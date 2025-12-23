@@ -101,6 +101,30 @@
                 </div>
                 <p class="text-gray-400 text-xs mt-1">أدخل 9 أرقام بدون الصفر الأول</p>
             </div>
+
+            <!-- Recipient Location -->
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="city_id">
+                    <i class="fas fa-map-marker-alt ml-1 text-accent"></i> مدينة المستلم
+                </label>
+                <select id="city_id" name="city_id" required
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none"
+                    onchange="loadNeighborhoods(this.value)">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="neighborhood_id">
+                    <i class="fas fa-home ml-1 text-accent"></i> حي المستلم
+                </label>
+                <select id="neighborhood_id" name="neighborhood_id" required
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
+                    <option value="">-- اختر المدينة أولاً --</option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -111,4 +135,29 @@
         إرسال الهدية
     </button>
 </form>
+
+<script>
+    function loadNeighborhoods(cityId) {
+        const neighborhoodSelect = document.getElementById('neighborhood_id');
+        neighborhoodSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+
+        if (!cityId) {
+            neighborhoodSelect.innerHTML = '<option value="">-- اختر المدينة أولاً --</option>';
+            return;
+        }
+
+        fetch(`/customer/api/neighborhoods/${cityId}`)
+            .then(response => response.json())
+            .then(data => {
+                neighborhoodSelect.innerHTML = '<option value="">-- اختر الحي --</option>';
+                data.forEach(n => {
+                    neighborhoodSelect.innerHTML += `<option value="${n.id}">${n.name}</option>`;
+                });
+            })
+            .catch(error => {
+                console.error('Error loading neighborhoods:', error);
+                neighborhoodSelect.innerHTML = '<option value="">خطأ في التحميل</option>';
+            });
+    }
+</script>
 {% endblock %}

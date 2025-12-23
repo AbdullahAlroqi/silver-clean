@@ -104,7 +104,27 @@ class Product(db.Model):
     name_en = db.Column(db.String(64))
     price = db.Column(db.Float)
     image_url = db.Column(db.String(255))
-    stock_quantity = db.Column(db.Integer, default=0)
+    stock_quantity = db.Column(db.Integer, default=0)  # Global stock (fallback)
+    
+    # Relationship to location-based stock
+    location_stocks = db.relationship('ProductStock', backref='product', lazy='dynamic')
+
+class ProductStock(db.Model):
+    """Product stock per city/neighborhood"""
+    id = db.Column(db.Integer, primary_key=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
+    neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True)
+    quantity = db.Column(db.Integer, default=0)
+    
+    # Relationships
+    city = db.relationship('City')
+    neighborhood = db.relationship('Neighborhood')
+    
+    # Unique constraint: one record per product per location
+    __table_args__ = (
+        db.UniqueConstraint('product_id', 'city_id', 'neighborhood_id', name='unique_product_location'),
+    )
 
 class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -251,6 +271,10 @@ class GiftOrder(db.Model):
     recipient_name = db.Column(db.String(100))  # اسم المهدى له
     recipient_phone = db.Column(db.String(20))  # رقم جوال المهدى له (+966...)
     
+    # Recipient location for gift delivery
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True)
+    neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True)
+    
     gift_type = db.Column(db.String(20))  # 'wash' or 'subscription'
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
     package_id = db.Column(db.Integer, db.ForeignKey('subscription_package.id'), nullable=True)
@@ -262,6 +286,8 @@ class GiftOrder(db.Model):
     sender = db.relationship('User', backref='gift_orders')
     service = db.relationship('Service')
     package = db.relationship('SubscriptionPackage')
+    city = db.relationship('City')
+    neighborhood = db.relationship('Neighborhood')
 
 class GiftOrderProduct(db.Model):
     """Products included in a gift order"""

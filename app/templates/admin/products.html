@@ -6,10 +6,12 @@
         <h2 class="text-2xl font-bold text-white">المنتجات الإضافية</h2>
         <p class="text-gray-400">إدارة المنتجات وتقارير المبيعات</p>
     </div>
+    {% if current_user.role == 'admin' %}
     <a href="{{ url_for('admin.add_product') }}"
         class="bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
         <i class="fas fa-plus ml-2"></i> إضافة منتج
     </a>
+    {% endif %}
 </div>
 
 <!-- Sales Summary -->
@@ -74,6 +76,7 @@
                     <i class="fas fa-boxes"></i> المخزون
                 </button>
             </div>
+            {% if current_user.role == 'admin' %}
             <div class="flex gap-2 mt-2">
                 <a href="{{ url_for('admin.edit_product', id=item.product.id) }}"
                     class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-2 rounded transition">
@@ -85,6 +88,7 @@
                     <i class="fas fa-trash"></i> حذف
                 </a>
             </div>
+            {% endif %}
         </div>
     </div>
     {% else %}
@@ -97,14 +101,64 @@
 
 <!-- Stock Update Modal -->
 <div id="stockModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-primary p-6 rounded-lg shadow-lg w-96 border border-gray-700">
-        <h3 class="text-xl font-bold text-white mb-4">تحديث المخزون</h3>
+    <div class="bg-primary p-6 rounded-lg shadow-lg w-full max-w-md border border-gray-700">
+        <h3 class="text-xl font-bold text-white mb-4">
+            <i class="fas fa-boxes ml-2"></i>تحديث المخزون
+        </h3>
         <form id="stockForm" method="POST" action="">
+            <!-- Stock Type Selection -->
             <div class="mb-4">
-                <label class="block text-gray-400 mb-2">الكمية الجديدة</label>
-                <input type="number" name="stock" id="stockInput"
+                <label class="block text-gray-400 mb-2">نوع المخزون</label>
+                <div class="flex gap-2">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="stock_type" value="global" checked onchange="toggleLocationFields()">
+                        <span class="block bg-gray-700 text-white text-center py-2 rounded peer-checked:bg-accent">
+                            عام
+                        </span>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="stock_type" value="location" onchange="toggleLocationFields()">
+                        <span class="block bg-gray-700 text-white text-center py-2 rounded peer-checked:bg-accent">
+                            حسب الموقع
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Location Fields (hidden by default) -->
+            <div id="locationFields" class="hidden mb-4 space-y-3">
+                <div>
+                    <label class="block text-gray-400 mb-2">المدينة</label>
+                    <select name="city_id" id="stockCitySelect" onchange="loadNeighborhoodsForStock()"
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2">
+                        <option value="">-- اختر المدينة --</option>
+                        {% for city in cities %}
+                        <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-400 mb-2">الحي (اختياري)</label>
+                    <select name="neighborhood_id" id="stockNeighborhoodSelect"
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2">
+                        <option value="">كل أحياء المدينة</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">الكمية</label>
+                <input type="number" name="stock" id="stockInput" min="0"
                     class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
             </div>
+
+            <!-- Existing Location Stocks -->
+            <div id="existingStocks" class="mb-4 hidden">
+                <label class="block text-gray-400 mb-2">المخزون الحالي حسب الموقع:</label>
+                <div id="stocksList" class="bg-gray-800 rounded p-2 max-h-32 overflow-y-auto text-sm">
+                </div>
+            </div>
+
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeStockModal()"
                     class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
@@ -116,13 +170,26 @@
 </div>
 
 <script>
+    const citiesData = {{ cities_json| safe }};
+    let currentProductId = null;
+    let currentLocationStocks = [];
+
     function openStockModal(productId, currentStock) {
+        currentProductId = productId;
         const modal = document.getElementById('stockModal');
         const form = document.getElementById('stockForm');
         const input = document.getElementById('stockInput');
 
         form.action = `/admin/products/update_stock/${productId}`;
         input.value = currentStock;
+
+        // Reset to global stock
+        document.querySelector('input[name="stock_type"][value="global"]').checked = true;
+        toggleLocationFields();
+
+        // Load existing location stocks
+        loadExistingStocks(productId);
+
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
@@ -132,6 +199,81 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+
+    function toggleLocationFields() {
+        const isLocation = document.querySelector('input[name="stock_type"]:checked').value === 'location';
+        document.getElementById('locationFields').classList.toggle('hidden', !isLocation);
+
+        // Clear location if switching to global
+        if (!isLocation) {
+            document.getElementById('stockCitySelect').value = '';
+            document.getElementById('stockNeighborhoodSelect').innerHTML = '<option value="">كل أحياء المدينة</option>';
+        }
+    }
+
+    function loadNeighborhoodsForStock() {
+        const cityId = document.getElementById('stockCitySelect').value;
+        const neighborhoodSelect = document.getElementById('stockNeighborhoodSelect');
+        neighborhoodSelect.innerHTML = '<option value="">كل أحياء المدينة</option>';
+
+        if (cityId) {
+            const city = citiesData.find(c => c.id == cityId);
+            if (city && city.neighborhoods) {
+                city.neighborhoods.forEach(n => {
+                    neighborhoodSelect.innerHTML += `<option value="${n.id}">${n.name_ar}</option>`;
+                });
+            }
+        }
+        updateStockInputFromSelection();
+    }
+
+    function loadExistingStocks(productId) {
+        fetch(`/admin/products/location_stock/${productId}`)
+            .then(res => res.json())
+            .then(data => {
+                currentLocationStocks = data; // Store globally
+                const container = document.getElementById('existingStocks');
+                const list = document.getElementById('stocksList');
+
+                if (data.length > 0) {
+                    container.classList.remove('hidden');
+                    list.innerHTML = data.map(s =>
+                        `<div class="flex justify-between py-1 border-b border-gray-700">
+                            <span class="text-gray-300">${s.city_name} - ${s.neighborhood_name}</span>
+                            <span class="text-accent font-bold">${s.quantity}</span>
+                        </div>`
+                    ).join('');
+                } else {
+                    container.classList.add('hidden');
+                }
+            });
+    }
+
+    function updateStockInputFromSelection() {
+        // Only update if mode is 'location'
+        if (document.querySelector('input[name="stock_type"]:checked').value !== 'location') return;
+
+        const cityId = document.getElementById('stockCitySelect').value;
+        const neighborhoodId = document.getElementById('stockNeighborhoodSelect').value;
+        const input = document.getElementById('stockInput');
+
+        if (cityId) {
+            // Find stock for this location
+            const stockEntry = currentLocationStocks.find(s =>
+                s.city_id == cityId &&
+                ((!neighborhoodId && !s.neighborhood_id) || (s.neighborhood_id == neighborhoodId))
+            );
+
+            if (stockEntry) {
+                input.value = stockEntry.quantity;
+            } else {
+                input.value = 0; // Default to 0 if no stock record exists
+            }
+        }
+    }
+
+    // Add event listener to neighborhood select to update stock input
+    document.getElementById('stockNeighborhoodSelect').addEventListener('change', updateStockInputFromSelection);
 
     // Close modal when clicking outside
     document.getElementById('stockModal').addEventListener('click', function (e) {
