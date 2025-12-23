@@ -43,7 +43,7 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('رقم الجوال هذا مستخدم بالفعل.')
 
 class ResetPasswordRequestForm(FlaskForm):
-    email = StringField('البريد الإلكتروني', validators=[DataRequired(), Email()])
+    identifier = StringField('البريد الإلكتروني أو رقم الجوال', validators=[DataRequired()])
     submit = SubmitField('إرسال رمز التحقق')
 
 class ResetCodeForm(FlaskForm):

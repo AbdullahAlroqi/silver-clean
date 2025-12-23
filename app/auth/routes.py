@@ -94,7 +94,11 @@ def reset_password_request():
         return redirect(url_for('main.index'))
     form = ResetPasswordRequestForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
+        identifier = convert_arabic_to_english_numerals(form.identifier.data.strip())
+        
+        # Determine if input is email or phone matching
+        user = User.query.filter((User.email == identifier) | (User.phone == identifier)).first()
+            
         if user:
             import random
             import string
@@ -109,13 +113,26 @@ def reset_password_request():
             
             send_password_reset_email(user, code)
             
+            # Mask email for display
+            if '@' in user.email:
+                local, domain = user.email.split('@')
+                if len(local) > 2:
+                    masked_local = local[:2] + '*' * (len(local) - 2)
+                else:
+                    masked_local = local
+                masked_email = f"{masked_local}@{domain}"
+            else:
+                masked_email = user.email
+            
             # Store email in session to verify later
             from flask import session
             session['reset_email'] = user.email
-            flash('تم إرسال رمز التحقق إلى بريدك الإلكتروني.')
+            session['masked_email'] = masked_email
+            
+            flash(f'تم إرسال رمز التحقق إلى: {masked_email}')
             return redirect(url_for('auth.verify_code'))
         else:
-            flash('البريد الإلكتروني غير مسجل لدينا.', 'error')
+            flash('البيانات المدخلة غير مسجلة لدينا.', 'error')
     return render_template('auth/reset_request.html', title='استعادة كلمة المرور', form=form)
 
 @bp.route('/verify_code', methods=['GET', 'POST'])
@@ -125,6 +142,8 @@ def verify_code():
     
     from flask import session
     email = session.get('reset_email')
+    masked_email = session.get('masked_email', email)
+    
     if not email:
         return redirect(url_for('auth.reset_password_request'))
         
@@ -138,7 +157,7 @@ def verify_code():
         else:
             flash('رمز التحقق غير صحيح أو منتهي الصلاحية.', 'error')
             
-    return render_template('auth/verify_code.html', title='التحقق من الرمز', form=form)
+    return render_template('auth/verify_code.html', title='التحقق من الرمز', form=form, masked_email=masked_email)
 
 @bp.route('/reset_password', methods=['GET', 'POST'])
 def reset_password():
