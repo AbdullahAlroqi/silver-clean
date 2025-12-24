@@ -1,163 +1,242 @@
-{% extends "base.html" %}
+{% extends "customer/base.html" %}
 
 {% block content %}
+<!-- Announcements Carousel -->
+{% if announcements %}
+<div class="mb-6 -mx-4">
+    <div class="announcements-carousel flex gap-4 px-4 py-2">
+        {% for announcement in announcements %}
+        <div class="announcement-slide w-full min-w-[calc(100%-16px)] max-w-[calc(100%-16px)]">
+            <a href="{{ announcement.link_url or '#' }}" class="block relative rounded-2xl overflow-hidden">
+                {% if announcement.image_url %}
+                <img src="{{ announcement.image_url }}" alt="{{ announcement.title }}" class="w-full h-44 object-cover">
+                {% else %}
+                <div class="w-full h-44 bg-gradient-to-r from-accent to-blue-600 flex items-center justify-center">
+                    <div class="text-center text-white p-4">
+                        <h3 class="text-xl font-bold">{{ announcement.title }}</h3>
+                        {% if announcement.description %}
+                        <p class="text-sm opacity-90">{{ announcement.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if announcement.image_url and announcement.title %}
+                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                    <h3 class="text-white font-bold">{{ announcement.title }}</h3>
+                    {% if announcement.description %}
+                    <p class="text-white/80 text-sm">{{ announcement.description }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    <!-- Carousel Indicators -->
+    {% if announcements|length > 1 %}
+    <div class="flex justify-center gap-2 mt-2">
+        {% for _ in announcements %}
+        <span class="w-2 h-2 rounded-full bg-gray-600"></span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Loyalty Program Card -->
 <div class="mb-6">
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-2xl font-bold text-white">مرحباً، {{ current_user.username }}</h2>
-
-        <!-- Dropdown Menu Button -->
-        <div class="relative">
-            <button id="menuToggle"
-                class="bg-primary hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
-                <i class="fas fa-bars"></i>
-                <span>القائمة</span>
-                <i class="fas fa-chevron-down text-xs"></i>
-            </button>
-
-            <!-- Dropdown Menu -->
-            <div id="dropdownMenu"
-                class="hidden absolute left-0 mt-2 w-56 bg-primary rounded-lg shadow-xl border border-gray-700 z-50 overflow-hidden">
-                <a href="{{ url_for('customer.vehicles') }}"
-                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition border-b border-gray-700">
-                    <i class="fas fa-car text-blue-400 w-5"></i>
-                    <span>مركباتي</span>
-                </a>
-                <a href="{{ url_for('customer.my_bookings') }}"
-                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition border-b border-gray-700">
-                    <i class="fas fa-list text-green-400 w-5"></i>
-                    <span>حجوزاتي</span>
-                </a>
-                <a href="{{ url_for('customer.subscriptions') }}"
-                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition border-b border-gray-700">
-                    <i class="fas fa-star text-yellow-400 w-5"></i>
-                    <span>اشتراكاتي</span>
-                </a>
-                <a href="{{ url_for('customer.loyalty') }}"
-                    class="flex items-center gap-3 px-4 py-3 text-white hover:bg-gray-700 transition">
-                    <i class="fas fa-trophy text-purple-400 w-5"></i>
-                    <span>برنامج الولاء</span>
-                </a>
+    <a href="{{ url_for('customer.loyalty') }}"
+        class="block bg-gradient-to-r from-yellow-600/30 to-amber-600/20 border border-yellow-500/30 rounded-2xl p-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                    <i class="fas fa-trophy text-yellow-400 text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-gray-400 text-sm">نقاط الولاء</p>
+                    <p class="text-2xl font-bold text-white">{{ current_user.points or 0 }}</p>
+                </div>
+            </div>
+            <div class="text-left">
+                <p class="text-xs text-gray-400">غسلات مجانية</p>
+                <p class="text-xl font-bold text-green-400">{{ current_user.free_washes or 0 }}</p>
             </div>
         </div>
-    </div>
-
-    <!-- Points Card -->
-    <div class="bg-primary p-4 rounded-lg shadow flex justify-between items-center cursor-pointer hover:bg-gray-700 transition"
-        onclick="window.location.href='{{ url_for('customer.loyalty') }}'">
-        <div>
-            <p class="text-gray-400 text-sm">نقاط الولاء</p>
-            <p class="text-2xl font-bold text-accent">{{ current_user.points }}</p>
-        </div>
-        <i class="fas fa-star text-yellow-500 text-3xl"></i>
-    </div>
-</div>
-
-<!-- Main Action Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-    <a href="{{ url_for('customer.book') }}"
-        class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-calendar-plus text-4xl text-accent mb-3"></i>
-        <h3 class="text-xl font-bold text-white">حجز خدمة جديدة</h3>
-    </a>
-
-    <a href="{{ url_for('customer.subscribe_flow') }}"
-        class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-crown text-4xl text-yellow-400 mb-3"></i>
-        <h3 class="text-xl font-bold text-white">اشتراك جديد</h3>
-    </a>
-
-    <a href="{{ url_for('customer.gift') }}"
-        class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-gift text-4xl text-pink-400 mb-3"></i>
-        <h3 class="text-xl font-bold text-white">اهدي لمن تحب</h3>
-    </a>
-
-    <a href="{{ url_for('customer.subscriptions') }}"
-        class="bg-primary hover:bg-darkbg p-6 rounded-lg shadow-lg text-center transition transform hover:scale-105">
-        <i class="fas fa-star text-4xl text-yellow-400 mb-3"></i>
-        <h3 class="text-xl font-bold text-white">اشتراكاتي</h3>
-    </a>
-</div>
-
-<h3 class="text-xl font-bold text-white mb-4">الحجوزات القادمة</h3>
-<div class="space-y-4">
-    {% for booking in upcoming_bookings %}
-    <div class="bg-primary p-4 rounded-lg shadow border-r-4 border-accent">
-        <div class="flex justify-between items-start mb-2">
-            <div>
-                <h4 class="font-bold text-white">{{ booking.service.name_ar }}</h4>
-                <p class="text-sm text-gray-400">{{ booking.vehicle.brand }} - {{ booking.vehicle.plate_number }}</p>
+        <!-- Progress bar -->
+        {% set progress = ((current_user.points or 0) % loyalty_threshold) / loyalty_threshold * 100 %}
+        <div class="mt-3">
+            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-yellow-500 to-amber-400" style="width: {{ progress }}%"></div>
             </div>
-            {% set status_map = {
-            'pending': 'قيد الانتظار',
-            'assigned': 'تم التعيين',
-            'en_route': 'في الطريق',
-            'arrived': 'وصل الموظف',
-            'in_progress': 'جاري التنفيذ',
-            'completed': 'مكتمل',
-            'cancelled': 'ملغي'
-            } %}
-            {% set status_colors = {
-            'pending': 'bg-gray-600 text-gray-200',
-            'assigned': 'bg-blue-600 text-white',
-            'en_route': 'bg-yellow-600 text-white',
-            'arrived': 'bg-orange-600 text-white',
-            'in_progress': 'bg-purple-600 text-white',
-            'completed': 'bg-green-600 text-white',
-            'cancelled': 'bg-red-600 text-white'
-            } %}
-            <span class="{{ status_colors[booking.status] }} text-xs px-2 py-1 rounded">{{ status_map[booking.status]
-                }}</span>
+            <p class="text-xs text-gray-400 mt-1 text-center">
+                {{ loyalty_threshold - ((current_user.points or 0) % loyalty_threshold) }} نقطة للغسلة المجانية القادمة
+            </p>
         </div>
-        <div class="flex items-center text-gray-300 text-sm">
-            <i class="far fa-clock ml-2"></i>
-            <span>{{ booking.date }} - {{ booking.time }}</span>
-        </div>
-    </div>
-    {% else %}
-    <p class="text-gray-500 text-center">لا يوجد حجوزات قادمة.</p>
-    {% endfor %}
+    </a>
 </div>
 
+<!-- Service Selection -->
+<div class="mb-6">
+    <h3 class="text-lg font-bold text-white mb-4 text-right">اختر الخدمة</h3>
+    <div class="grid grid-cols-2 gap-4">
+        <!-- Book Service -->
+        <a href="{{ url_for('customer.book') }}" class="service-card p-4 rounded-2xl text-center">
+            <div class="w-16 h-16 mx-auto mb-3 bg-accent/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-car text-accent text-2xl"></i>
+            </div>
+            <h4 class="font-bold text-white mb-1">حجز غسلة</h4>
+            <p class="text-xs text-gray-400">غسيل سيارتك الآن</p>
+        </a>
+
+        <!-- Subscribe -->
+        <a href="{{ url_for('customer.subscribe_flow') }}" class="service-card p-4 rounded-2xl text-center">
+            <div class="w-16 h-16 mx-auto mb-3 bg-purple-500/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-crown text-purple-400 text-2xl"></i>
+            </div>
+            <h4 class="font-bold text-white mb-1">اشتراك جديد</h4>
+            <p class="text-xs text-gray-400">وفر مع الباقات</p>
+        </a>
+    </div>
+</div>
+
+<!-- Subscription Packages Preview -->
+{% if packages %}
+<div class="mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-white text-right">أنواع الباقات</h3>
+        <a href="{{ url_for('customer.subscribe_flow') }}" class="text-accent text-sm">عرض الكل</a>
+    </div>
+    <div class="space-y-3">
+        {% for package in packages %}
+        <a href="{{ url_for('customer.subscribe_details', package_id=package.id) }}"
+            class="block bg-primary rounded-xl p-4 border border-gray-700 hover:border-accent transition">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="font-bold text-white">{{ package.name_ar }}</h4>
+                    <p class="text-sm text-gray-400">
+                        <span>نوع الغسيل: عادي</span>
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-clock ml-1"></i>
+                        مدة الاشتراك: {{ package.duration_days // 30 }} شهور
+                        <span class="mx-2">|</span>
+                        <i class="fas fa-car-side ml-1"></i>
+                        عدد الغسلات: {{ package.wash_count }}
+                    </p>
+                </div>
+                <div class="text-left">
+                    <p class="text-xl font-bold text-accent">{{ package.price|int }}</p>
+                    <p class="text-xs text-gray-400">ريال</p>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Upcoming Bookings -->
+{% if upcoming_bookings %}
+<div class="mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-white text-right">الحجوزات القادمة</h3>
+        <a href="{{ url_for('customer.my_bookings') }}" class="text-accent text-sm">عرض الكل</a>
+    </div>
+    <div class="space-y-3">
+        {% for booking in upcoming_bookings[:3] %}
+        <div class="bg-primary p-4 rounded-xl border-r-4 border-accent">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <h4 class="font-bold text-white">{{ booking.service.name_ar }}</h4>
+                    <p class="text-sm text-gray-400">{{ booking.vehicle.brand }} - {{ booking.vehicle.plate_number }}
+                    </p>
+                </div>
+                {% set status_map = {
+                'pending': 'قيد الانتظار',
+                'assigned': 'تم التعيين',
+                'en_route': 'في الطريق',
+                'arrived': 'وصل الموظف',
+                'in_progress': 'جاري التنفيذ'
+                } %}
+                {% set status_colors = {
+                'pending': 'bg-gray-600',
+                'assigned': 'bg-blue-600',
+                'en_route': 'bg-yellow-600',
+                'arrived': 'bg-orange-600',
+                'in_progress': 'bg-purple-600'
+                } %}
+                <span
+                    class="{{ status_colors.get(booking.status, 'bg-gray-600') }} text-white text-xs px-2 py-1 rounded">
+                    {{ status_map.get(booking.status, booking.status) }}
+                </span>
+            </div>
+            <div class="flex items-center text-gray-400 text-sm">
+                <i class="far fa-clock ml-2"></i>
+                <span>{{ booking.date }} - {{ booking.time.strftime('%H:%M') }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Rating Modal -->
 {% if unrated_booking %}
 <div id="ratingModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-    <div class="bg-primary rounded-lg p-6 max-w-sm w-full mx-4 text-center">
+    <div class="bg-primary rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
         <div class="mb-4">
-            <i class="fas fa-star text-yellow-400 text-5xl mb-2 animate-pulse"></i>
+            <div class="w-16 h-16 mx-auto bg-yellow-500/20 rounded-full flex items-center justify-center mb-3">
+                <i class="fas fa-star text-yellow-400 text-3xl animate-pulse"></i>
+            </div>
             <h3 class="text-xl font-bold text-white">كيف كانت خدمتك؟</h3>
-            <p class="text-gray-300 mt-2">نرجو تقييم خدمة الغسيل للمركبة <br> <span class="text-accent">{{
-                    unrated_booking.vehicle.brand }}</span></p>
+            <p class="text-gray-300 mt-2">نرجو تقييم خدمة الغسيل للمركبة
+                <span class="text-accent">{{ unrated_booking.vehicle.brand }}</span>
+            </p>
         </div>
         <div class="flex gap-3">
             <a href="{{ url_for('customer.rate_booking', booking_id=unrated_booking.id) }}"
-                class="flex-1 bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+                class="flex-1 bg-accent hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition">
                 تقييم الآن
             </a>
             <button onclick="document.getElementById('ratingModal').style.display='none'"
-                class="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded transition">
+                class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-xl transition">
                 لاحقاً
             </button>
         </div>
     </div>
 </div>
 {% endif %}
+{% endblock %}
 
+{% block scripts %}
 <script>
+    // Auto-scroll announcements carousel
     (function () {
-        var menuToggle = document.getElementById('menuToggle');
-        var dropdownMenu = document.getElementById('dropdownMenu');
+        const carousel = document.querySelector('.announcements-carousel');
+        if (carousel && carousel.children.length > 1) {
+            let currentIndex = 0;
+            const slides = carousel.querySelectorAll('.announcement-slide');
+            const indicators = document.querySelectorAll('.flex.justify-center.gap-2 span');
 
-        if (menuToggle && dropdownMenu) {
-            menuToggle.addEventListener('click', function (e) {
-                e.stopPropagation();
-                dropdownMenu.classList.toggle('hidden');
-            });
+            function updateIndicators() {
+                indicators.forEach((ind, i) => {
+                    ind.classList.toggle('bg-accent', i === currentIndex);
+                    ind.classList.toggle('bg-gray-600', i !== currentIndex);
+                });
+            }
 
-            document.addEventListener('click', function (e) {
-                if (!menuToggle.contains(e.target) && !dropdownMenu.contains(e.target)) {
-                    dropdownMenu.classList.add('hidden');
-                }
-            });
+            setInterval(() => {
+                currentIndex = (currentIndex + 1) % slides.length;
+                const slideWidth = slides[0].offsetWidth + 16; // Include gap
+                carousel.scrollTo({ left: slideWidth * currentIndex, behavior: 'smooth' });
+                updateIndicators();
+            }, 4000);
+
+            // Initial indicator state
+            if (indicators.length > 0) {
+                indicators[0].classList.add('bg-accent');
+                indicators[0].classList.remove('bg-gray-600');
+            }
         }
     })();
 </script>

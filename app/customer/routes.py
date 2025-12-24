@@ -50,6 +50,8 @@ def before_request():
 
 @bp.route('/')
 def index():
+    from app.models import Announcement, SubscriptionPackage, SiteSettings
+    
     upcoming_bookings = current_user.bookings.filter(Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])).all()
     
     # Check for unrated completed bookings
@@ -59,9 +61,26 @@ def index():
         (Booking.rating == None) | (Booking.rating == 0)
     ).order_by(Booking.date.desc(), Booking.time.desc()).first()
     
+    # Get active announcements for carousel
+    announcements = Announcement.query.filter_by(is_active=True).order_by(Announcement.order.asc()).all()
+    
+    # Get active subscription packages
+    packages = SubscriptionPackage.query.filter_by(is_active=True).limit(3).all()
+    
+    # Get services for service selection
+    services = Service.query.all()
+    
+    # Get loyalty settings
+    site_settings = SiteSettings.get_settings()
+    loyalty_threshold = site_settings.loyalty_points_threshold or 10
+    
     return render_template('customer/index.html', 
                          upcoming_bookings=upcoming_bookings,
-                         unrated_booking=unrated_booking)
+                         unrated_booking=unrated_booking,
+                         announcements=announcements,
+                         packages=packages,
+                         services=services,
+                         loyalty_threshold=loyalty_threshold)
 
 @bp.route('/bookings')
 def my_bookings():
@@ -1052,3 +1071,8 @@ def gift_success():
     """Gift order success page"""
     return render_template('customer/gift_success.html')
 
+
+@bp.route('/more')
+def more():
+    """More options page - accessed from bottom navigation"""
+    return render_template('customer/more.html')

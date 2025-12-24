@@ -1,13 +1,9 @@
-{% extends "base.html" %}
+{% extends "customer/base.html" %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
-    <div class="flex justify-between items-center mb-8">
-        <h2 class="text-3xl font-bold text-white">حجوزاتي</h2>
-        <a href="{{ url_for('customer.index') }}"
-            class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold transition">
-            <i class="fas fa-arrow-right mr-2"></i>رجوع
-        </a>
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-white">حجوزاتي</h2>
     </div>
 
     {% if bookings %}

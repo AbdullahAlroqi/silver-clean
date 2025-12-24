@@ -1,0 +1,83 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-white">
+            {% if announcement %}تعديل الإعلان{% else %}إضافة إعلان جديد{% endif %}
+        </h2>
+        <a href="{{ url_for('admin.announcements') }}"
+            class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold transition">
+            <i class="fas fa-arrow-right ml-2"></i>رجوع
+        </a>
+    </div>
+
+    <div class="bg-primary rounded-lg shadow-lg p-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
+            <!-- Title -->
+            <div>
+                <label class="block text-gray-300 mb-2 font-bold">عنوان الإعلان *</label>
+                <input type="text" name="title" required value="{{ announcement.title if announcement else '' }}"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg p-3 focus:border-accent focus:outline-none"
+                    placeholder="مثال: عرض خاص - خصم 50%">
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label class="block text-gray-300 mb-2 font-bold">الوصف</label>
+                <textarea name="description" rows="3"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg p-3 focus:border-accent focus:outline-none"
+                    placeholder="وصف مختصر للإعلان">{{ announcement.description if announcement else '' }}</textarea>
+            </div>
+
+            <!-- Image -->
+            <div>
+                <label class="block text-gray-300 mb-2 font-bold">صورة الإعلان</label>
+                {% if announcement and announcement.image_url %}
+                <div class="mb-3">
+                    <img src="{{ announcement.image_url }}" alt="صورة الإعلان الحالية"
+                        class="w-full max-w-md h-40 object-cover rounded-lg">
+                    <p class="text-gray-400 text-sm mt-1">الصورة الحالية</p>
+                </div>
+                {% endif %}
+                <input type="file" name="image" accept="image/*"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg p-3 focus:border-accent focus:outline-none">
+                <p class="text-gray-500 text-sm mt-1">يفضل استخدام صورة بحجم 1200×600 بكسل</p>
+            </div>
+
+            <!-- Link URL -->
+            <div>
+                <label class="block text-gray-300 mb-2 font-bold">رابط الإعلان (اختياري)</label>
+                <input type="url" name="link_url" value="{{ announcement.link_url if announcement else '' }}"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg p-3 focus:border-accent focus:outline-none"
+                    placeholder="https://example.com">
+            </div>
+
+            <!-- Order -->
+            <div>
+                <label class="block text-gray-300 mb-2 font-bold">الترتيب</label>
+                <input type="number" name="order" min="0" value="{{ announcement.order if announcement else 0 }}"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg p-3 focus:border-accent focus:outline-none">
+                <p class="text-gray-500 text-sm mt-1">الأرقام الأصغر تظهر أولاً</p>
+            </div>
+
+            <!-- Is Active -->
+            <div class="flex items-center gap-3">
+                <input type="checkbox" name="is_active" id="is_active" {% if not announcement or announcement.is_active
+                    %}checked{% endif %}
+                    class="w-5 h-5 bg-darkbg border border-gray-600 rounded text-accent focus:ring-accent">
+                <label for="is_active" class="text-gray-300 font-bold cursor-pointer">تفعيل الإعلان</label>
+            </div>
+
+            <!-- Submit -->
+            <div class="pt-4">
+                <button type="submit"
+                    class="w-full bg-accent hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-bold transition">
+                    <i class="fas fa-save ml-2"></i>
+                    {% if announcement %}حفظ التغييرات{% else %}إضافة الإعلان{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

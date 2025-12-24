@@ -178,6 +178,11 @@
                     </a>
 
                     {% if current_user.role == 'admin' %}
+                    <a href="{{ url_for('admin.announcements') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-bullhorn ml-3"></i>
+                        <span>الإعلانات</span>
+                    </a>
                     <a href="{{ url_for('admin.settings') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-cog ml-3"></i>

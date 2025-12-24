@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -2540,3 +2540,101 @@ def reject_gift_order(id):
     flash('تم رفض طلب الهدية', 'warning')
     return redirect(url_for('admin.gift_orders'))
 
+
+# --- Announcement Management ---
+@bp.route('/announcements')
+def announcements():
+    """List all announcements"""
+    announcements_list = Announcement.query.order_by(Announcement.order.asc(), Announcement.created_at.desc()).all()
+    return render_template('admin/announcements.html', announcements=announcements_list)
+
+
+@bp.route('/announcements/add', methods=['GET', 'POST'])
+def add_announcement():
+    """Add a new announcement"""
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        link_url = request.form.get('link_url')
+        order = int(request.form.get('order', 0))
+        is_active = 'is_active' in request.form
+        
+        # Handle image upload
+        image_url = ''
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                # Create unique filename
+                unique_filename = f"announcement_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'announcements')
+                os.makedirs(upload_folder, exist_ok=True)
+                file.save(os.path.join(upload_folder, unique_filename))
+                image_url = f"/static/uploads/announcements/{unique_filename}"
+        
+        announcement = Announcement(
+            title=title,
+            description=description,
+            image_url=image_url,
+            link_url=link_url,
+            order=order,
+            is_active=is_active
+        )
+        db.session.add(announcement)
+        db.session.commit()
+        
+        flash('تم إضافة الإعلان بنجاح', 'success')
+        return redirect(url_for('admin.announcements'))
+    
+    return render_template('admin/announcement_form.html', announcement=None)
+
+
+@bp.route('/announcements/edit/<int:id>', methods=['GET', 'POST'])
+def edit_announcement(id):
+    """Edit an announcement"""
+    announcement = Announcement.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        announcement.title = request.form.get('title')
+        announcement.description = request.form.get('description')
+        announcement.link_url = request.form.get('link_url')
+        announcement.order = int(request.form.get('order', 0))
+        announcement.is_active = 'is_active' in request.form
+        
+        # Handle image upload
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                unique_filename = f"announcement_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'announcements')
+                os.makedirs(upload_folder, exist_ok=True)
+                file.save(os.path.join(upload_folder, unique_filename))
+                announcement.image_url = f"/static/uploads/announcements/{unique_filename}"
+        
+        db.session.commit()
+        flash('تم تحديث الإعلان بنجاح', 'success')
+        return redirect(url_for('admin.announcements'))
+    
+    return render_template('admin/announcement_form.html', announcement=announcement)
+
+
+@bp.route('/announcements/delete/<int:id>')
+def delete_announcement(id):
+    """Delete an announcement"""
+    announcement = Announcement.query.get_or_404(id)
+    db.session.delete(announcement)
+    db.session.commit()
+    flash('تم حذف الإعلان', 'success')
+    return redirect(url_for('admin.announcements'))
+
+
+@bp.route('/announcements/toggle/<int:id>')
+def toggle_announcement(id):
+    """Toggle announcement active status"""
+    announcement = Announcement.query.get_or_404(id)
+    announcement.is_active = not announcement.is_active
+    db.session.commit()
+    status = 'مفعل' if announcement.is_active else 'معطل'
+    flash(f'تم تحديث حالة الإعلان إلى {status}', 'success')
+    return redirect(url_for('admin.announcements'))

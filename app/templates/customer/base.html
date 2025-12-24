@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="{{ get_locale() }}" dir="{{ 'rtl' if get_locale() == 'ar' else 'ltr' }}">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{{ site_settings.site_name or 'Silver Clean' }}</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ site_settings.site_name or 'Silver Clean' }}">
+
+    <link rel="icon" type="image/png"
+        href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}">
+    <link rel="apple-touch-icon"
+        href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}">
+    <link rel="manifest" href="{{ url_for('main.manifest') }}">
+    <meta name="theme-color" content="#1F1F1F">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '{{ site_settings.primary_color or "#303030" }}',
+                        secondary: '#D8D8D8',
+                        accent: '{{ site_settings.accent_color or "#4DA8DA" }}',
+                        darkbg: '#1F1F1F',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Customer App Styles */
+        .customer-app {
+            padding-bottom: 80px;
+            /* Space for bottom nav */
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, #1F1F1F, #303030);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 50;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .bottom-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 5px;
+            color: #9CA3AF;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .bottom-nav-item:hover,
+        .bottom-nav-item.active {
+            color: #4DA8DA;
+        }
+
+        .bottom-nav-item.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 40%;
+            height: 3px;
+            background: #4DA8DA;
+            border-radius: 0 0 3px 3px;
+        }
+
+        .bottom-nav-item i {
+            font-size: 1.25rem;
+            margin-bottom: 4px;
+        }
+
+        .bottom-nav-item span {
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* Announcements Carousel */
+        .announcements-carousel {
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .announcements-carousel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .announcement-slide {
+            scroll-snap-align: start;
+            flex-shrink: 0;
+        }
+
+        /* Service Cards */
+        .service-card {
+            background: linear-gradient(145deg, #303030, #252525);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .service-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body class="bg-darkbg text-white font-sans">
+    <div class="customer-app min-h-screen">
+        <!-- Top Header -->
+        <header
+            class="bg-primary px-4 py-3 flex items-center justify-between sticky top-0 z-40 border-b border-gray-700">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user text-gray-300"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-accent">يا هلا وغلا</p>
+                    <p class="font-bold text-white">{{ current_user.username }}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="{{ url_for('main.notifications') }}" class="relative text-white hover:text-accent transition">
+                    <i class="fas fa-bell text-xl"></i>
+                    <span id="notification-badge"
+                        class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"></span>
+                </a>
+                <a href="{{ url_for('customer.profile') }}" class="text-white hover:text-accent transition">
+                    <i class="fas fa-cog text-xl"></i>
+                </a>
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        <div class="px-4 pt-4">
+            {% with messages = get_flashed_messages() %}
+            {% if messages %}
+            <div class="bg-accent text-white p-3 mb-4 rounded-lg shadow-lg">
+                {% for message in messages %}
+                <div>{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Main Content -->
+        <main class="px-4 pb-4">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <div class="flex justify-around">
+            <a href="{{ url_for('customer.index') }}"
+                class="bottom-nav-item {% if request.endpoint == 'customer.index' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+                <span>الرئيسية</span>
+            </a>
+            <a href="{{ url_for('customer.my_bookings') }}"
+                class="bottom-nav-item {% if request.endpoint == 'customer.my_bookings' %}active{% endif %}">
+                <i class="fas fa-calendar-check"></i>
+                <span>حجوزاتي</span>
+            </a>
+            <a href="{{ url_for('customer.subscriptions') }}"
+                class="bottom-nav-item {% if request.endpoint == 'customer.subscriptions' %}active{% endif %}">
+                <i class="fas fa-star"></i>
+                <span>اشتراكاتي</span>
+            </a>
+            <a href="{{ url_for('customer.gift') }}"
+                class="bottom-nav-item {% if request.endpoint == 'customer.gift' %}active{% endif %}">
+                <i class="fas fa-gift"></i>
+                <span>الهدايا</span>
+            </a>
+            <a href="{{ url_for('customer.more') }}"
+                class="bottom-nav-item {% if request.endpoint == 'customer.more' %}active{% endif %}">
+                <i class="fas fa-ellipsis-h"></i>
+                <span>المزيد</span>
+            </a>
+        </div>
+    </nav>
+
+    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=3"></script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

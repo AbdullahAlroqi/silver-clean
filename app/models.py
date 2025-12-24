@@ -301,3 +301,14 @@ class GiftOrderProduct(db.Model):
     gift_order = db.relationship('GiftOrder', backref='products')
     product = db.relationship('Product')
 
+
+class Announcement(db.Model):
+    """Announcements displayed in the customer home page carousel"""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100))
+    description = db.Column(db.String(255), nullable=True)
+    image_url = db.Column(db.String(255))
+    link_url = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
