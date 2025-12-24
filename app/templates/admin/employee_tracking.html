@@ -5,21 +5,50 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-white">تتبع مواقع الموظفين</h1>
-            <p class="text-gray-400 text-sm mt-1">صفحة تجريبية - تحديث كل 30 ثانية</p>
+            <h1 class="text-2xl font-bold text-white">تتبع مواقع الموظفين (قمر صناعي)</h1>
+            <p class="text-gray-400 text-sm mt-1" id="update-timer">تحديث تلقائي كل 15 ثانية</p>
         </div>
         <div class="flex items-center gap-4">
             <div id="lastUpdate" class="text-gray-400 text-sm"></div>
             <button onclick="refreshLocations()"
                 class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition">
-                <i class="fas fa-sync-alt ml-2"></i>تحديث
+                <i class="fas fa-sync-alt ml-2"></i>تحديث الآن
             </button>
         </div>
     </div>
 
+    <!-- Search Filter -->
+    <div class="bg-primary p-4 rounded-xl border border-gray-700">
+        <label class="block text-gray-400 text-sm font-bold mb-2">بحث عن موظف:</label>
+        <div class="relative">
+            <span class="absolute inset-y-0 right-0 flex items-center pr-3">
+                <i class="fas fa-search text-gray-500"></i>
+            </span>
+            <input type="text" id="employeeSearch" placeholder="اكتب اسم الموظف..."
+                class="w-full bg-darkbg text-white border border-gray-600 rounded-lg py-2 pr-10 pl-4 focus:outline-none focus:border-accent"
+                onkeyup="filterEmployees()">
+        </div>
+    </div>
+
     <!-- Map Container -->
-    <div class="bg-primary rounded-xl overflow-hidden border border-gray-700">
+    <div class="bg-primary rounded-xl overflow-hidden border border-gray-700 relative">
         <div id="map" style="height: 600px; width: 100%;"></div>
+        <!-- Legend -->
+        <div
+            class="absolute bottom-4 right-4 bg-primary/90 p-3 rounded-lg border border-gray-600 shadow-xl z-[1000] text-sm">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-full bg-green-500 block"></span>
+                <span class="text-gray-200">متصل (GPS دقيق)</span>
+            </div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="w-3 h-3 rounded-full bg-red-500 block"></span>
+                <span class="text-gray-200">دقة منخفضة (IP)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-gray-500 block"></span>
+                <span class="text-gray-200">غير متصل</span>
+            </div>
+        </div>
     </div>
 
     <!-- Employee List -->
@@ -42,7 +71,13 @@
         background: #4DA8DA;
         border: 3px solid white;
         border-radius: 50%;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .employee-marker.active-order {
+        background: #F59E0B;
+        /* Amber for active order */
+        border-color: #FEF3C7;
     }
 
     .employee-marker.inactive {
@@ -53,10 +88,17 @@
         background: #303030;
         color: white;
         border-radius: 12px;
+        font-family: 'Tajawal', sans-serif;
     }
 
     .leaflet-popup-tip {
         background: #303030;
+    }
+
+    .leaflet-control-zoom a {
+        background-color: #303030 !important;
+        color: white !important;
+        border-color: #4b5563 !important;
     }
 </style>
 
@@ -64,18 +106,31 @@
     // Initialize map centered on Saudi Arabia
     const map = L.map('map').setView([24.7136, 46.6753], 10);
 
-    // Add OpenStreetMap tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+    // Add Satellite Tiles (Esri World Imagery)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        maxZoom: 19
     }).addTo(map);
 
-    // Store markers
+    // Add labels overlay (optional, but helpful for streets)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        minZoom: 2,
+        maxZoom: 19
+    }).addTo(map);
+
+    // Store markers and data
     let markers = {};
+    let circles = {};
+    let employeesData = [];
 
     // Custom icon
-    function createIcon(isRecent) {
+    function createIcon(isRecent, hasBooking) {
+        let className = 'employee-marker';
+        if (!isRecent) className += ' inactive';
+        else if (hasBooking) className += ' active-order';
+
         return L.divIcon({
-            className: 'employee-marker' + (isRecent ? '' : ' inactive'),
+            className: className,
             iconSize: [20, 20],
             iconAnchor: [10, 10],
             popupAnchor: [0, -15]
@@ -87,76 +142,9 @@
         try {
             const response = await fetch('/admin/api/employee-locations');
             const data = await response.json();
+            employeesData = data; // Store for filtering
 
-            // Clear old markers
-            Object.values(markers).forEach(m => map.removeLayer(m));
-            markers = {};
-
-            // Update employee list
-            const listEl = document.getElementById('employeeList');
-
-            if (data.length === 0) {
-                listEl.innerHTML = '<p class="text-gray-400 col-span-full">لا يوجد موظفون متصلون حالياً</p>';
-            } else {
-                listEl.innerHTML = data.map(emp => `
-                    <div class="bg-darkbg p-3 rounded-lg flex items-center gap-3">
-                        <div class="w-3 h-3 rounded-full ${emp.is_recent ? 'bg-green-500' : 'bg-gray-500'}"></div>
-                        <div>
-                            <p class="font-bold text-white">${emp.employee_name}</p>
-                            <p class="text-xs text-gray-400">آخر تحديث: ${emp.updated_at || '-'}</p>
-                        </div>
-                        <button onclick="focusEmployee(${emp.latitude}, ${emp.longitude})" 
-                                class="mr-auto text-accent hover:text-blue-400 transition">
-                            <i class="fas fa-crosshairs"></i>
-                        </button>
-                    </div>
-                `).join('');
-
-                // Add markers
-                data.forEach(emp => {
-                    const marker = L.marker([emp.latitude, emp.longitude], {
-                        icon: createIcon(emp.is_recent)
-                    }).addTo(map);
-
-                    // Add accuracy circle if accuracy is available
-                    if (emp.accuracy) {
-                        const radius = emp.accuracy;
-                        let color = '#22c55e'; // Green for high accuracy (< 100m)
-                        if (radius > 1000) color = '#ef4444'; // Red for low accuracy (> 1000m)
-                        else if (radius > 100) color = '#eab308'; // Yellow for medium
-
-                        L.circle([emp.latitude, emp.longitude], {
-                            radius: radius,
-                            color: color,
-                            fillColor: color,
-                            fillOpacity: 0.1,
-                            weight: 1
-                        }).addTo(map);
-                    }
-
-                    const accuracyText = emp.accuracy ?
-                        (emp.accuracy > 1000 ?
-                            `<span class="text-red-400 font-bold">⚠️ دقة منخفضة (${Math.round(emp.accuracy / 1000)} كم)</span>` :
-                            `<span class="text-gray-400 text-xs">الدقة: ${Math.round(emp.accuracy)} متر</span>`)
-                        : '';
-
-                    marker.bindPopup(`
-                        <div class="text-center p-2">
-                            <p class="font-bold text-lg">${emp.employee_name}</p>
-                            <p class="text-gray-400 text-sm">آخر تحديث: ${emp.updated_at || '-'}</p>
-                            ${accuracyText}
-                        </div>
-                    `);
-
-                    markers[emp.employee_id] = marker;
-                });
-
-                // Fit bounds if we have markers
-                if (data.length > 0) {
-                    const group = new L.featureGroup(Object.values(markers));
-                    map.fitBounds(group.getBounds().pad(0.1));
-                }
-            }
+            renderEmployees(data);
 
             // Update last refresh time
             document.getElementById('lastUpdate').textContent = 'آخر تحديث: ' + new Date().toLocaleTimeString('ar-SA');
@@ -166,15 +154,119 @@
         }
     }
 
+    function renderEmployees(data) {
+        const searchTerm = document.getElementById('employeeSearch').value.toLowerCase();
+
+        // Clear layers
+        Object.values(markers).forEach(m => map.removeLayer(m));
+        Object.values(circles).forEach(c => map.removeLayer(c));
+        markers = {};
+        circles = {};
+
+        const listEl = document.getElementById('employeeList');
+        let htmlContent = '';
+        let hasVisible = false;
+
+        data.forEach(emp => {
+            // Apply search filter
+            if (searchTerm && !emp.employee_name.toLowerCase().includes(searchTerm)) {
+                return;
+            }
+
+            hasVisible = true;
+
+            // Build List Item
+            const statusColor = emp.is_recent ? 'bg-green-500' : 'bg-gray-500';
+            const bookingBadge = emp.booking ?
+                `<span class="bg-amber-500/20 text-amber-400 text-xs px-2 py-1 rounded border border-amber-500/30 mr-2 flex items-center">
+                    <i class="fas fa-clipboard-check ml-1"></i> ${emp.booking.status_ar} (${emp.booking.id})
+                 </span>` :
+                `<span class="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded border border-green-500/30 mr-2">متاح</span>`;
+
+            htmlContent += `
+                <div class="bg-darkbg p-3 rounded-lg flex items-center gap-3 border border-gray-700 hover:border-accent transition cursor-pointer" 
+                     onclick="focusEmployee(${emp.latitude}, ${emp.longitude})">
+                    <div class="w-3 h-3 rounded-full ${statusColor} shrink-0"></div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="font-bold text-white truncate">${emp.employee_name}</p>
+                            ${bookingBadge}
+                        </div>
+                        <p class="text-xs text-gray-400 truncate">
+                            <i class="far fa-clock ml-1"></i> ${emp.updated_at || '-'}
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            // accuracy circle
+            if (emp.accuracy) {
+                const radius = emp.accuracy;
+                let color = '#22c55e';
+                if (radius > 1000) color = '#ef4444';
+                else if (radius > 100) color = '#eab308';
+
+                const circle = L.circle([emp.latitude, emp.longitude], {
+                    radius: radius,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.1,
+                    weight: 1
+                }).addTo(map);
+                circles[emp.employee_id] = circle;
+            }
+
+            // Marker
+            const marker = L.marker([emp.latitude, emp.longitude], {
+                icon: createIcon(emp.is_recent, !!emp.booking)
+            }).addTo(map);
+
+            const accuracyText = emp.accuracy ?
+                (emp.accuracy > 1000 ?
+                    `<p class="text-red-400 font-bold text-xs mt-1">⚠️ دقة منخفضة (${Math.round(emp.accuracy / 1000)} كم)</p>` :
+                    `<p class="text-gray-400 text-xs mt-1">الدقة: ${Math.round(emp.accuracy)} متر</p>`)
+                : '';
+
+            const bookingPopup = emp.booking ?
+                `<div class="mt-2 pt-2 border-t border-gray-600">
+                    <p class="text-amber-400 font-bold text-sm">طلب حالي #${emp.booking.id}</p>
+                    <p class="text-gray-300 text-xs">${emp.booking.status_ar}</p>
+                 </div>` :
+                `<p class="text-green-400 text-xs mt-1">✅ متاح للعمل</p>`;
+
+            marker.bindPopup(`
+                <div class="text-center p-1 min-w-[150px]">
+                    <p class="font-bold text-lg mb-1">${emp.employee_name}</p>
+                    <p class="text-gray-400 text-sm dir-ltr font-mono">${emp.updated_at}</p>
+                    ${accuracyText}
+                    ${bookingPopup}
+                </div>
+            `);
+
+            markers[emp.employee_id] = marker;
+        });
+
+        if (!hasVisible) {
+            listEl.innerHTML = '<p class="text-gray-400 col-span-full text-center py-4">لا يوجد موظفون مطابقون للبحث</p>';
+        } else {
+            listEl.innerHTML = htmlContent;
+        }
+    }
+
+    // Filter function called on input
+    function filterEmployees() {
+        renderEmployees(employeesData);
+    }
+
     // Focus on specific employee
     function focusEmployee(lat, lng) {
-        map.setView([lat, lng], 16);
+        map.setView([lat, lng], 18); // Higher zoom for satellite
     }
 
     // Initial load
     refreshLocations();
 
-    // Auto-refresh every 30 seconds
-    setInterval(refreshLocations, 30000);
+    // Auto-refresh every 15 seconds (Faster updates)
+    setInterval(refreshLocations, 15000);
 </script>
 {% endblock %}

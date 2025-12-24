@@ -2651,15 +2651,37 @@ def employee_tracking():
 @bp.route('/api/employee-locations')
 def get_employee_locations():
     """API endpoint to get all active employee locations"""
-    from app.models import EmployeeLocation
+    from app.models import EmployeeLocation, Booking
+    from datetime import datetime, timedelta
     
     locations = EmployeeLocation.query.filter_by(is_tracking=True).all()
     
     result = []
     for loc in locations:
         # Check if location was updated in the last 10 minutes
-        from datetime import datetime, timedelta
         is_recent = loc.updated_at > datetime.utcnow() - timedelta(minutes=10)
+        
+        # Check for active booking
+        active_booking = Booking.query.filter(
+            Booking.employee_id == loc.employee_id,
+            Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress'])
+        ).first()
+        
+        booking_info = None
+        if active_booking:
+            booking_info = {
+                'id': active_booking.id,
+                'status': active_booking.status,
+                'status_ar': {
+                    'assigned': 'تم التعيين',
+                    'en_route': 'في الطريق',
+                    'arrived': 'وصل',
+                    'in_progress': 'جاري العمل'
+                }.get(active_booking.status, active_booking.status)
+            }
+            
+        # Convert time to Saudi Time (UTC+3)
+        saudi_time = loc.updated_at + timedelta(hours=3)
         
         result.append({
             'employee_id': loc.employee_id,
@@ -2667,8 +2689,9 @@ def get_employee_locations():
             'latitude': loc.latitude,
             'longitude': loc.longitude,
             'accuracy': loc.accuracy,
-            'updated_at': loc.updated_at.strftime('%H:%M:%S') if loc.updated_at else None,
-            'is_recent': is_recent
+            'updated_at': saudi_time.strftime('%I:%M:%S %p'),
+            'is_recent': is_recent,
+            'booking': booking_info
         })
     
     return jsonify(result)

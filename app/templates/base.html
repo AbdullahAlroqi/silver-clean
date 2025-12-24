@@ -296,10 +296,12 @@
                     maximumAge: 30000
                 });
 
-                // Also send immediately on load
+                // FORCE fresh location on load (ignore cache) to fix "Dammam" issue
+                // This wakes up the GPS immediately
                 navigator.geolocation.getCurrentPosition(sendLocation, handleError, {
                     enableHighAccuracy: true,
-                    maximumAge: 60000
+                    maximumAge: 0, // <--- Force fresh reading, no cache
+                    timeout: 10000
                 });
 
                 // Send periodic heartbeats (every 5 minutes) as backup
