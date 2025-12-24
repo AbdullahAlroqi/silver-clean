@@ -21,6 +21,13 @@ class Config:
     
     # Session Configuration - 1 year duration
     PERMANENT_SESSION_LIFETIME = timedelta(days=365)
+    SESSION_PERMANENT = True
+    
+    # Remember Me Cookie - 1 year duration for PWA and browser
+    REMEMBER_COOKIE_DURATION = timedelta(days=365)
+    REMEMBER_COOKIE_SECURE = False  # Set to True in production with HTTPS
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
 
     # VAPID Keys for Web Push Notifications
     VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')

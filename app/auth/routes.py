@@ -32,7 +32,8 @@ def login():
             flash('اسم المستخدم أو كلمة المرور غير صحيحة')
             return redirect(url_for('auth.login'))
         
-        login_user(user, remember=form.remember_me.data)
+        # Always remember user for 1 year (especially important for PWA)
+        login_user(user, remember=True)
         
         next_page = request.args.get('next')
         if not next_page or urlparse(next_page).netloc != '':

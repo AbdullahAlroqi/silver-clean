@@ -92,6 +92,65 @@
         </div>
     </div>
 
+    <!-- Corporate Services Section -->
+    <div class="w-full max-w-4xl mx-auto mb-20 px-4">
+        <div
+            class="bg-primary/50 border border-gray-700 hover:border-accent/50 rounded-2xl p-8 relative overflow-hidden backdrop-blur-sm transition-colors duration-300">
+            <!-- Decorative Elements -->
+            <div class="absolute top-0 left-0 w-32 h-32 bg-accent/10 rounded-full -translate-x-1/2 -translate-y-1/2">
+            </div>
+            <div class="absolute bottom-0 right-0 w-40 h-40 bg-accent/5 rounded-full translate-x-1/2 translate-y-1/2">
+            </div>
+
+            <div class="relative z-10">
+                <div class="text-center mb-8">
+                    <div
+                        class="w-20 h-20 bg-darkbg rounded-2xl flex items-center justify-center mx-auto mb-4 border border-gray-700 shadow-lg">
+                        <i class="fas fa-building text-accent text-4xl"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-white mb-2">خدماتنا للشركات</h2>
+                    <p class="text-gray-400">حلول غسيل مخصصة للأساطيل والمؤسسات</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="flex flex-col items-center text-center p-4 rounded-xl hover:bg-white/5 transition">
+                        <div
+                            class="w-14 h-14 bg-darkbg rounded-full flex items-center justify-center mb-3 border border-gray-700">
+                            <i class="fas fa-car-side text-accent text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-white mb-1">باقات الأساطيل</h4>
+                        <p class="text-gray-400 text-sm">عروض خاصة لأساطيل السيارات</p>
+                    </div>
+                    <div class="flex flex-col items-center text-center p-4 rounded-xl hover:bg-white/5 transition">
+                        <div
+                            class="w-14 h-14 bg-darkbg rounded-full flex items-center justify-center mb-3 border border-gray-700">
+                            <i class="fas fa-file-contract text-accent text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-white mb-1">عقود سنوية</h4>
+                        <p class="text-gray-400 text-sm">أسعار تنافسية للعقود طويلة المدى</p>
+                    </div>
+                    <div class="flex flex-col items-center text-center p-4 rounded-xl hover:bg-white/5 transition">
+                        <div
+                            class="w-14 h-14 bg-darkbg rounded-full flex items-center justify-center mb-3 border border-gray-700">
+                            <i class="fas fa-calendar-check text-accent text-xl"></i>
+                        </div>
+                        <h4 class="font-bold text-white mb-1">جدولة مرنة</h4>
+                        <p class="text-gray-400 text-sm">خدمة مجدولة حسب احتياجاتكم</p>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <a href="https://wa.me/{{ site_settings.whatsapp_number or '966500000000' }}?text={{ 'السلام عليكم، أرغب بالاستفسار عن خدمات الشركات'|urlencode }}"
+                        target="_blank"
+                        class="inline-flex items-center justify-center gap-3 bg-accent hover:bg-opacity-90 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg shadow-accent/25 transform hover:-translate-y-1">
+                        <i class="fab fa-whatsapp text-2xl"></i>
+                        <span class="text-lg">تواصل معنا عبر الواتساب</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Testimonials Section -->
     <div class="w-full max-w-6xl mx-auto mb-12 px-4">
         <h2 class="text-3xl font-bold text-accent mb-10 relative inline-block">
