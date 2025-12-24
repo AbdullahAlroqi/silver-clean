@@ -364,3 +364,47 @@ def subscribe():
         db.session.commit()
         return jsonify({'status': 'success'}), 201
     return jsonify({'status': 'failed'}), 400
+
+
+@bp.route('/update-location', methods=['POST'])
+def update_location():
+    """Update employee's current location for tracking"""
+    from app.models import EmployeeLocation
+    
+    data = request.get_json()
+    if not data or 'latitude' not in data or 'longitude' not in data:
+        return jsonify({'status': 'error', 'message': 'Missing location data'}), 400
+    
+    # Get or create location record for this employee
+    location = EmployeeLocation.query.filter_by(employee_id=current_user.id).first()
+    
+    if location:
+        location.latitude = data['latitude']
+        location.longitude = data['longitude']
+        location.accuracy = data.get('accuracy')
+        location.is_tracking = True
+    else:
+        location = EmployeeLocation(
+            employee_id=current_user.id,
+            latitude=data['latitude'],
+            longitude=data['longitude'],
+            accuracy=data.get('accuracy'),
+            is_tracking=True
+        )
+        db.session.add(location)
+    
+    db.session.commit()
+    return jsonify({'status': 'success'}), 200
+
+
+@bp.route('/stop-tracking', methods=['POST'])
+def stop_tracking():
+    """Stop location tracking for employee"""
+    from app.models import EmployeeLocation
+    
+    location = EmployeeLocation.query.filter_by(employee_id=current_user.id).first()
+    if location:
+        location.is_tracking = False
+        db.session.commit()
+    
+    return jsonify({'status': 'success'}), 200

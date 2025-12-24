@@ -312,3 +312,16 @@ class Announcement(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class EmployeeLocation(db.Model):
+    """Real-time employee location tracking"""
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    accuracy = db.Column(db.Float, nullable=True)  # GPS accuracy in meters
+    is_tracking = db.Column(db.Boolean, default=True)  # Is employee actively tracking
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    employee = db.relationship('User', backref=db.backref('location', uselist=False))

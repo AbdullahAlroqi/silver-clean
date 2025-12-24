@@ -2638,3 +2638,37 @@ def toggle_announcement(id):
     status = 'مفعل' if announcement.is_active else 'معطل'
     flash(f'تم تحديث حالة الإعلان إلى {status}', 'success')
     return redirect(url_for('admin.announcements'))
+
+
+# --- Employee Location Tracking ---
+@bp.route('/employee-tracking')
+def employee_tracking():
+    """Admin page to track employee locations on a map"""
+    employees = User.query.filter_by(role='employee').all()
+    return render_template('admin/employee_tracking.html', employees=employees)
+
+
+@bp.route('/api/employee-locations')
+def get_employee_locations():
+    """API endpoint to get all active employee locations"""
+    from app.models import EmployeeLocation
+    
+    locations = EmployeeLocation.query.filter_by(is_tracking=True).all()
+    
+    result = []
+    for loc in locations:
+        # Check if location was updated in the last 10 minutes
+        from datetime import datetime, timedelta
+        is_recent = loc.updated_at > datetime.utcnow() - timedelta(minutes=10)
+        
+        result.append({
+            'employee_id': loc.employee_id,
+            'employee_name': loc.employee.username if loc.employee else 'Unknown',
+            'latitude': loc.latitude,
+            'longitude': loc.longitude,
+            'accuracy': loc.accuracy,
+            'updated_at': loc.updated_at.strftime('%H:%M:%S') if loc.updated_at else None,
+            'is_recent': is_recent
+        })
+    
+    return jsonify(result)

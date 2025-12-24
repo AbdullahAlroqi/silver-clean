@@ -257,6 +257,63 @@
 
     <script src="{{ url_for('static', filename='js/notifications.js') }}?v=3"></script>
     <script src="{{ url_for('static', filename='js/install-prompt.js') }}?v=3"></script>
+
+    <!-- Location Tracking for Employees -->
+    {% if current_user.is_authenticated and current_user.role == 'employee' %}
+    <script>
+            (function () {
+                if (!navigator.geolocation) {
+                    console.log("Geolocation is not supported by this browser.");
+                    return;
+                }
+
+                const sendLocation = (position) => {
+                    const data = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+
+                    fetch("{{ url_for('employee.update_location') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    }).catch(err => console.error("Error sending location:", err));
+                };
+
+                const handleError = (error) => {
+                    console.warn(`ERROR(${error.code}): ${error.message}`);
+                };
+
+                // Watch position (Optimized for battery)
+                // maximumAge: 30000 means we accept a position that is up to 30 seconds old
+                // This allows the GPS radio to power down between updates
+                const watchId = navigator.geolocation.watchPosition(sendLocation, handleError, {
+                    enableHighAccuracy: true,
+                    timeout: 60000,
+                    maximumAge: 30000
+                });
+
+                // Also send immediately on load
+                navigator.geolocation.getCurrentPosition(sendLocation, handleError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 60000
+                });
+
+                // Send periodic heartbeats (every 5 minutes) as backup
+                setInterval(() => {
+                    navigator.geolocation.getCurrentPosition(sendLocation, handleError, {
+                        enableHighAccuracy: true,
+                        timeout: 20000,
+                        maximumAge: 30000
+                    });
+                }, 300000);
+
+            })();
+    </script>
+    {% endif %}
 </body>
 
 </html>
