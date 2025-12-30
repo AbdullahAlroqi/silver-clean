@@ -324,4 +324,4 @@ class EmployeeLocation(db.Model):
     is_tracking = db.Column(db.Boolean, default=True)  # Is employee actively tracking
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    employee = db.relationship('User', backref=db.backref('location', uselist=False))
+    employee = db.relationship('User', backref=db.backref('location', uselist=False, cascade="all, delete-orphan"))

@@ -515,7 +515,7 @@ def update_washes(id):
 @bp.route('/customers/<int:id>/delete', methods=['POST'])
 def delete_customer(id):
     """Delete customer and all related data"""
-    from app.models import Vehicle
+    from app.models import Vehicle, BookingProduct
     
     customer = User.query.get_or_404(id)
     
@@ -524,25 +524,34 @@ def delete_customer(id):
         flash('لا يمكن حذف هذا المستخدم', 'error')
         return redirect(url_for('admin.customers'))
     
-    # Delete related data in correct order
-    # 1. Delete vehicles
-    Vehicle.query.filter_by(user_id=customer.id).delete()
+    # Preserving Financial Data:
+    # 1. Unlink Completed Bookings (keep them for reports)
+    Booking.query.filter_by(customer_id=customer.id, status='completed').update({'customer_id': None})
     
-    # 2. Delete booking products first, then bookings
+    # 2. Unlink Active/Expired/Cancelled Subscriptions (if needed for history)
+    # Ideally, we might want to keep expired ones for history too.
+    # For now, let's keep 'completed' or 'expired' logic consistent if status exists
+    # Assuming we want to keep all subscription history for revenue:
+    Subscription.query.filter(Subscription.customer_id==customer.id).update({'customer_id': None})
+    
+    # Delete related data in correct order (only what wasn't preserved)
+    
+    # 3. Delete ONLY PENDING bookings (which are not completed)
+    # Since we set customer_id=None for completed ones above, this loop will only find the remaining ones (pending, assigned, etc.)
     for booking in Booking.query.filter_by(customer_id=customer.id).all():
         BookingProduct.query.filter_by(booking_id=booking.id).delete()
         db.session.delete(booking)
     
-    # 3. Update bookings where customer is employee (set to NULL)
+    # 4. Update bookings where customer is employee (set to NULL) - rare edge case but good to keep
     Booking.query.filter_by(employee_id=customer.id).update({'employee_id': None})
     
-    # 4. Delete subscriptions
-    Subscription.query.filter_by(customer_id=customer.id).delete()
+    # 5. Delete vehicles
+    Vehicle.query.filter_by(user_id=customer.id).delete()
     
-    # 5. Delete notifications
+    # 6. Delete notifications
     Notification.query.filter_by(user_id=customer.id).delete()
     
-    # 6. Delete push subscriptions
+    # 7. Delete push subscriptions
     PushSubscription.query.filter_by(user_id=customer.id).delete()
     
     # Finally, delete the customer
@@ -550,7 +559,7 @@ def delete_customer(id):
     db.session.delete(customer)
     db.session.commit()
     
-    flash(f'تم حذف العميل {username} وجميع بياناته بنجاح', 'success')
+    flash(f'تم حذف العميل {username} بنجاح (مع الاحتفاظ بالسجلات المالية)', 'success')
     return redirect(url_for('admin.customers'))
 
 
