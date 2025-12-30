@@ -2024,6 +2024,8 @@ def reports():
     # Calculate totals for cash/card
     cash_total = 0
     for b in cash_bookings.all():
+        if not b.service:
+            continue
         price = b.service.price + (b.vehicle_size_price or 0)
         # Add products
         for bp in b.products:
@@ -2048,6 +2050,8 @@ def reports():
 
     card_total = 0
     for b in card_bookings.all():
+        if not b.service:
+            continue
         price = b.service.price + (b.vehicle_size_price or 0)
         for bp in b.products:
             price += bp.product.price * bp.quantity
