@@ -174,7 +174,25 @@ def add_vehicle():
 
 @bp.route('/vehicles/delete/<int:id>')
 def delete_vehicle(id):
+    from app.models import Subscription, Booking
     vehicle = current_user.vehicles.filter_by(id=id).first_or_404()
+    
+    # Check for active subscriptions
+    active_subscription = Subscription.query.filter_by(vehicle_id=vehicle.id, status='active').first()
+    if active_subscription:
+        flash('لا يمكن حذف المركبة لارتباطها باشتراك فعال', 'error')
+        return redirect(url_for('customer.vehicles'))
+        
+    # Check for unfinished bookings
+    unfinished_booking = Booking.query.filter(
+        Booking.vehicle_id == vehicle.id, 
+        Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
+    ).first()
+    
+    if unfinished_booking:
+        flash('لا يمكن حذف المركبة لوجود حجز جاري أو قادم', 'error')
+        return redirect(url_for('customer.vehicles'))
+        
     db.session.delete(vehicle)
     db.session.commit()
     flash('تم حذف المركبة')
@@ -199,6 +217,8 @@ def book():
     
     # Create a dictionary for service eligibility (ID -> Boolean)
     service_eligibility = {s.id: s.includes_free_wash for s in services_query}
+    # Create a dictionary for service durations (ID -> Minutes)
+    service_durations = {s.id: (s.duration if s.duration else 60) for s in services_query}
     
     # Add placeholder option for city
     form.city_id.choices = [('', 'اختر المدينة')] + [(c.id, c.name_ar) for c in City.query.filter_by(is_active=True).all()]
@@ -320,7 +340,12 @@ def book():
                 
                 # Check if booking time is within schedule
                 booking_datetime = datetime.combine(booking_date, booking_time)
-                end_datetime = booking_datetime + timedelta(minutes=90)
+                
+                # Get selected service duration
+                selected_service = Service.query.get(service_id)
+                duration_minutes = selected_service.duration if selected_service and selected_service.duration else 60
+                
+                end_datetime = booking_datetime + timedelta(minutes=duration_minutes)
                 
                 if booking_time < schedule.start_time or end_datetime.time() > schedule.end_time:
                     continue
@@ -336,7 +361,9 @@ def book():
                 for existing_booking in conflicts:
                     # Calculate existing booking end time
                     existing_start = datetime.combine(booking_date, existing_booking.time)
-                    existing_end = existing_start + timedelta(minutes=90)
+                    # Use existing booking's service duration or default to 60
+                    existing_duration = existing_booking.service.duration if existing_booking.service and existing_booking.service.duration else 60
+                    existing_end = existing_start + timedelta(minutes=existing_duration)
                     
                     # Check for overlap: existing_start < new_end AND existing_end > new_start
                     if existing_start < end_datetime and existing_end > booking_datetime:
@@ -420,7 +447,7 @@ def book():
             flash('تم الحجز بنجاح!')
             return redirect(url_for('customer.booking_success'))
 
-    return render_template('customer/booking_form.html', form=form, service_eligibility=service_eligibility)
+    return render_template('customer/booking_form.html', form=form, service_eligibility=service_eligibility, service_durations=service_durations)
 
 @bp.route('/api/vehicle/<int:vehicle_id>/size-price')
 def get_vehicle_size_price(vehicle_id):
@@ -566,8 +593,12 @@ def get_available_times():
     if booking_date < today:
         return jsonify([])
     
-    # Fixed duration: 90 minutes per booking
-    duration_minutes = 90
+    # Dynamic duration based on service
+    service = Service.query.get(service_id)
+    duration_minutes = service.duration if service and service.duration else 60
+    
+    # 15-minute intervals for start times
+    interval_minutes = 15
     
     # Find employees assigned to this neighborhood
     neighborhood = Neighborhood.query.get(neighborhood_id)
@@ -600,9 +631,12 @@ def get_available_times():
         
         # If booking for today, skip past times
         if is_today and current_time < now:
-            # Round up to next 30-minute slot
-            minutes_to_add = (30 - now.minute % 30) % 30
+            # Round up to next 15-minute slot
+            minutes_to_add = (interval_minutes - now.minute % interval_minutes) % interval_minutes
+            if minutes_to_add == 0: minutes_to_add = interval_minutes # If exactly on the minute, move to next slot to be safe or keep current? Let's move to next to allow prep time or immediate? 
+            # Actually, standard behavior is usually next slot.
             current_time = now + timedelta(minutes=minutes_to_add)
+            current_time = current_time.replace(second=0, microsecond=0)
             current_time = datetime.combine(booking_date, current_time.time())
         
         while current_time + timedelta(minutes=duration_minutes) <= end_time:
@@ -618,9 +652,10 @@ def get_available_times():
             
             has_conflict = False
             for booking in conflicts:
-                # Calculate existing booking end time (booking start + 90 minutes)
+                # Calculate existing booking end time (booking start + specific service duration)
                 booking_start = datetime.combine(booking_date, booking.time)
-                booking_end = booking_start + timedelta(minutes=90)
+                existing_duration = booking.service.duration if booking.service and booking.service.duration else 60
+                booking_end = booking_start + timedelta(minutes=existing_duration)
                 
                 # Check for overlap
                 new_slot_start = datetime.combine(booking_date, slot_start)
@@ -633,7 +668,7 @@ def get_available_times():
             if not has_conflict:
                 all_slots.add(slot_start.strftime('%H:%M'))
             
-            current_time += timedelta(minutes=90)  # 90-minute intervals
+            current_time += timedelta(minutes=interval_minutes)  # 15-minute intervals
     
     # Sort and return
     sorted_slots = sorted(list(all_slots))

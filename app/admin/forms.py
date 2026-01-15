@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SubmitField, FloatField, IntegerField, SelectField, TextAreaField, BooleanField, SelectMultipleField
-from wtforms.validators import DataRequired, Email, Length, Optional
+from wtforms.validators import DataRequired, Email, Length, Optional, InputRequired, NumberRange
 
 class EmployeeForm(FlaskForm):
     username = StringField('اسم المستخدم', validators=[DataRequired()])
@@ -26,7 +26,7 @@ class ServiceForm(FlaskForm):
 class VehicleSizeForm(FlaskForm):
     name_ar = StringField('الاسم (عربي)', validators=[DataRequired()])
     name_en = StringField('الاسم (إنجليزي)', validators=[DataRequired()])
-    price_adjustment = FloatField('تعديل السعر (ريال)', validators=[DataRequired()])
+    price_adjustment = FloatField('تعديل السعر (ريال)', validators=[InputRequired(), NumberRange(min=0, message='يجب أن يكون المبلغ صفر أو أكثر')])
     is_active = BooleanField('مفعل', default=True)
     submit = SubmitField('حفظ')
 
