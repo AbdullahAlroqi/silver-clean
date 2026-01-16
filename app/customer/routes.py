@@ -331,47 +331,82 @@ def book():
             available_employee = None
             
             for employee in employees:
-                # Check if employee has schedule for this day
+                # Check if employee has any schedule for this day
                 day_of_week = booking_date.weekday()
-                schedule = employee.schedules.filter_by(day_of_week=day_of_week, is_active=True).first()
+                employee_schedules = employee.schedules.filter_by(day_of_week=day_of_week, is_active=True).all()
                 
-                if not schedule:
+                if not employee_schedules:
                     continue
                 
-                # Check if booking time is within schedule
+                # Check if booking time is within ANY of the employee's shifts
+                # For night shifts, we need to determine the actual booking datetime
                 booking_datetime = datetime.combine(booking_date, booking_time)
                 
                 # Get selected service duration
                 selected_service = Service.query.get(service_id)
                 duration_minutes = selected_service.duration if selected_service and selected_service.duration else 60
                 
-                end_datetime = booking_datetime + timedelta(minutes=duration_minutes)
+                # Check if booking fits in any shift (including night shifts)
+                fits_in_schedule = False
+                actual_booking_datetime = booking_datetime
+                actual_booking_date = booking_date
                 
-                if booking_time < schedule.start_time or end_datetime.time() > schedule.end_time:
+                for schedule in employee_schedules:
+                    schedule_start = datetime.combine(booking_date, schedule.start_time)
+                    schedule_end = datetime.combine(booking_date, schedule.end_time)
+                    
+                    # Night Shift Detection: if end_time <= start_time, shift extends to next day
+                    is_night_shift = schedule.end_time <= schedule.start_time
+                    if is_night_shift:
+                        schedule_end += timedelta(days=1)
+                    
+                    # For times after midnight (00:00-05:59) in night shifts, 
+                    # the actual datetime is the next day
+                    test_datetime = booking_datetime
+                    if is_night_shift and booking_time < schedule.start_time:
+                        # This is a time after midnight, actual date is next day
+                        test_datetime = booking_datetime + timedelta(days=1)
+                    
+                    end_datetime = test_datetime + timedelta(minutes=duration_minutes)
+                    
+                    if test_datetime >= schedule_start and end_datetime <= schedule_end:
+                        fits_in_schedule = True
+                        actual_booking_datetime = test_datetime
+                        actual_booking_date = test_datetime.date()
+                        break
+                
+                if not fits_in_schedule:
                     continue
                 
+                end_datetime = actual_booking_datetime + timedelta(minutes=duration_minutes)
+                
                 # Check if employee has conflicting booking (check for time overlap)
+                # For night shifts, we need to check both the selected date and next day
+                next_day = booking_date + timedelta(days=1)
                 conflicts = Booking.query.filter(
                     Booking.employee_id == employee.id,
-                    Booking.date == booking_date,
+                    Booking.date.in_([booking_date, next_day]),
                     Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
                 ).all()
                 
                 has_conflict = False
                 for existing_booking in conflicts:
                     # Calculate existing booking end time
-                    existing_start = datetime.combine(booking_date, existing_booking.time)
+                    existing_start = datetime.combine(existing_booking.date, existing_booking.time)
                     # Use existing booking's service duration or default to 60
                     existing_duration = existing_booking.service.duration if existing_booking.service and existing_booking.service.duration else 60
                     existing_end = existing_start + timedelta(minutes=existing_duration)
                     
                     # Check for overlap: existing_start < new_end AND existing_end > new_start
-                    if existing_start < end_datetime and existing_end > booking_datetime:
+                    if existing_start < end_datetime and existing_end > actual_booking_datetime:
                         has_conflict = True
                         break
                 
                 if not has_conflict:
                     available_employee = employee
+                    # Store actual booking date/time for night shift bookings
+                    booking_date = actual_booking_date
+                    booking_time = actual_booking_datetime.time()
                     break
             
             if not available_employee:
@@ -612,66 +647,91 @@ def get_available_times():
         return jsonify([])
     
     # Collect all available slots from all employees
-    all_slots = set()
+    # Format: (display_time_str, actual_datetime)
+    all_slots = {}
     
     # Get current time if booking for today
     now = datetime.now()
     is_today = booking_date == today
     
     for employee in employees:
-        # Get employee's schedule for this day
-        schedule = employee.schedules.filter_by(day_of_week=day_of_week, is_active=True).first()
+        # Get ALL employee's schedules for this day (supports multiple shifts)
+        employee_schedules = employee.schedules.filter_by(day_of_week=day_of_week, is_active=True).all()
         
-        if not schedule:
+        if not employee_schedules:
             continue
         
-        # Generate potential time slots
-        current_time = datetime.combine(booking_date, schedule.start_time)
-        end_time = datetime.combine(booking_date, schedule.end_time)
+        # Get all existing bookings for this employee on this date AND next date (for night shifts)
+        next_date = booking_date + timedelta(days=1)
+        conflicts = Booking.query.filter(
+            Booking.employee_id == employee.id,
+            Booking.date.in_([booking_date, next_date]),
+            Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
+        ).all()
         
-        # If booking for today, skip past times
-        if is_today and current_time < now:
-            # Round up to next 15-minute slot
-            minutes_to_add = (interval_minutes - now.minute % interval_minutes) % interval_minutes
-            if minutes_to_add == 0: minutes_to_add = interval_minutes # If exactly on the minute, move to next slot to be safe or keep current? Let's move to next to allow prep time or immediate? 
-            # Actually, standard behavior is usually next slot.
-            current_time = now + timedelta(minutes=minutes_to_add)
-            current_time = current_time.replace(second=0, microsecond=0)
-            current_time = datetime.combine(booking_date, current_time.time())
-        
-        while current_time + timedelta(minutes=duration_minutes) <= end_time:
-            slot_start = current_time.time()
-            slot_end = (current_time + timedelta(minutes=duration_minutes)).time()
+        # Process each shift
+        for schedule in employee_schedules:
+            # Generate potential time slots for this shift
+            shift_start = datetime.combine(booking_date, schedule.start_time)
+            shift_end = datetime.combine(booking_date, schedule.end_time)
             
-            # Check if this slot conflicts with existing bookings
-            conflicts = Booking.query.filter(
-                Booking.employee_id == employee.id,
-                Booking.date == booking_date,
-                Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
-            ).all()
+            # Night Shift Detection: if end_time <= start_time, shift extends to next day
+            is_night_shift = schedule.end_time <= schedule.start_time
+            if is_night_shift:
+                shift_end += timedelta(days=1)
             
-            has_conflict = False
-            for booking in conflicts:
-                # Calculate existing booking end time (booking start + specific service duration)
-                booking_start = datetime.combine(booking_date, booking.time)
-                existing_duration = booking.service.duration if booking.service and booking.service.duration else 60
-                booking_end = booking_start + timedelta(minutes=existing_duration)
+            current_time = shift_start
+            
+            # If booking for today, skip past times
+            if is_today and current_time < now:
+                # Round up to next 15-minute slot
+                minutes_to_add = (interval_minutes - now.minute % interval_minutes) % interval_minutes
+                if minutes_to_add == 0:
+                    minutes_to_add = interval_minutes
+                current_time = now + timedelta(minutes=minutes_to_add)
+                current_time = current_time.replace(second=0, microsecond=0)
                 
-                # Check for overlap
-                new_slot_start = datetime.combine(booking_date, slot_start)
-                new_slot_end = datetime.combine(booking_date, slot_end)
+                # Make sure we don't start before this shift's start time
+                if current_time < shift_start:
+                    current_time = shift_start
+            
+            # Generate slots while service can complete within shift
+            while current_time + timedelta(minutes=duration_minutes) <= shift_end:
+                slot_end_datetime = current_time + timedelta(minutes=duration_minutes)
                 
-                if booking_start < new_slot_end and booking_end > new_slot_start:
-                    has_conflict = True
-                    break
-            
-            if not has_conflict:
-                all_slots.add(slot_start.strftime('%H:%M'))
-            
-            current_time += timedelta(minutes=interval_minutes)  # 15-minute intervals
+                # Check if this slot conflicts with existing bookings
+                has_conflict = False
+                for booking in conflicts:
+                    # Calculate existing booking time range
+                    booking_start = datetime.combine(booking.date, booking.time)
+                    existing_duration = booking.service.duration if booking.service and booking.service.duration else 60
+                    booking_end = booking_start + timedelta(minutes=existing_duration)
+                    
+                    # Check for overlap: slot_start < booking_end AND slot_end > booking_start
+                    if current_time < booking_end and slot_end_datetime > booking_start:
+                        has_conflict = True
+                        break
+                
+                if not has_conflict:
+                    # Display time: show the time portion only (customer sees it as same day)
+                    display_time = current_time.strftime('%H:%M')
+                    
+                    # Store with actual datetime for proper ordering
+                    # For night shifts, times after midnight come after times before midnight
+                    if display_time not in all_slots:
+                        all_slots[display_time] = current_time
+                
+                current_time += timedelta(minutes=interval_minutes)
     
-    # Sort and return
-    sorted_slots = sorted(list(all_slots))
+    # Sort slots: regular times (before midnight) first, then night times (after midnight)
+    def sort_key(slot_str):
+        hour = int(slot_str.split(':')[0])
+        # Times 00:00-05:59 are considered "after midnight" and should come after 22:00-23:59
+        if hour < 6:
+            return (1, hour)  # Group 1 (after midnight)
+        return (0, hour)  # Group 0 (regular hours)
+    
+    sorted_slots = sorted(all_slots.keys(), key=sort_key)
     return jsonify(sorted_slots)
 
 # --- Subscription System ---
@@ -830,38 +890,70 @@ def book_subscription_wash(subscription_id):
         available_employee = None
         
         for employee in employees:
-            # Check if employee has schedule for this day
+            # Check if employee has any schedule for this day
             day_of_week = booking_date.weekday()
-            schedule = employee.schedules.filter_by(day_of_week=day_of_week, is_active=True).first()
+            employee_schedules = employee.schedules.filter_by(day_of_week=day_of_week, is_active=True).all()
             
-            if not schedule:
+            if not employee_schedules:
                 continue
             
-            # Check if booking time is within schedule
+            # Check if booking time is within ANY of the employee's shifts
             booking_datetime = datetime.combine(booking_date, booking_time)
-            end_datetime = booking_datetime + timedelta(minutes=90)
             
-            if booking_time < schedule.start_time or end_datetime.time() > schedule.end_time:
+            # Check if booking fits in any shift (including night shifts)
+            fits_in_schedule = False
+            actual_booking_datetime = booking_datetime
+            actual_booking_date = booking_date
+            
+            for schedule in employee_schedules:
+                schedule_start = datetime.combine(booking_date, schedule.start_time)
+                schedule_end = datetime.combine(booking_date, schedule.end_time)
+                
+                # Night Shift Detection: if end_time <= start_time, shift extends to next day
+                is_night_shift = schedule.end_time <= schedule.start_time
+                if is_night_shift:
+                    schedule_end += timedelta(days=1)
+                
+                # For times after midnight in night shifts, actual datetime is next day
+                test_datetime = booking_datetime
+                if is_night_shift and booking_time < schedule.start_time:
+                    test_datetime = booking_datetime + timedelta(days=1)
+                
+                end_datetime = test_datetime + timedelta(minutes=90)
+                
+                if test_datetime >= schedule_start and end_datetime <= schedule_end:
+                    fits_in_schedule = True
+                    actual_booking_datetime = test_datetime
+                    actual_booking_date = test_datetime.date()
+                    break
+            
+            if not fits_in_schedule:
                 continue
             
-            # Check for conflicts with existing bookings
+            end_datetime = actual_booking_datetime + timedelta(minutes=90)
+            
+            # Check for conflicts with existing bookings (check both days for night shifts)
+            next_day = booking_date + timedelta(days=1)
             conflicts = Booking.query.filter(
                 Booking.employee_id == employee.id,
-                Booking.date == booking_date,
+                Booking.date.in_([booking_date, next_day]),
                 Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
             ).all()
             
             has_conflict = False
             for existing_booking in conflicts:
-                existing_start = datetime.combine(booking_date, existing_booking.time)
+                existing_start = datetime.combine(existing_booking.date, existing_booking.time)
                 existing_end = existing_start + timedelta(minutes=90)
                 
-                if existing_start < end_datetime and existing_end > booking_datetime:
+                if existing_start < end_datetime and existing_end > actual_booking_datetime:
                     has_conflict = True
                     break
             
             if not has_conflict:
                 available_employee = employee
+                # Store actual booking date/time for night shift bookings
+                booking_date = actual_booking_date
+                booking_time = actual_booking_datetime.time()
                 break
         
         if not available_employee:

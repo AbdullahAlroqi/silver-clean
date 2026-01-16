@@ -1,10 +1,10 @@
 {% extends "admin/base.html" %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto">
+<div class="max-w-5xl mx-auto">
     <h2 class="text-2xl font-bold text-white mb-6">جدول عمل الموظف: {{ employee.username }}</h2>
 
-    <div class="bg-primary p-8 rounded-lg shadow-lg">
+    <div class="bg-primary p-6 rounded-lg shadow-lg">
         <form method="post" class="space-y-4">
             {% set days = [
             ('sunday', 'الأحد', 6),
@@ -17,41 +17,155 @@
             ] %}
 
             {% for day_key, day_name, day_num in days %}
-            {% set schedule = schedules.get(day_num) %}
-            <div class="bg-darkbg p-4 rounded flex items-center gap-4">
-                <div class="w-32">
-                    <input type="checkbox" name="{{ day_key }}_enabled" id="{{ day_key }}_enabled" {% if schedule
-                        %}checked{% endif %} class="mr-2">
-                    <label for="{{ day_key }}_enabled" class="font-bold">{{ day_name }}</label>
+            {% set day_schedule = schedules.get(day_num, {}) %}
+            {% set shift1 = day_schedule.get(1) %}
+            {% set shift2 = day_schedule.get(2) %}
+
+            <div class="bg-darkbg p-4 rounded-lg border border-gray-700">
+                <!-- Day Header -->
+                <div class="flex items-center gap-4 mb-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="{{ day_key }}_enabled" id="{{ day_key }}_enabled" {% if shift1
+                            %}checked{% endif %}
+                            class="w-5 h-5 text-accent bg-gray-700 border-gray-600 rounded focus:ring-accent"
+                            onchange="toggleDay('{{ day_key }}')">
+                        <span class="font-bold text-lg text-white">{{ day_name }}</span>
+                    </label>
+
+                    <span class="text-gray-500 text-sm" id="{{ day_key }}_status">
+                        {% if shift1 %}
+                        {% if shift2 %}شفتين{% else %}شفت واحد{% endif %}
+                        {% else %}
+                        عطلة
+                        {% endif %}
+                    </span>
                 </div>
 
-                <div class="flex-1 flex gap-4">
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">من</label>
-                        <input type="time" name="{{ day_key }}_start"
-                            value="{{ schedule.start_time.strftime('%H:%M') if schedule else '08:00' }}"
-                            class="bg-primary border border-gray-600 rounded px-3 py-1 text-white">
+                <!-- Shifts Container -->
+                <div id="{{ day_key }}_shifts" class="{% if not shift1 %}hidden{% endif %} space-y-4">
+                    <!-- Shift 1 -->
+                    <div class="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-accent font-semibold flex items-center gap-2">
+                                <i class="fas fa-clock"></i>
+                                الشفت الأول
+                            </span>
+                        </div>
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <div class="flex items-center gap-2">
+                                <label class="text-gray-400 text-sm">من</label>
+                                <input type="time" name="{{ day_key }}_start"
+                                    value="{{ shift1.start_time.strftime('%H:%M') if shift1 else '08:00' }}"
+                                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-accent focus:border-transparent">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-gray-400 text-sm">إلى</label>
+                                <input type="time" name="{{ day_key }}_end"
+                                    value="{{ shift1.end_time.strftime('%H:%M') if shift1 else '14:00' }}"
+                                    class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-accent focus:border-transparent">
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 mb-1">إلى</label>
-                        <input type="time" name="{{ day_key }}_end"
-                            value="{{ schedule.end_time.strftime('%H:%M') if schedule else '20:00' }}"
-                            class="bg-primary border border-gray-600 rounded px-3 py-1 text-white">
+
+                    <!-- Shift 2 -->
+                    <div id="{{ day_key }}_shift2_container" class="{% if not shift2 %}hidden{% endif %}">
+                        <div class="bg-gray-800/50 p-4 rounded-lg border border-purple-800/50">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-purple-400 font-semibold flex items-center gap-2">
+                                    <i class="fas fa-clock"></i>
+                                    الشفت الثاني
+                                </span>
+                                <button type="button" onclick="removeShift2('{{ day_key }}')"
+                                    class="text-red-400 hover:text-red-300 text-sm flex items-center gap-1">
+                                    <i class="fas fa-times"></i>
+                                    إزالة
+                                </button>
+                            </div>
+                            <input type="hidden" name="{{ day_key }}_shift2_enabled" id="{{ day_key }}_shift2_enabled"
+                                value="{% if shift2 %}1{% endif %}">
+                            <div class="flex flex-wrap gap-4 items-center">
+                                <div class="flex items-center gap-2">
+                                    <label class="text-gray-400 text-sm">من</label>
+                                    <input type="time" name="{{ day_key }}_start2" id="{{ day_key }}_start2"
+                                        value="{{ shift2.start_time.strftime('%H:%M') if shift2 else '16:00' }}"
+                                        class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <label class="text-gray-400 text-sm">إلى</label>
+                                    <input type="time" name="{{ day_key }}_end2" id="{{ day_key }}_end2"
+                                        value="{{ shift2.end_time.strftime('%H:%M') if shift2 else '22:00' }}"
+                                        class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Add Shift 2 Button -->
+                    <button type="button" id="{{ day_key }}_add_shift2_btn" onclick="addShift2('{{ day_key }}')"
+                        class="{% if shift2 %}hidden{% endif %} flex items-center gap-2 text-purple-400 hover:text-purple-300 bg-purple-900/20 hover:bg-purple-900/30 px-4 py-2 rounded-lg border border-purple-800/50 transition-all">
+                        <i class="fas fa-plus"></i>
+                        إضافة شفت ثاني
+                    </button>
                 </div>
             </div>
             {% endfor %}
 
-            <div class="flex gap-2 pt-4">
-                <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-6 py-2 rounded">
+            <div class="flex gap-3 pt-6 border-t border-gray-700">
+                <button type="submit"
+                    class="bg-accent hover:bg-blue-600 text-white px-8 py-3 rounded-lg font-bold transition flex items-center gap-2">
+                    <i class="fas fa-save"></i>
                     حفظ الجدول
                 </button>
                 <a href="{{ url_for('admin.employees') }}"
-                    class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded">
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold transition">
                     إلغاء
                 </a>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+    function toggleDay(dayKey) {
+        const checkbox = document.getElementById(dayKey + '_enabled');
+        const shiftsContainer = document.getElementById(dayKey + '_shifts');
+        const statusLabel = document.getElementById(dayKey + '_status');
+
+        if (checkbox.checked) {
+            shiftsContainer.classList.remove('hidden');
+            updateDayStatus(dayKey);
+        } else {
+            shiftsContainer.classList.add('hidden');
+            statusLabel.textContent = 'عطلة';
+        }
+    }
+
+    function addShift2(dayKey) {
+        const container = document.getElementById(dayKey + '_shift2_container');
+        const btn = document.getElementById(dayKey + '_add_shift2_btn');
+        const enabledInput = document.getElementById(dayKey + '_shift2_enabled');
+
+        container.classList.remove('hidden');
+        btn.classList.add('hidden');
+        enabledInput.value = '1';
+        updateDayStatus(dayKey);
+    }
+
+    function removeShift2(dayKey) {
+        const container = document.getElementById(dayKey + '_shift2_container');
+        const btn = document.getElementById(dayKey + '_add_shift2_btn');
+        const enabledInput = document.getElementById(dayKey + '_shift2_enabled');
+
+        container.classList.add('hidden');
+        btn.classList.remove('hidden');
+        enabledInput.value = '';
+        updateDayStatus(dayKey);
+    }
+
+    function updateDayStatus(dayKey) {
+        const shift2Enabled = document.getElementById(dayKey + '_shift2_enabled').value === '1';
+        const statusLabel = document.getElementById(dayKey + '_status');
+        statusLabel.textContent = shift2Enabled ? 'شفتين' : 'شفت واحد';
+    }
+</script>
 {% endblock %}

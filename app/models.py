@@ -214,6 +214,7 @@ class EmployeeSchedule(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     day_of_week = db.Column(db.Integer)  # 0=Monday, 6=Sunday
+    shift_number = db.Column(db.Integer, default=1)  # 1=first shift, 2=second shift
     start_time = db.Column(db.Time)
     end_time = db.Column(db.Time)
     is_active = db.Column(db.Boolean, default=True)

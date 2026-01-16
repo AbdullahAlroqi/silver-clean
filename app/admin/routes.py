@@ -368,6 +368,7 @@ def employee_schedule(id):
         for day_name in days_form:
             enabled = request.form.get(f'{day_name}_enabled')
             if enabled:
+                # Shift 1 (always required if day is enabled)
                 start_time_str = request.form.get(f'{day_name}_start', '08:00')
                 end_time_str = request.form.get(f'{day_name}_end', '20:00')
                 
@@ -375,23 +376,53 @@ def employee_schedule(id):
                     start_hour, start_min = map(int, start_time_str.split(':'))
                     end_hour, end_min = map(int, end_time_str.split(':'))
                     
-                    schedule = EmployeeSchedule(
+                    schedule1 = EmployeeSchedule(
                         employee_id=id,
                         day_of_week=days_map[day_name],
+                        shift_number=1,
                         start_time=time(start_hour, start_min),
                         end_time=time(end_hour, end_min),
                         is_active=True
                     )
-                    db.session.add(schedule)
+                    db.session.add(schedule1)
                 except ValueError:
-                    continue
+                    pass
+                
+                # Shift 2 (optional)
+                shift2_enabled = request.form.get(f'{day_name}_shift2_enabled')
+                if shift2_enabled:
+                    start2_time_str = request.form.get(f'{day_name}_start2', '')
+                    end2_time_str = request.form.get(f'{day_name}_end2', '')
+                    
+                    if start2_time_str and end2_time_str:
+                        try:
+                            start2_hour, start2_min = map(int, start2_time_str.split(':'))
+                            end2_hour, end2_min = map(int, end2_time_str.split(':'))
+                            
+                            schedule2 = EmployeeSchedule(
+                                employee_id=id,
+                                day_of_week=days_map[day_name],
+                                shift_number=2,
+                                start_time=time(start2_hour, start2_min),
+                                end_time=time(end2_hour, end2_min),
+                                is_active=True
+                            )
+                            db.session.add(schedule2)
+                        except ValueError:
+                            pass
         
         db.session.commit()
         flash('تم تحديث جدول العمل بنجاح')
         return redirect(url_for('admin.employees'))
 
     # GET: Prepare schedule data for template
-    schedules = {s.day_of_week: s for s in employee.schedules}
+    # Group schedules by day and shift
+    schedules = {}
+    for s in employee.schedules:
+        if s.day_of_week not in schedules:
+            schedules[s.day_of_week] = {}
+        schedules[s.day_of_week][s.shift_number] = s
+    
     return render_template('admin/employee_schedule.html', employee=employee, schedules=schedules)
 
 
