@@ -52,7 +52,7 @@ def before_request():
 def index():
     from app.models import Announcement, SubscriptionPackage, SiteSettings
     
-    upcoming_bookings = current_user.bookings.filter(Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])).all()
+    upcoming_bookings = current_user.bookings.filter(~Booking.status.in_(['completed', 'cancelled'])).all()
     
     # Check for unrated completed bookings
     unrated_booking = Booking.query.filter(
@@ -186,7 +186,7 @@ def delete_vehicle(id):
     # Check for unfinished bookings
     unfinished_booking = Booking.query.filter(
         Booking.vehicle_id == vehicle.id, 
-        Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
+        ~Booking.status.in_(['completed', 'cancelled'])
     ).first()
     
     if unfinished_booking:
@@ -382,11 +382,12 @@ def book():
                 
                 # Check if employee has conflicting booking (check for time overlap)
                 # For night shifts, we need to check both the selected date and next day
+                # Check for any booking that is NOT completed or cancelled
                 next_day = booking_date + timedelta(days=1)
                 conflicts = Booking.query.filter(
                     Booking.employee_id == employee.id,
                     Booking.date.in_([booking_date, next_day]),
-                    Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
+                    ~Booking.status.in_(['completed', 'cancelled'])
                 ).all()
                 
                 has_conflict = False
@@ -662,11 +663,12 @@ def get_available_times():
             continue
         
         # Get all existing bookings for this employee on this date AND next date (for night shifts)
+        # Check for any booking that is NOT completed or cancelled (clearer and future-proof)
         next_date = booking_date + timedelta(days=1)
         conflicts = Booking.query.filter(
             Booking.employee_id == employee.id,
             Booking.date.in_([booking_date, next_date]),
-            Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
+            ~Booking.status.in_(['completed', 'cancelled'])
         ).all()
         
         # Process each shift
@@ -713,6 +715,11 @@ def get_available_times():
                         break
                 
                 if not has_conflict:
+                    # Additional check: if booking for today, ensure time slot hasn't passed
+                    if is_today and current_time <= now:
+                        current_time += timedelta(minutes=interval_minutes)
+                        continue
+                    
                     # Display time: show the time portion only (customer sees it as same day)
                     display_time = current_time.strftime('%H:%M')
                     
@@ -937,7 +944,7 @@ def book_subscription_wash(subscription_id):
             conflicts = Booking.query.filter(
                 Booking.employee_id == employee.id,
                 Booking.date.in_([booking_date, next_day]),
-                Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress'])
+                ~Booking.status.in_(['completed', 'cancelled'])
             ).all()
             
             has_conflict = False

@@ -1561,7 +1561,7 @@ def bookings():
             query = query.filter_by(id=-1)  # Empty result
     
     if status_filter == 'current':
-        query = query.filter(Booking.status.in_(['pending', 'assigned', 'en_route', 'arrived', 'in_progress']))
+        query = query.filter(~Booking.status.in_(['completed', 'cancelled']))
     elif status_filter != 'all':
         query = query.filter_by(status=status_filter)
     if employee_filter != 'all':
