@@ -304,15 +304,40 @@
                     timeout: 10000
                 });
 
-                // Send periodic heartbeats (every 5 minutes) as backup
+                // Send periodic heartbeats (every 1 minute) as backup
                 setInterval(() => {
                     navigator.geolocation.getCurrentPosition(sendLocation, handleError, {
                         enableHighAccuracy: true,
                         timeout: 20000,
                         maximumAge: 30000
                     });
-                }, 300000);
+                }, 60000);
 
+                // Request Wake Lock to keep screen (and GPS) active
+                if ('wakeLock' in navigator) {
+                    let wakeLock = null;
+                    const requestWakeLock = async () => {
+                        try {
+                            wakeLock = await navigator.wakeLock.request('screen');
+                            console.log('Wake Lock is active');
+                            wakeLock.addEventListener('release', () => {
+                                console.log('Wake Lock was released');
+                            });
+                        } catch (err) {
+                            console.error(`${err.name}, ${err.message}`);
+                        }
+                    };
+
+                    // Request wake lock initially
+                    requestWakeLock();
+
+                    // Re-request if visibility changes (e.g. switching apps and coming back)
+                    document.addEventListener('visibilitychange', async () => {
+                        if (wakeLock !== null && document.visibilityState === 'visible') {
+                            await requestWakeLock();
+                        }
+                    });
+                }
             })();
     </script>
     {% endif %}

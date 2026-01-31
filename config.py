@@ -25,7 +25,8 @@ class Config:
     
     # Remember Me Cookie - 1 year duration for PWA and browser
     REMEMBER_COOKIE_DURATION = timedelta(days=365)
-    REMEMBER_COOKIE_SECURE = False  # Set to True in production with HTTPS
+    REMEMBER_COOKIE_SECURE = True  # Set to True for HTTPS
+    SESSION_COOKIE_SECURE = True   # Set to True for HTTPS
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
 
