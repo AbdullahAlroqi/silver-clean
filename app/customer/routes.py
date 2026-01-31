@@ -279,7 +279,8 @@ def book():
                     return redirect(url_for('customer.book'))
                 
                 # Check validity period
-                now = datetime.now()
+                from app.utils.timezone import get_saudi_time
+                now = get_saudi_time().replace(tzinfo=None)
                 if discount_code.valid_from and now < discount_code.valid_from:
                     flash('كود الخصم لم يبدأ بعد')
                     return redirect(url_for('customer.book'))
@@ -623,9 +624,9 @@ def get_available_times():
     except ValueError:
         return jsonify([])
     
-    # Prevent booking dates in the past
-    from datetime import date as date_class
-    today = date_class.today()
+    # Prevent booking dates in the past - Use Saudi Date
+    from app.utils.timezone import get_saudi_date
+    today = get_saudi_date()
     if booking_date < today:
         return jsonify([])
     
@@ -651,8 +652,10 @@ def get_available_times():
     # Format: (display_time_str, actual_datetime)
     all_slots = {}
     
-    # Get current time if booking for today
-    now = datetime.now()
+    # Get current time if booking for today - Use Saudi Time
+    from app.utils.timezone import get_saudi_time
+    # Ensure naive datetime for comparison with shift times
+    now = get_saudi_time().replace(tzinfo=None)
     is_today = booking_date == today
     
     for employee in employees:
