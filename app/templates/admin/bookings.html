@@ -63,7 +63,21 @@
                     <div class="font-bold">{{ booking.customer.username }}</div>
                     <div class="text-xs text-gray-400">{{ booking.customer.phone }}</div>
                 </td>
-                <td class="p-4">{{ booking.service.name_ar }}</td>
+                <td class="p-4">
+                    <div>{{ booking.service.name_ar }}</div>
+                    {% set products = booking.products.all() %}
+                    {% if products %}
+                    <div class="mt-2 space-y-1 border-t border-gray-700 pt-1">
+                        {% for item in products %}
+                        <div class="text-xs text-gray-400 flex items-center gap-2">
+                            <i class="fas fa-plus-circle text-[10px] text-accent"></i>
+                            <span>{{ item.product.name_ar }}</span>
+                            <span class="bg-gray-700 px-1 rounded text-[10px] text-white">x{{ item.quantity }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </td>
                 <td class="p-4">
                     <div>{{ booking.date }}</div>
                     <div class="text-xs text-gray-400">{{ booking.time }}</div>
