@@ -438,11 +438,42 @@ def delete_employee(id):
 def employee_stats(id):
     employee = User.query.get_or_404(id)
     
-    # Get all assigned bookings
-    bookings = Booking.query.filter_by(employee_id=employee.id).order_by(Booking.created_at.desc()).all()
+    # Get date filters from query params
+    from_date_str = request.args.get('from_date')
+    to_date_str = request.args.get('to_date')
     
-    # Get all assigned subscriptions
-    subscriptions = Subscription.query.filter_by(employee_id=employee.id).all()
+    from_date = None
+    to_date = None
+    
+    if from_date_str:
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    if to_date_str:
+        try:
+            to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    
+    # Build bookings query with date filter
+    bookings_query = Booking.query.filter_by(employee_id=employee.id)
+    
+    if from_date:
+        bookings_query = bookings_query.filter(Booking.date >= from_date)
+    if to_date:
+        bookings_query = bookings_query.filter(Booking.date <= to_date)
+    
+    bookings = bookings_query.order_by(Booking.date.desc(), Booking.time.desc()).all()
+    
+    # Get all assigned subscriptions (with date filter if specified)
+    subscriptions_query = Subscription.query.filter_by(employee_id=employee.id)
+    if from_date:
+        subscriptions_query = subscriptions_query.filter(Subscription.start_date >= from_date)
+    if to_date:
+        subscriptions_query = subscriptions_query.filter(Subscription.start_date <= to_date)
+    subscriptions = subscriptions_query.all()
     
     # Get work schedule
     schedules = employee.schedules.all()
@@ -450,21 +481,69 @@ def employee_stats(id):
     # Get assigned neighborhoods
     neighborhoods = employee.neighborhoods
     
-    # Calculate statistics
-    total_bookings = len(bookings)
-    completed_bookings = len([b for b in bookings if b.status == 'completed'])
+    # Calculate statistics (EXCLUDE cancelled from total count)
+    non_cancelled_bookings = [b for b in bookings if b.status != 'cancelled']
+    completed_bookings = [b for b in bookings if b.status == 'completed']
     active_subscriptions = len([s for s in subscriptions if s.status == 'active'])
     
-    # Calculate earnings from completed bookings
-    total_earnings = sum([b.service.price for b in bookings if b.service and b.status == 'completed']) if bookings else 0
+    # Calculate earnings from completed bookings (EXCLUDE subscription bookings)
+    total_earnings = 0
+    cash_bookings_count = 0
+    card_bookings_count = 0
+    subscription_bookings_count = 0
+    cash_earnings = 0
+    card_earnings = 0
+    
+    for b in completed_bookings:
+        # Track subscription count
+        if b.subscription_id:
+            subscription_bookings_count += 1
+            
+        # Calculate Service Revenue
+        if b.subscription_id or b.used_free_wash:
+            final_service_price = 0
+        else:
+            # Standard booking revenue
+            service_price = b.custom_service_price if b.custom_service_price is not None else (b.service.price if b.service else 0)
+            vehicle_size_price = b.vehicle_size_price or 0
+            discount_amount = 0
+            
+            if b.discount_code:
+                if b.discount_code.discount_type == 'percentage':
+                    discount_amount = (service_price + vehicle_size_price) * (b.discount_code.value / 100)
+                else:
+                    discount_amount = b.discount_code.value
+            
+            final_service_price = max(0, service_price + vehicle_size_price - discount_amount)
+        
+        # Calculate Products Revenue (using custom unit_price if set)
+        products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products])
+        
+        booking_total = final_service_price + products_total
+        
+        total_earnings += booking_total
+        
+        # Count by payment method
+        if b.payment_method == 'card':
+            card_bookings_count += 1
+            card_earnings += booking_total
+        else:
+            cash_bookings_count += 1
+            cash_earnings += booking_total
     
     stats = {
-        'total_bookings': total_bookings,
-        'completed_bookings': completed_bookings,
+        'total_bookings': len(non_cancelled_bookings),  # Exclude cancelled
+        'cancelled_bookings': len([b for b in bookings if b.status == 'cancelled']),
+        'completed_bookings': len(completed_bookings),
         'pending_bookings': len([b for b in bookings if b.status in ['pending', 'assigned', 'en_route', 'in_progress']]),
         'active_subscriptions': active_subscriptions,
         'total_subscriptions': len(subscriptions),
         'total_earnings': total_earnings,
+        'cash_bookings_count': cash_bookings_count,
+        'card_bookings_count': card_bookings_count,
+        'subscription_bookings_count': subscription_bookings_count,
+        'cash_earnings': cash_earnings,
+        'card_earnings': card_earnings,
         'assigned_neighborhoods': len(neighborhoods)
     }
     
@@ -484,7 +563,9 @@ def employee_stats(id):
                          bookings=bookings,
                          subscriptions=subscriptions,
                          neighborhoods=neighborhoods,
-                         schedules=formatted_schedules)
+                         schedules=formatted_schedules,
+                         from_date=from_date_str or '',
+                         to_date=to_date_str or '')
 
 # --- Customer Management ---
 @bp.route('/customers')
@@ -638,7 +719,8 @@ def customer_stats(id):
             total_services_value += final_service_price
             
             # Calculate products total
-            products_total = sum([bp.product.price * bp.quantity for bp in booking.products])
+            # Calculate products total
+            products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in booking.products])
             total_products_purchased += sum([bp.quantity for bp in booking.products])
             total_products_value += products_total
             
@@ -932,7 +1014,18 @@ def products():
                 Booking.status == 'completed'
             ).scalar() or 0
         
-        revenue = sold_quantity * product.price
+        # Calculate revenue using unit_price if available, else product.price
+        revenue = db.session.query(
+            func.sum(
+                BookingProduct.quantity * func.coalesce(BookingProduct.unit_price, Product.price)
+            )
+        ).join(Booking, BookingProduct.booking_id == Booking.id)\
+         .join(Product, BookingProduct.product_id == Product.id)\
+         .filter(
+            BookingProduct.product_id == product.id,
+            Booking.status == 'completed'
+        ).scalar() or 0
+        
         total_sales_revenue += revenue
         
         products_data.append({
@@ -1162,6 +1255,7 @@ def delete_product(id):
 
 @bp.route('/products/stats/<int:id>')
 def product_stats(id):
+    from sqlalchemy import func
     product = Product.query.get_or_404(id)
     
     # Calculate total sold quantity
@@ -1172,11 +1266,20 @@ def product_stats(id):
             Booking.status == 'completed'
         ).scalar() or 0
         
-    # Calculate total revenue
-    total_revenue = sold_quantity * product.price
+    # Calculate total revenue using unit_price if available, else product.price
+    total_revenue = db.session.query(
+        func.sum(
+            BookingProduct.quantity * func.coalesce(BookingProduct.unit_price, Product.price)
+        )
+    ).join(Booking, BookingProduct.booking_id == Booking.id)\
+     .join(Product, BookingProduct.product_id == Product.id)\
+     .filter(
+        BookingProduct.product_id == product.id,
+        Booking.status == 'completed'
+    ).scalar() or 0
     
     # Get recent bookings for this product
-    recent_bookings = db.session.query(Booking, BookingProduct.quantity)\
+    recent_bookings = db.session.query(Booking, BookingProduct.quantity, BookingProduct.unit_price)\
         .join(BookingProduct, Booking.id == BookingProduct.booking_id)\
         .filter(BookingProduct.product_id == product.id)\
         .order_by(Booking.date.desc(), Booking.time.desc())\
@@ -1540,7 +1643,9 @@ def bookings():
     # Get filter parameters
     status_filter = request.args.get('status', 'all')
     employee_filter = request.args.get('employee', 'all')
-    date_filter = request.args.get('date', '')
+    from_date_filter = request.args.get('from_date', '')
+    to_date_filter = request.args.get('to_date', '')
+    sort_dir = request.args.get('sort', 'desc')  # asc or desc
     search_query = request.args.get('q', '').strip()
     
     query = Booking.query
@@ -1566,10 +1671,21 @@ def bookings():
         query = query.filter_by(status=status_filter)
     if employee_filter != 'all':
         query = query.filter_by(employee_id=int(employee_filter))
-    if date_filter:
-        from datetime import datetime
-        filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
-        query = query.filter_by(date=filter_date)
+    
+    # Date range filter
+    from datetime import datetime
+    if from_date_filter:
+        try:
+            from_date = datetime.strptime(from_date_filter, '%Y-%m-%d').date()
+            query = query.filter(Booking.date >= from_date)
+        except ValueError:
+            pass
+    if to_date_filter:
+        try:
+            to_date = datetime.strptime(to_date_filter, '%Y-%m-%d').date()
+            query = query.filter(Booking.date <= to_date)
+        except ValueError:
+            pass
         
     # Apply search
     if search_query:
@@ -1585,8 +1701,12 @@ def bookings():
             query = query.join(User, Booking.customer_id == User.id).filter(
                 User.username.ilike(f'%{search_query}%')
             )
-            
-    bookings_list = query.order_by(Booking.id.desc()).all()
+    
+    # Order by date and time
+    if sort_dir == 'asc':
+        bookings_list = query.order_by(Booking.date.asc(), Booking.time.asc()).all()
+    else:
+        bookings_list = query.order_by(Booking.date.desc(), Booking.time.desc()).all()
     
     # Filter cities and neighborhoods for supervisor
     if current_user.role == 'supervisor':
@@ -1630,7 +1750,8 @@ def bookings():
     cancelled_count = Booking.query.filter_by(status='cancelled').count()
     
     return render_template('admin/bookings.html', bookings=bookings_list, employees=employees, 
-                           status_filter=status_filter, employee_filter=employee_filter, date_filter=date_filter,
+                           status_filter=status_filter, employee_filter=employee_filter,
+                           from_date=from_date_filter, to_date=to_date_filter, sort_dir=sort_dir,
                            customers=customers, services=services, cities=cities, cities_json=cities_json, today=today,
                            current_count=current_count, completed_count=completed_count, cancelled_count=cancelled_count)
 
@@ -1699,6 +1820,95 @@ def create_booking():
             
     flash(f'تم إضافة الحجز بنجاح (الخصم: {discount}%)')
     return redirect(url_for('admin.bookings'))
+
+@bp.route('/bookings/<int:id>/edit', methods=['POST'])
+def edit_booking(id):
+    booking = Booking.query.get_or_404(id)
+    
+    # Update vehicle size price
+    try:
+        vehicle_size_price = float(request.form.get('vehicle_size_price', 0))
+        booking.vehicle_size_price = vehicle_size_price
+    except ValueError:
+        pass
+
+    # Update service price (custom)
+    try:
+        custom_service_price = request.form.get('custom_service_price')
+        if custom_service_price and custom_service_price.strip():
+            booking.custom_service_price = float(custom_service_price)
+        else:
+            booking.custom_service_price = None
+    except ValueError:
+        pass
+        
+    # Update payment method
+    payment_method = request.form.get('payment_method')
+    if payment_method in ['cash', 'card']:
+        booking.payment_method = payment_method
+
+    # Update product prices
+    from app.models import BookingProduct
+    for key, value in request.form.items():
+        if key.startswith('product_price_'):
+            try:
+                product_id = int(key.split('_')[2])
+                price = float(value)
+                
+                # Find the booking product
+                bp_item = BookingProduct.query.filter_by(booking_id=id, product_id=product_id).first()
+                if bp_item:
+                    bp_item.unit_price = price
+            except (ValueError, IndexError):
+                continue
+        
+    db.session.commit()
+    flash('تم تحديث الحجز بنجاح', 'success')
+    return redirect(url_for('admin.bookings'))
+
+@bp.route('/bookings/<int:id>/refund-product/<int:product_id>', methods=['POST'])
+def refund_product(id, product_id):
+    from app.models import BookingProduct, Product
+    
+    booking = Booking.query.get_or_404(id)
+    product_link = BookingProduct.query.filter_by(booking_id=id, product_id=product_id).first()
+    
+    if product_link:
+        # Return to stock
+        product = Product.query.get(product_id)
+        if product:
+            product.stock_quantity += product_link.quantity
+            
+        # Delete link
+        db.session.delete(product_link)
+        db.session.commit()
+        flash(f'تم استرجاع المنتج "{product.name_ar}" للمخزون بنجاح', 'success')
+    else:
+        flash('المنتج غير موجود في هذا الحجز', 'error')
+        
+    return redirect(url_for('admin.bookings'))
+
+# --- APIs ---
+
+@bp.route('/bookings/<int:id>/products')
+def get_booking_products_api(id):
+    booking = Booking.query.get_or_404(id)
+    products = []
+    
+    for item in booking.products:
+        # Use custom unit price if set, otherwise product default price
+        current_price = item.unit_price if item.unit_price is not None else item.product.price
+        
+        products.append({
+            'product_id': item.product_id,
+            'booking_id': item.booking_id,
+            'quantity': item.quantity,
+            'product_name': item.product.name_ar,
+            'price': current_price,
+            'original_price': item.product.price
+        })
+        
+    return jsonify(products)
 
 @bp.route('/api/available-slots/<int:employee_id>/<date>')
 def get_available_slots(employee_id, date):
@@ -1970,14 +2180,29 @@ def reassign_booking(id):
 @bp.route('/bookings/<int:id>/cancel')
 def cancel_booking(id):
     booking = Booking.query.get_or_404(id)
-    booking.status = 'cancelled'
-    db.session.commit()
-    flash('تم إلغاء الحجز')
+    
+    if booking.status != 'cancelled':
+        # Return products to stock
+        for bp in booking.products:
+            if bp.product:
+                bp.product.stock_quantity += bp.quantity
+                
+        booking.status = 'cancelled'
+        db.session.commit()
+        flash('تم إلغاء الحجز وإعادة المنتجات للمخزون')
+    
     return redirect(url_for('admin.bookings'))
 
 @bp.route('/bookings/<int:id>/delete', methods=['POST'])
 def delete_booking(id):
     booking = Booking.query.get_or_404(id)
+    
+    # Return products to stock if not already cancelled (assuming cancellation returns stock)
+    if booking.status != 'cancelled':
+        for bp in booking.products:
+            if bp.product:
+                bp.product.stock_quantity += bp.quantity
+                
     db.session.delete(booking)
     db.session.commit()
     flash('تم حذف الحجز نهائياً')
@@ -2057,25 +2282,30 @@ def reports():
     for b in cash_bookings.all():
         if not b.service:
             continue
-        price = b.service.price + (b.vehicle_size_price or 0)
-        # Add products
-        for bp in b.products:
-            price += bp.product.price * bp.quantity
-        # Apply discount/free wash
-        if b.used_free_wash:
-            price = 0 # Or just products if free wash only covers service? Assuming free wash covers service only.
-            # If free wash covers service, products are still paid?
-            # Let's assume free wash makes service 0.
-            # Re-calculate products only
-            p_total = sum(bp.product.price * bp.quantity for bp in b.products)
+            
+        # Check if subscription or free wash -> Service is 0
+        if b.subscription_id or b.used_free_wash:
+            # Calculate products only (using unit_price if set)
+            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
             price = p_total
-        elif b.discount_code:
-            if b.discount_code.discount_type == 'percentage':
-                disc = (b.service.price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
-                price -= disc
-            else:
-                price -= b.discount_code.value
-            price = max(0, price)
+        else:
+            # Standard booking
+            # Use custom service price if set
+            service_price = b.custom_service_price if b.custom_service_price is not None else b.service.price
+            price = service_price + (b.vehicle_size_price or 0)
+            
+            # Add products
+            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
+            price += p_total
+            
+            # Apply discount
+            if b.discount_code:
+                if b.discount_code.discount_type == 'percentage':
+                    disc = (service_price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
+                    price -= disc
+                else:
+                    price -= b.discount_code.value
+                price = max(0, price)
         
         cash_total += price
 
@@ -2083,19 +2313,29 @@ def reports():
     for b in card_bookings.all():
         if not b.service:
             continue
-        price = b.service.price + (b.vehicle_size_price or 0)
-        for bp in b.products:
-            price += bp.product.price * bp.quantity
-        if b.used_free_wash:
-             p_total = sum(bp.product.price * bp.quantity for bp in b.products)
-             price = p_total
-        elif b.discount_code:
-            if b.discount_code.discount_type == 'percentage':
-                disc = (b.service.price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
-                price -= disc
-            else:
-                price -= b.discount_code.value
-            price = max(0, price)
+            
+        # Check if subscription or free wash -> Service is 0
+        if b.subscription_id or b.used_free_wash:
+            # Calculate products only
+            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
+            price = p_total
+        else:
+            # Standard booking
+            service_price = b.custom_service_price if b.custom_service_price is not None else b.service.price
+            price = service_price + (b.vehicle_size_price or 0)
+            
+            # Add products
+            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
+            price += p_total
+            
+            # Apply discount
+            if b.discount_code:
+                if b.discount_code.discount_type == 'percentage':
+                    disc = (service_price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
+                    price -= disc
+                else:
+                    price -= b.discount_code.value
+                price = max(0, price)
         
         card_total += price
 
@@ -2138,25 +2378,29 @@ def reports():
     
     for booking in completed_bookings_list:
         # Calculate service price after discount/free wash
-        service_price = booking.service.price if booking.service else 0
+        service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0)
         discount_amount = 0
         
-        # Check if free wash was used
-        if booking.used_free_wash:
+        # Check if subscription or free wash -> Service is 0
+        if booking.subscription_id or booking.used_free_wash:
             service_price = 0
         # Check if discount code was applied
         elif booking.discount_code:
             if booking.discount_code.discount_type == 'percentage':
-                discount_amount = service_price * (booking.discount_code.value / 100)
+                discount_amount = (service_price + (booking.vehicle_size_price or 0)) * (booking.discount_code.value / 100)
             else:
                 discount_amount = booking.discount_code.value
         
         # Add service revenue (including vehicle size price)
-        service_revenue += (service_price - discount_amount + (booking.vehicle_size_price or 0))
+        final_service_price = max(0, service_price - discount_amount + (booking.vehicle_size_price or 0))
+        if booking.subscription_id or booking.used_free_wash:
+             final_service_price = 0
+             
+        service_revenue += final_service_price
         
         # Add product revenue
         for bp in booking.products:
-            product_revenue += (bp.product.price * bp.quantity)
+            product_revenue += ((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity)
     
     # Subscription revenue (only active subscriptions created in date range)
     sub_rev_query = db.session.query(func.sum(SubscriptionPackage.price))\

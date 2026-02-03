@@ -150,8 +150,9 @@ class Booking(db.Model):
     subscription_id = db.Column(db.Integer, db.ForeignKey('subscription.id'), nullable=True)  # For subscription wash bookings
     used_free_wash = db.Column(db.Boolean, default=False)
     vehicle_size_price = db.Column(db.Float, default=0.0) # Store price adjustment at time of booking
+    custom_service_price = db.Column(db.Float, nullable=True) # Override base service price
     payment_method = db.Column(db.String(20), default='cash') # 'cash' or 'card'
-    
+
     # Relationships
     vehicle = db.relationship('Vehicle')
     service = db.relationship('Service')
@@ -159,6 +160,19 @@ class Booking(db.Model):
     products = db.relationship('BookingProduct', backref='booking', lazy='dynamic')
     discount_code = db.relationship('DiscountCode')
     subscription = db.relationship('Subscription', backref='wash_bookings')  # Link to subscription
+
+# ... (BookingProduct class)
+
+class BookingProduct(db.Model):
+    """Association table for Booking-Product many-to-many with quantity"""
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('booking.id'))
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
+    quantity = db.Column(db.Integer, default=1)
+    unit_price = db.Column(db.Float, nullable=True) # Store price at time of booking or override
+    
+    # Relationship
+    product = db.relationship('Product')
 
 class DiscountCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -256,15 +270,7 @@ class PushSubscription(db.Model):
 
     user = db.relationship('User', backref=db.backref('push_subscriptions', lazy=True, cascade="all, delete-orphan"))
 
-class BookingProduct(db.Model):
-    """Association table for Booking-Product many-to-many with quantity"""
-    id = db.Column(db.Integer, primary_key=True)
-    booking_id = db.Column(db.Integer, db.ForeignKey('booking.id'))
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'))
-    quantity = db.Column(db.Integer, default=1)
-    
-    # Relationship
-    product = db.relationship('Product')
+
 
 class GiftOrder(db.Model):
     """Gift order for gifting a wash or subscription to someone"""

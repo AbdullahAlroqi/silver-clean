@@ -85,13 +85,78 @@ def index():
 
 @bp.route('/bookings/active')
 def active_bookings():
-    """Show all active bookings assigned to this employee"""
-    bookings = Booking.query.filter(
-        Booking.employee_id == current_user.id,
-        Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress'])
-    ).order_by(Booking.date, Booking.time).all()
+    """Show bookings for selected date based on employee schedule"""
+    from app.models import EmployeeSchedule
+    from app.utils.timezone import get_saudi_time
     
-    return render_template('employee/active_bookings.html', bookings=bookings)
+    # Get selected date from query params (default: today)
+    date_str = request.args.get('date')
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = get_saudi_time().date()
+    else:
+        selected_date = get_saudi_time().date()
+    
+    # Get day of week (Python: 0=Monday, 6=Sunday)
+    day_of_week = selected_date.weekday()
+    
+    # Get employee's schedule for this day
+    employee_schedules = EmployeeSchedule.query.filter_by(
+        employee_id=current_user.id,
+        day_of_week=day_of_week,
+        is_active=True
+    ).all()
+    
+    # Check if any schedule is a night shift (ends after midnight)
+    has_night_shift = any(s.end_time <= s.start_time for s in employee_schedules)
+    next_date = selected_date + timedelta(days=1)
+    
+    # Build booking query - filter by date (include next day for night shifts)
+    if has_night_shift:
+        # For night shifts, get bookings from selected date AND next day (early morning)
+        bookings = Booking.query.filter(
+            Booking.employee_id == current_user.id,
+            Booking.date.in_([selected_date, next_date]),
+            Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress'])
+        ).order_by(Booking.date, Booking.time).all()
+    else:
+        bookings = Booking.query.filter(
+            Booking.employee_id == current_user.id,
+            Booking.date == selected_date,
+            Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress'])
+        ).order_by(Booking.time).all()
+    
+    # Filter bookings that fit within employee's schedule
+    if employee_schedules:
+        filtered_bookings = []
+        for booking in bookings:
+            for schedule in employee_schedules:
+                # Handle night shifts (end_time <= start_time means crosses midnight)
+                is_night_shift = schedule.end_time <= schedule.start_time
+                
+                if is_night_shift:
+                    # Night shift: 
+                    # - Same day bookings with time >= start_time are included
+                    # - Next day bookings with time <= end_time are included
+                    if booking.date == selected_date and booking.time >= schedule.start_time:
+                        filtered_bookings.append(booking)
+                        break
+                    elif booking.date == next_date and booking.time <= schedule.end_time:
+                        filtered_bookings.append(booking)
+                        break
+                else:
+                    # Normal shift: booking time should be between start and end, same day only
+                    if booking.date == selected_date and schedule.start_time <= booking.time <= schedule.end_time:
+                        filtered_bookings.append(booking)
+                        break
+        bookings = filtered_bookings
+    
+    return render_template('employee/active_bookings.html', 
+                          bookings=bookings,
+                          selected_date=selected_date,
+                          has_schedule=len(employee_schedules) > 0)
 
 @bp.route('/booking/<int:id>/status/<status>')
 def update_status(id, status):
@@ -298,25 +363,28 @@ def stats():
     
     for booking in completed_booking_list:
         # Calculate service price after discount/free wash
-        service_price = booking.service.price if booking.service else 0
+        service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0)
         discount_amount = 0
         
-        # Check if free wash was used
-        if booking.used_free_wash:
+        # Check if subscription or free wash -> Service is 0
+        if booking.subscription_id or booking.used_free_wash:
             service_price = 0
         # Check if discount code was applied
         elif booking.discount_code:
             if booking.discount_code.discount_type == 'percentage':
-                discount_amount = service_price * (booking.discount_code.value / 100)
+                discount_amount = (service_price + (booking.vehicle_size_price or 0)) * (booking.discount_code.value / 100)
             else:
                 discount_amount = booking.discount_code.value
         
         # Calculate final service price (including vehicle size price)
-        final_service_price = service_price - discount_amount + (booking.vehicle_size_price or 0)
+        final_service_price = max(0, service_price - discount_amount + (booking.vehicle_size_price or 0))
+        if booking.subscription_id or booking.used_free_wash:
+             final_service_price = 0 # Double check to ensure 0
+             
         total_services_revenue += final_service_price
         
         # Calculate products total
-        products_total = sum([bp.product.price * bp.quantity for bp in booking.products])
+        products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in booking.products])
         
         # Add to total earnings
         total_earnings += final_service_price + products_total
@@ -324,7 +392,7 @@ def stats():
         # Update product stats
         for bp in booking.products:
             total_products_sold += bp.quantity
-            total_products_revenue += (bp.product.price * bp.quantity)
+            total_products_revenue += ((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity)
 
     # Monthly data calculation remains the same...
     from sqlalchemy import func, extract

@@ -69,16 +69,24 @@
                         <th class="p-4">العميل</th>
                         <th class="p-4">التاريخ</th>
                         <th class="p-4">الكمية</th>
+                        <th class="p-4">سعر البيع</th>
                         <th class="p-4">الحالة</th>
                     </tr>
                 </thead>
                 <tbody class="text-gray-300">
-                    {% for booking, quantity in recent_bookings %}
+                    {% for booking, quantity, unit_price in recent_bookings %}
                     <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
                         <td class="p-4">#{{ booking.id }}</td>
                         <td class="p-4">{{ booking.customer.username }}</td>
                         <td class="p-4">{{ booking.date }}</td>
                         <td class="p-4 font-bold">{{ quantity }}</td>
+                        <td class="p-4">
+                            {% if unit_price is not none %}
+                            {{ "%.2f"|format(unit_price) }}
+                            {% else %}
+                            <span class="text-gray-500">{{ "%.2f"|format(product.price) }}</span>
+                            {% endif %}
+                        </td>
                         <td class="p-4">
                             <span class="px-2 py-1 rounded text-xs font-bold 
                                 {% if booking.status == 'completed' %}bg-green-900 text-green-200

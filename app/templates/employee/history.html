@@ -63,13 +63,16 @@
                 <td class="p-4">
                     {% set products_total = namespace(value=0) %}
                     {% for bp in booking.products %}
-                    {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
+                    {% set item_price = bp.unit_price if bp.unit_price is not none else bp.product.price %}
+                    {% set products_total.value = products_total.value + (item_price * bp.quantity) %}
                     {% endfor %}
 
-                    {% set service_price = booking.service.price + (booking.vehicle_size_price or 0) %}
+                    {% set service_price = booking.custom_service_price if booking.custom_service_price is not none else
+                    (booking.service.price if booking.service else 0) %}
+                    {% set service_price = service_price + (booking.vehicle_size_price or 0) %}
                     {% set discount_amount = 0 %}
 
-                    {% if booking.used_free_wash %}
+                    {% if booking.used_free_wash or booking.subscription_id %}
                     {% set service_price = 0 %}
                     {% elif booking.discount_code %}
                     {% if booking.discount_code.discount_type == 'percentage' %}

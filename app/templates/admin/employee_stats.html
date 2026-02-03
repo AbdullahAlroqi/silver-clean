@@ -26,6 +26,33 @@
     </div>
 </div>
 
+<!-- Date Filter -->
+<div class="bg-primary rounded-lg shadow-lg p-6 mb-6">
+    <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-filter mr-2 text-accent"></i>فلترة حسب التاريخ</h3>
+    <form method="GET" action="{{ url_for('admin.employee_stats', id=employee.id) }}"
+        class="flex flex-wrap items-end gap-4">
+        <div>
+            <label class="block text-gray-400 text-sm mb-1">من تاريخ</label>
+            <input type="date" name="from_date" value="{{ from_date }}"
+                class="bg-darkbg text-white px-4 py-2 rounded border border-gray-600 focus:border-accent focus:outline-none">
+        </div>
+        <div>
+            <label class="block text-gray-400 text-sm mb-1">إلى تاريخ</label>
+            <input type="date" name="to_date" value="{{ to_date }}"
+                class="bg-darkbg text-white px-4 py-2 rounded border border-gray-600 focus:border-accent focus:outline-none">
+        </div>
+        <button type="submit" class="bg-accent hover:bg-accent/80 text-white px-6 py-2 rounded font-medium transition">
+            <i class="fas fa-search mr-2"></i>بحث
+        </button>
+        {% if from_date or to_date %}
+        <a href="{{ url_for('admin.employee_stats', id=employee.id) }}"
+            class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
+            <i class="fas fa-times mr-2"></i>إزالة الفلتر
+        </a>
+        {% endif %}
+    </form>
+</div>
+
 <!-- Statistics Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="bg-primary rounded-lg p-6 shadow-lg">
@@ -33,6 +60,9 @@
             <div>
                 <p class="text-gray-400 text-sm">إجمالي الحجوزات</p>
                 <p class="text-2xl font-bold text-white mt-1">{{ stats.total_bookings }}</p>
+                {% if stats.cancelled_bookings > 0 %}
+                <p class="text-xs text-red-400 mt-1">{{ stats.cancelled_bookings }} ملغي</p>
+                {% endif %}
             </div>
             <div class="bg-blue-500 bg-opacity-20 rounded-lg p-3">
                 <i class="fas fa-calendar-check text-blue-500 text-2xl"></i>
@@ -105,9 +135,51 @@
             <div>
                 <p class="text-gray-400 text-sm">إجمالي الأرباح</p>
                 <p class="text-2xl font-bold text-white mt-1">{{ "%.2f"|format(stats.total_earnings) }} ريال</p>
+                <p class="text-xs text-gray-400 mt-1">بدون حجوزات الاشتراك</p>
             </div>
             <div class="bg-green-600 bg-opacity-20 rounded-lg p-3">
                 <i class="fas fa-dollar-sign text-green-600 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">حجوزات الاشتراك</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.subscription_bookings_count }}</p>
+            </div>
+            <div class="bg-purple-600 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-sync-alt text-purple-600 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Method Stats -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الدفع نقداً (كاش)</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.cash_bookings_count }} حجز</p>
+                <p class="text-green-400 text-sm mt-1">{{ "%.2f"|format(stats.cash_earnings) }} ريال</p>
+            </div>
+            <div class="bg-green-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-money-bill-wave text-green-500 text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">الدفع بالبطاقة</p>
+                <p class="text-2xl font-bold text-white mt-1">{{ stats.card_bookings_count }} حجز</p>
+                <p class="text-blue-400 text-sm mt-1">{{ "%.2f"|format(stats.card_earnings) }} ريال</p>
+            </div>
+            <div class="bg-blue-500 bg-opacity-20 rounded-lg p-3">
+                <i class="fas fa-credit-card text-blue-500 text-2xl"></i>
             </div>
         </div>
     </div>
@@ -173,37 +245,164 @@
         <table class="w-full">
             <thead class="bg-darkbg">
                 <tr>
-                    <th class="px-6 py-3 text-right text-sm font-bold">#</th>
-                    <th class="px-6 py-3 text-right text-sm font-bold">العميل</th>
-                    <th class="px-6 py-3 text-right text-sm font-bold">الخدمة</th>
-                    <th class="px-6 py-3 text-right text-sm font-bold">التاريخ</th>
-                    <th class="px-6 py-3 text-right text-sm font-bold">الحالة</th>
-                    <th class="px-6 py-3 text-right text-sm font-bold">السعر</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">#</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">العميل</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">الخدمة</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">المنتجات</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">السيارة</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">التاريخ/الوقت</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">المنطقة</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">طريقة الدفع</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">الحالة</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">السعر</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-700">
                 {% for booking in bookings %}
                 <tr class="hover:bg-gray-700 transition">
-                    <td class="px-6 py-4 text-sm">{{ booking.id }}</td>
-                    <td class="px-6 py-4 text-sm">{{ booking.customer.username if booking.customer else '-' }}</td>
-                    <td class="px-6 py-4 text-sm">{{ booking.service.name_ar if booking.service else '-' }}</td>
-                    <td class="px-6 py-4 text-sm">{{ booking.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td class="px-6 py-4 text-sm">
+                    <td class="px-4 py-4 text-sm">{{ booking.id }}</td>
+                    <td class="px-4 py-4 text-sm">
+                        {% if booking.customer %}
+                        <div>
+                            <p class="font-medium">{{ booking.customer.username }}</p>
+                            <p class="text-gray-400 text-xs">{{ booking.customer.phone }}</p>
+                        </div>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-4 text-sm">{{ booking.service.name_ar if booking.service else '-' }}</td>
+                    <td class="px-4 py-4 text-sm">
+                        {% if booking.products.count() > 0 %}
+                        <div class="space-y-1">
+                            {% for bp in booking.products %}
+                            <div class="bg-gray-700 px-2 py-1 rounded text-xs">
+                                <span class="text-white">{{ bp.product.name_ar }}</span>
+                                <span class="text-gray-400">x{{ bp.quantity }}</span>
+                                <span class="text-accent">{{ bp.product.price * bp.quantity }} ر.س</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <span class="text-gray-500">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 text-sm">
+                        {% if booking.vehicle %}
+                        <div>
+                            <p class="font-medium">{{ booking.vehicle.brand }}</p>
+                            <p class="text-gray-400 text-xs">{{ booking.vehicle.plate_number }}</p>
+                        </div>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td class="px-4 py-4 text-sm">
+                        <div>
+                            <p>{{ booking.date.strftime('%Y-%m-%d') if booking.date else '-' }}</p>
+                            <p class="text-gray-400 text-xs">{{ booking.time.strftime('%H:%M') if booking.time else ''
+                                }}</p>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 text-sm">{{ booking.neighborhood.name_ar if booking.neighborhood else '-' }}
+                    </td>
+                    <td class="px-4 py-4 text-sm">
+                        {% if booking.subscription_id %}
+                        <span
+                            class="bg-purple-500 bg-opacity-20 text-purple-400 px-2 py-1 rounded text-xs flex items-center gap-1 w-fit">
+                            <i class="fas fa-sync-alt"></i> اشتراك
+                        </span>
+                        {% elif booking.payment_method == 'card' %}
+                        <span
+                            class="bg-blue-500 bg-opacity-20 text-blue-400 px-2 py-1 rounded text-xs flex items-center gap-1 w-fit">
+                            <i class="fas fa-credit-card"></i> بطاقة
+                        </span>
+                        {% else %}
+                        <span
+                            class="bg-green-500 bg-opacity-20 text-green-400 px-2 py-1 rounded text-xs flex items-center gap-1 w-fit">
+                            <i class="fas fa-money-bill-wave"></i> كاش
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-4 text-sm">
                         {% if booking.status == 'completed' %}
                         <span class="bg-green-500 bg-opacity-20 text-green-400 px-2 py-1 rounded text-xs">مكتمل</span>
                         {% elif booking.status == 'cancelled' %}
                         <span class="bg-red-500 bg-opacity-20 text-red-400 px-2 py-1 rounded text-xs">ملغي</span>
+                        {% elif booking.status == 'assigned' %}
+                        <span class="bg-blue-500 bg-opacity-20 text-blue-400 px-2 py-1 rounded text-xs">معين</span>
+                        {% elif booking.status == 'en_route' %}
+                        <span class="bg-yellow-500 bg-opacity-20 text-yellow-400 px-2 py-1 rounded text-xs">في
+                            الطريق</span>
+                        {% elif booking.status == 'arrived' %}
+                        <span class="bg-orange-500 bg-opacity-20 text-orange-400 px-2 py-1 rounded text-xs">وصل</span>
+                        {% elif booking.status == 'in_progress' %}
+                        <span class="bg-purple-500 bg-opacity-20 text-purple-400 px-2 py-1 rounded text-xs">جاري</span>
                         {% else %}
-                        <span class="bg-blue-500 bg-opacity-20 text-blue-400 px-2 py-1 rounded text-xs">{{
+                        <span class="bg-gray-500 bg-opacity-20 text-gray-400 px-2 py-1 rounded text-xs">{{
                             booking.status }}</span>
                         {% endif %}
                     </td>
-                    <td class="px-6 py-4 text-sm">{{ "%.2f"|format(booking.service.price) if booking.service else '-' }}
-                        ريال</td>
+                    <td class="px-4 py-4 text-sm">
+                        {% if booking.status == 'cancelled' %}
+                        <div>
+                            <span class="text-red-400 font-bold">ملغي</span>
+                            <p class="text-gray-500 text-xs">لا يُحسب</p>
+                        </div>
+                        {% else %}
+                        {% set products_total = namespace(value=0) %}
+                        {% for bp in booking.products %}
+                        {% set products_total.value = products_total.value + (bp.product.price * bp.quantity) %}
+                        {% endfor %}
+
+                        {% if booking.subscription_id %}
+                        <div>
+                            <span class="text-purple-400 font-bold">اشتراك</span>
+                            <p class="text-gray-400 text-xs">الخدمة: 0 ريال</p>
+                            {% if products_total.value > 0 %}
+                            <p class="text-accent text-xs font-bold">+ منتجات: {{ "%.2f"|format(products_total.value) }}
+                                ريال</p>
+                            <p class="text-white text-sm font-bold mt-1">الإجمالي: {{
+                                "%.2f"|format(products_total.value) }} ريال</p>
+                            {% endif %}
+                        </div>
+                        {% elif booking.used_free_wash %}
+                        <div>
+                            <span class="text-green-400 font-bold">غسلة مجانية</span>
+                            <p class="text-gray-400 text-xs">الخدمة: 0 ريال</p>
+                            {% if products_total.value > 0 %}
+                            <p class="text-accent text-xs font-bold">+ منتجات: {{ "%.2f"|format(products_total.value) }}
+                                ريال</p>
+                            <p class="text-white text-sm font-bold mt-1">الإجمالي: {{
+                                "%.2f"|format(products_total.value) }} ريال</p>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        {% set service_price = booking.service.price if booking.service else 0 %}
+                        {% set size_price = booking.vehicle_size_price or 0 %}
+                        {% set discount = 0 %}
+                        {% if booking.discount_code %}
+                        {% if booking.discount_code.discount_type == 'percentage' %}
+                        {% set discount = (service_price + size_price) * booking.discount_code.value / 100 %}
+                        {% else %}
+                        {% set discount = booking.discount_code.value %}
+                        {% endif %}
+                        {% endif %}
+                        {% set final_service = service_price + size_price - discount %}
+                        {% set total = final_service + products_total.value %}
+                        <div>
+                            <span class="font-bold text-white">{{ "%.2f"|format(total) }} ريال</span>
+                            {% if discount > 0 %}
+                            <p class="text-red-400 text-xs">خصم: -{{ "%.2f"|format(discount) }}</p>
+                            {% endif %}
+                            {% if products_total.value > 0 %}
+                            <p class="text-gray-400 text-xs">خدمة: {{ "%.2f"|format(final_service) }} + منتجات: {{
+                                "%.2f"|format(products_total.value) }}</p>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-gray-400">لا يوجد حجوزات</td>
+                    <td colspan="9" class="px-6 py-8 text-center text-gray-400">لا يوجد حجوزات</td>
                 </tr>
                 {% endfor %}
             </tbody>
