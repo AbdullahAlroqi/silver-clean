@@ -168,7 +168,17 @@ def update_status(id, status):
     
     if status in ['en_route', 'arrived', 'in_progress', 'completed']:
         booking.status = status
+        
+        # Timer logic: Set started_at when work begins
+        if status == 'in_progress' and not booking.started_at:
+            from app.utils.timezone import get_saudi_time
+            booking.started_at = get_saudi_time().replace(tzinfo=None)
+        
         if status == 'completed':
+            # Set completion time
+            from app.utils.timezone import get_saudi_time
+            booking.completed_at = get_saudi_time().replace(tzinfo=None)
+            
             # Add loyalty point
             current_points = (booking.customer.points or 0) + 1
             if current_points >= 10:

@@ -26,20 +26,16 @@
                 </div>
             </div>
 
-            <div class="relative">
-                <select name="period"
-                    class="appearance-none bg-darkbg border border-gray-600 text-white rounded-lg px-4 py-2 pr-8 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition">
-                    <option value="all" {% if request.args.get('period')=='all' %}selected{% endif %}>كل الأوقات
-                    </option>
-                    <option value="today" {% if request.args.get('period')=='today' %}selected{% endif %}>اليوم</option>
-                    <option value="month" {% if request.args.get('period')=='month' %}selected{% endif %}>هذا الشهر
-                    </option>
-                    <option value="year" {% if request.args.get('period')=='year' %}selected{% endif %}>هذه السنة
-                    </option>
-                </select>
-                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-2 text-gray-400">
-                    <i class="fas fa-chevron-down text-xs"></i>
-                </div>
+            <div class="flex items-center gap-2">
+                <label class="text-gray-400 text-sm">من:</label>
+                <input type="date" name="from_date" value="{{ request.args.get('from_date', '') }}"
+                    class="bg-darkbg border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-accent">
+            </div>
+
+            <div class="flex items-center gap-2">
+                <label class="text-gray-400 text-sm">إلى:</label>
+                <input type="date" name="to_date" value="{{ request.args.get('to_date', '') }}"
+                    class="bg-darkbg border border-gray-600 text-white rounded-lg px-3 py-2 focus:outline-none focus:border-accent">
             </div>
 
             <button type="submit"
@@ -108,10 +104,16 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="text-sm text-gray-400 italic max-w-xs truncate"
-                                title="{{ rating.rating_comment }}">
-                                {{ rating.rating_comment or 'لا يوجد تعليق' }}
+                            {% if rating.rating_comment and rating.rating_comment|length > 30 %}
+                            <div class="text-sm text-gray-400 italic max-w-xs truncate cursor-pointer hover:text-accent comment-btn"
+                                data-comment="{{ rating.rating_comment }}" title="انقر لعرض التعليق كاملاً">
+                                <i class="fas fa-comment mr-1"></i>{{ rating.rating_comment[:30] }}...
                             </div>
+                            {% elif rating.rating_comment %}
+                            <div class="text-sm text-gray-400 italic">{{ rating.rating_comment }}</div>
+                            {% else %}
+                            <span class="text-gray-500">لا يوجد تعليق</span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-400">
@@ -135,4 +137,48 @@
         </div>
     </div>
 </div>
+
+<!-- Comment Modal -->
+<div id="commentModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-primary p-6 rounded-lg max-w-lg w-full shadow-2xl">
+        <h3 class="text-xl font-bold text-white mb-4">
+            <i class="fas fa-comment text-accent mr-2"></i>تعليق العميل
+        </h3>
+        <div id="commentContent"
+            class="text-gray-300 leading-relaxed bg-darkbg p-4 rounded-lg border border-gray-700 max-h-64 overflow-y-auto">
+        </div>
+        <button onclick="closeCommentModal()"
+            class="mt-4 w-full bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg font-bold transition">
+            إغلاق
+        </button>
+    </div>
+</div>
+
+<script>
+    function showCommentModal(comment) {
+        document.getElementById('commentContent').textContent = comment;
+        document.getElementById('commentModal').classList.remove('hidden');
+    }
+
+    function closeCommentModal() {
+        document.getElementById('commentModal').classList.add('hidden');
+    }
+
+    // Event delegation for comment buttons (works on mobile)
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.comment-btn');
+        if (btn) {
+            e.preventDefault();
+            const comment = btn.getAttribute('data-comment');
+            if (comment) {
+                showCommentModal(comment);
+            }
+        }
+
+        // Close modal when clicking outside
+        if (e.target.id === 'commentModal') {
+            closeCommentModal();
+        }
+    });
+</script>
 {% endblock %}

@@ -71,6 +71,7 @@
                 <th class="p-4">التاريخ/الوقت</th>
                 <th class="p-4">الموظف</th>
                 <th class="p-4">الحالة</th>
+                <th class="p-4">الوقت/المدة</th>
                 <th class="p-4">السعر</th>
                 <th class="p-4">الإجراءات</th>
             </tr>
@@ -134,6 +135,45 @@
                         {% else %}bg-blue-600{% endif %}">
                         {{ booking.status }}
                     </span>
+                </td>
+                <td class="p-4 text-xs">
+                    {% if booking.status == 'in_progress' and booking.started_at %}
+                    <!-- Live timer for in-progress bookings -->
+                    <div class="text-yellow-400">
+                        <i class="fas fa-clock mr-1"></i>
+                        <span class="timer" data-start="{{ booking.started_at.isoformat() }}">جاري الحساب...</span>
+                    </div>
+                    <div class="text-gray-500 mt-1">بدأ: {{ booking.started_at.strftime('%H:%M') }}</div>
+                    {% elif booking.status == 'completed' and booking.started_at and booking.completed_at %}
+                    <!-- Total duration for completed bookings -->
+                    {% set duration = (booking.completed_at - booking.started_at).total_seconds() // 60 %}
+                    <div class="text-green-400">
+                        <i class="fas fa-check-circle mr-1"></i>
+                        {{ duration|int }} دقيقة
+                    </div>
+                    <div class="text-gray-500 mt-1">انتهى: {{ booking.completed_at.strftime('%H:%M') }}</div>
+                    {% elif booking.status == 'cancelled' %}
+                    <div class="text-red-400">
+                        {% if booking.cancelled_at %}
+                        <i class="fas fa-times-circle mr-1"></i>
+                        {{ booking.cancelled_at.strftime('%H:%M') }}
+                        {% endif %}
+                        {% if booking.cancellation_reason %}
+                        {% if booking.cancellation_reason|length > 20 %}
+                        <div class="mt-1 text-gray-400 max-w-[150px] truncate cursor-pointer hover:text-accent cancel-reason-btn"
+                            data-reason="{{ booking.cancellation_reason }}" title="انقر لعرض السبب كاملاً">
+                            <i class="fas fa-comment-alt mr-1"></i>سبب: {{ booking.cancellation_reason[:20] }}...
+                        </div>
+                        {% else %}
+                        <div class="mt-1 text-gray-400">
+                            سبب: {{ booking.cancellation_reason }}
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <span class="text-gray-500">-</span>
+                    {% endif %}
                 </td>
                 <td class="p-4 font-bold text-sm">
                     {% if booking.status == 'cancelled' %}
@@ -627,5 +667,78 @@
             }
         }
     }
+
+    // Live timer for in-progress bookings
+    function updateTimers() {
+        const timers = document.querySelectorAll('.timer');
+        const now = new Date();
+
+        timers.forEach(timer => {
+            const startTime = new Date(timer.dataset.start);
+            if (isNaN(startTime.getTime())) return;
+
+            const diffMs = now - startTime;
+            const diffMins = Math.floor(diffMs / 60000);
+            const hours = Math.floor(diffMins / 60);
+            const mins = diffMins % 60;
+
+            if (hours > 0) {
+                timer.textContent = `${hours} ساعة ${mins} دقيقة`;
+            } else {
+                timer.textContent = `${mins} دقيقة`;
+            }
+        });
+    }
+
+    // Update timers every 30 seconds
+    if (document.querySelectorAll('.timer').length > 0) {
+        updateTimers();
+        setInterval(updateTimers, 30000);
+    }
+
+    // Cancellation reason modal - using event delegation for mobile
+    function showCancelReasonModal(reason) {
+        document.getElementById('cancelReasonContent').textContent = reason;
+        document.getElementById('cancelReasonModal').classList.remove('hidden');
+    }
+
+    function closeCancelReasonModal() {
+        document.getElementById('cancelReasonModal').classList.add('hidden');
+    }
+
+    // Event delegation for cancel reason buttons (works on mobile)
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.cancel-reason-btn');
+        if (btn) {
+            e.preventDefault();
+            const reason = btn.getAttribute('data-reason');
+            if (reason) {
+                showCancelReasonModal(reason);
+            }
+        }
+
+        // Close modal when clicking outside
+        if (e.target.id === 'cancelReasonModal') {
+            closeCancelReasonModal();
+        }
+    });
 </script>
+
+<!-- Cancellation Reason Modal -->
+<div id="cancelReasonModal"
+    class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-primary p-6 rounded-lg max-w-lg w-full shadow-2xl">
+        <h3 class="text-xl font-bold text-white mb-4">
+            <i class="fas fa-times-circle text-red-400 mr-2"></i>سبب الإلغاء
+        </h3>
+        <div id="cancelReasonContent"
+            class="text-gray-300 leading-relaxed bg-darkbg p-4 rounded-lg border border-gray-700 max-h-64 overflow-y-auto">
+        </div>
+        <button onclick="closeCancelReasonModal()"
+            class="mt-4 w-full bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg font-bold transition">
+            إغلاق
+        </button>
+    </div>
+</div>
+
 {% endblock %}

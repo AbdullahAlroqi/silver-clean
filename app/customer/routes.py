@@ -111,6 +111,8 @@ def my_bookings():
 @bp.route('/bookings/cancel/<int:booking_id>', methods=['POST'])
 def cancel_booking(booking_id):
     """Cancel a booking - only allowed if status is 'assigned'"""
+    from app.utils.timezone import get_saudi_time
+    
     booking = Booking.query.get_or_404(booking_id)
     
     # Verify booking belongs to current user
@@ -132,8 +134,16 @@ def cancel_booking(booking_id):
             flash('لا يمكن إلغاء هذا الحجز', 'error')
         return redirect(url_for('customer.my_bookings'))
     
-    # Cancel the booking
+    # Get cancellation reason from form - required
+    cancellation_reason = request.form.get('cancellation_reason', '').strip()
+    if not cancellation_reason:
+        flash('يجب إدخال سبب الإلغاء', 'error')
+        return redirect(url_for('customer.my_bookings'))
+    
+    # Cancel the booking with reason and timestamp
     booking.status = 'cancelled'
+    booking.cancellation_reason = cancellation_reason
+    booking.cancelled_at = get_saudi_time().replace(tzinfo=None)
     
     # Restore wash if this is a subscription booking
     if booking.subscription_id and booking.subscription:

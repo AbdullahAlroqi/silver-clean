@@ -152,6 +152,14 @@ class Booking(db.Model):
     vehicle_size_price = db.Column(db.Float, default=0.0) # Store price adjustment at time of booking
     custom_service_price = db.Column(db.Float, nullable=True) # Override base service price
     payment_method = db.Column(db.String(20), default='cash') # 'cash' or 'card'
+    
+    # Timer fields for tracking service duration
+    started_at = db.Column(db.DateTime, nullable=True)      # Set when status → in_progress
+    completed_at = db.Column(db.DateTime, nullable=True)    # Set when status → completed
+    cancelled_at = db.Column(db.DateTime, nullable=True)    # Set when status → cancelled
+    
+    # Cancellation reason from customer
+    cancellation_reason = db.Column(db.Text, nullable=True)
 
     # Relationships
     vehicle = db.relationship('Vehicle')

@@ -769,26 +769,32 @@ def edit_customer(id):
 
 @bp.route('/ratings')
 def ratings():
+    from datetime import datetime
+    
     # Filters
     employee_id = request.args.get('employee_id')
-    period = request.args.get('period', 'all')
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
     
     query = Booking.query.filter(Booking.rating.isnot(None)).order_by(Booking.rating_date.desc())
     
     if employee_id:
         query = query.filter(Booking.employee_id == int(employee_id))
-        
-    if period != 'all':
-        today = date.today()
-        if period == 'today':
-            query = query.filter(func.date(Booking.rating_date) == today)
-        elif period == 'month':
-            query = query.filter(
-                extract('year', Booking.rating_date) == today.year,
-                extract('month', Booking.rating_date) == today.month
-            )
-        elif period == 'year':
-            query = query.filter(extract('year', Booking.rating_date) == today.year)
+    
+    # Date range filter
+    if from_date_str:
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+            query = query.filter(func.date(Booking.rating_date) >= from_date)
+        except ValueError:
+            pass
+            
+    if to_date_str:
+        try:
+            to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+            query = query.filter(func.date(Booking.rating_date) <= to_date)
+        except ValueError:
+            pass
             
     ratings = query.all()
     employees = User.query.filter_by(role='employee').all()
@@ -2179,6 +2185,8 @@ def reassign_booking(id):
 
 @bp.route('/bookings/<int:id>/cancel')
 def cancel_booking(id):
+    from app.utils.timezone import get_saudi_time
+    
     booking = Booking.query.get_or_404(id)
     
     if booking.status != 'cancelled':
@@ -2188,6 +2196,7 @@ def cancel_booking(id):
                 bp.product.stock_quantity += bp.quantity
                 
         booking.status = 'cancelled'
+        booking.cancelled_at = get_saudi_time().replace(tzinfo=None)
         db.session.commit()
         flash('تم إلغاء الحجز وإعادة المنتجات للمخزون')
     
