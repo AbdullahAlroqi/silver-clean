@@ -189,6 +189,7 @@
         </h3>
         <p class="text-gray-300 mb-4">هل أنت متأكد من إلغاء هذا الحجز؟ يرجى إدخال سبب الإلغاء:</p>
         <form id="cancelForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <textarea name="cancellation_reason" id="cancelReason" required placeholder="اكتب سبب الإلغاء هنا..."
                 class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent mb-4"
                 rows="3"></textarea>

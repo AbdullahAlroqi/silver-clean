@@ -21,10 +21,13 @@
                 <p class="text-gray-400">{{ vehicle.plate_number }}</p>
             </div>
         </div>
-        <a href="{{ url_for('customer.delete_vehicle', id=vehicle.id) }}" class="text-red-400 hover:text-red-300"
-            onclick="return confirm('هل أنت متأكد من الحذف؟')">
-            <i class="fas fa-trash"></i>
-        </a>
+        <form action="{{ url_for('customer.delete_vehicle', id=vehicle.id) }}" method="post" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="text-red-400 hover:text-red-300"
+                onclick="return confirm('هل أنت متأكد من الحذف؟')">
+                <i class="fas fa-trash"></i>
+            </button>
+        </form>
     </div>
     {% else %}
     <div class="col-span-full text-center text-gray-500 py-8">

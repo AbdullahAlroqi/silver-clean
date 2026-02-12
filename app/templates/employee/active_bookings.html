@@ -288,25 +288,38 @@
                 </a>
 
                 {% if booking.status == 'assigned' %}
-                <a href="{{ url_for('employee.update_status', id=booking.id, status='en_route') }}"
-                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
-                    {{ _('En Route') }} 🚗
-                </a>
+                <form action="{{ url_for('employee.update_status', id=booking.id, status='en_route') }}" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit"
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                        {{ _('En Route') }} 🚗
+                    </button>
+                </form>
                 {% elif booking.status == 'en_route' %}
-                <a href="{{ url_for('employee.update_status', id=booking.id, status='arrived') }}"
-                    class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
-                    {{ _('Arrived') }} 📍
-                </a>
+                <form action="{{ url_for('employee.update_status', id=booking.id, status='arrived') }}" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit"
+                        class="w-full bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                        {{ _('Arrived') }} 📍
+                    </button>
+                </form>
                 {% elif booking.status == 'arrived' %}
-                <a href="{{ url_for('employee.update_status', id=booking.id, status='in_progress') }}"
-                    class="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
-                    {{ _('Start Service') }} 🧼
-                </a>
+                <form action="{{ url_for('employee.update_status', id=booking.id, status='in_progress') }}"
+                    method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit"
+                        class="w-full bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                        {{ _('Start Service') }} 🧼
+                    </button>
+                </form>
                 {% elif booking.status == 'in_progress' %}
-                <a href="{{ url_for('employee.update_status', id=booking.id, status='completed') }}"
-                    class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
-                    {{ _('Complete Service') }} ✅
-                </a>
+                <form action="{{ url_for('employee.update_status', id=booking.id, status='completed') }}" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit"
+                        class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02]">
+                        {{ _('Complete Service') }} ✅
+                    </button>
+                </form>
                 {% endif %}
             </div>
         </div>

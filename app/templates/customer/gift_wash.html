@@ -18,6 +18,7 @@
 </div>
 
 <form method="POST" class="max-w-2xl mx-auto">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <!-- Services Selection -->
     <div class="bg-primary rounded-lg shadow-lg p-6 mb-6">
         <h3 class="text-lg font-bold text-white mb-4">

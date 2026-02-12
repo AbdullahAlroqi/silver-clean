@@ -667,9 +667,13 @@
             return;
         }
         msgDiv.innerHTML = '<span class="text-gray-400"><i class="fas fa-spinner fa-spin mr-1"></i>جاري التحقق...</span>';
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         fetch('/customer/api/verify-discount', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
             body: JSON.stringify({ code: code })
         })
             .then(r => r.json())

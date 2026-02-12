@@ -19,12 +19,12 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///silver_clean.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # Session Configuration - 1 year duration
-    PERMANENT_SESSION_LIFETIME = timedelta(days=365)
+    # Session Configuration - 30 days duration (Reduced from 365 for security)
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)
     SESSION_PERMANENT = True
     
-    # Remember Me Cookie - 1 year duration for PWA and browser
-    REMEMBER_COOKIE_DURATION = timedelta(days=365)
+    # Remember Me Cookie - 30 days duration
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
     REMEMBER_COOKIE_SECURE = True  # Set to True for HTTPS
     SESSION_COOKIE_SECURE = True   # Set to True for HTTPS
     REMEMBER_COOKIE_HTTPONLY = True
@@ -40,5 +40,8 @@ class Config:
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'info.silverclean1@gmail.com')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', 'zfqr qtzt duyw kiee')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     ADMINS = [os.environ.get('ADMIN_EMAIL', 'silvcle.sa@gmail.com')]
+
+    # Security Headers
+    SESSION_COOKIE_SAMESITE = 'Lax'
