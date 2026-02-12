@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ site_settings.site_name or 'Silver Clean' }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -202,7 +203,7 @@
                             </div>
                             <div>
                                 <p class="text-xs text-gray-500">الرقم الضريبي</p>
-                                <span class="text-white">111111111111111</span>
+                                <span class="text-white"></span>
                             </div>
                         </li>
                     </ul>
@@ -278,6 +279,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                         },
                         body: JSON.stringify(data)
                     }).catch(err => console.error("Error sending location:", err));

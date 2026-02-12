@@ -5,6 +5,7 @@ from app import db
 from app.auth import bp
 from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetCodeForm, ResetPasswordForm
 from app.models import User
+from app.limiter import limiter
 
 def convert_arabic_to_english_numerals(text):
     """Convert Arabic numerals to English numerals"""
@@ -14,6 +15,7 @@ def convert_arabic_to_english_numerals(text):
     return text.translate(translation_table)
 
 @bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     if current_user.is_authenticated:
         if current_user.role in ['admin', 'supervisor']:
@@ -30,6 +32,11 @@ def login():
         user = User.query.filter((User.username == username_or_phone) | (User.phone == username_or_phone)).first()
         if user is None or not user.check_password(form.password.data):
             flash('اسم المستخدم أو كلمة المرور غير صحيحة')
+            return redirect(url_for('auth.login'))
+        
+        # Check if user is banned
+        if user.is_banned:
+            flash('تم حظر حسابك بشكل نهائي. للتواصل مع الإدارة يرجى الاتصال بالدعم.', 'error')
             return redirect(url_for('auth.login'))
         
         # Always remember user for 1 year (especially important for PWA)
@@ -53,6 +60,7 @@ def logout():
     return redirect(url_for('main.index'))
 
 @bp.route('/register', methods=['GET', 'POST'])
+@limiter.limit("3 per minute")
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))
@@ -80,6 +88,15 @@ def register():
             flash('البريد الإلكتروني مستخدم بالفعل. الرجاء استخدام بريد آخر.', 'error')
             return render_template('auth/register.html', title='التسجيل', form=form)
         
+        # Check if phone or email is banned
+        banned_user = User.query.filter(
+            User.is_banned == True,
+            db.or_(User.phone == phone, User.email == form.email.data)
+        ).first()
+        if banned_user:
+            flash('لا يمكن التسجيل بهذا الرقم أو البريد الإلكتروني. تم حظر الحساب المرتبط بهذه البيانات.', 'error')
+            return render_template('auth/register.html', title='التسجيل', form=form)
+        
         # Create user with converted phone number
         user = User(username=form.username.data, email=form.email.data, phone=phone, role='customer')
         user.set_password(form.password.data)
@@ -90,6 +107,7 @@ def register():
     return render_template('auth/register.html', title='التسجيل', form=form)
 
 @bp.route('/reset_password_request', methods=['GET', 'POST'])
+@limiter.limit("3 per minute")
 def reset_password_request():
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))
@@ -101,13 +119,13 @@ def reset_password_request():
         user = User.query.filter((User.email == identifier) | (User.phone == identifier)).first()
             
         if user:
-            import random
+            import secrets
             import string
             from datetime import datetime, timedelta
             from app.auth.email import send_password_reset_email
             
-            # Generate 6-digit code
-            code = ''.join(random.choices(string.digits, k=6))
+            # Generate 6-digit code securely
+            code = ''.join(secrets.choice(string.digits) for _ in range(6))
             user.reset_code = code
             user.reset_code_expiration = datetime.utcnow() + timedelta(minutes=15)
             db.session.commit()

@@ -82,11 +82,14 @@
                     class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-2 rounded transition">
                     <i class="fas fa-edit"></i> تعديل
                 </a>
-                <a href="{{ url_for('admin.delete_product', id=item.product.id) }}"
-                    class="flex-1 bg-red-600 hover:bg-red-700 text-white text-center py-2 rounded transition"
-                    onclick="return confirm('هل أنت متأكد من حذف هذا المنتج؟')">
-                    <i class="fas fa-trash"></i> حذف
-                </a>
+                <form action="{{ url_for('admin.delete_product', id=item.product.id) }}" method="post" class="flex-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit"
+                        class="w-full bg-red-600 hover:bg-red-700 text-white text-center py-2 rounded transition"
+                        onclick="return confirm('هل أنت متأكد من حذف هذا المنتج؟')">
+                        <i class="fas fa-trash"></i> حذف
+                    </button>
+                </form>
             </div>
             {% endif %}
         </div>
@@ -106,6 +109,7 @@
             <i class="fas fa-boxes ml-2"></i>تحديث المخزون
         </h3>
         <form id="stockForm" method="POST" action="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- Stock Type Selection -->
             <div class="mb-4">
                 <label class="block text-gray-400 mb-2">نوع المخزون</label>

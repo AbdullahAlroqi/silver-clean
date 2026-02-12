@@ -35,7 +35,7 @@ def check_expired_bookings():
                     booking.subscription.status = 'active'
             
             db.session.commit()
-            print(f"Auto-cancelled expired booking #{booking.id}")
+            # print(f"Auto-cancelled expired booking #{booking.id}")
 
 @bp.before_request
 def before_request():
@@ -46,7 +46,8 @@ def before_request():
     try:
         check_expired_bookings()
     except Exception as e:
-        print(f"Error checking expired bookings: {e}")
+        # print(f"Error checking expired bookings: {e}")
+        pass
 
 @bp.route('/')
 def index():
@@ -182,7 +183,7 @@ def add_vehicle():
         return redirect(url_for('customer.vehicles'))
     return render_template('customer/vehicle_form.html', form=form, title='إضافة مركبة')
 
-@bp.route('/vehicles/delete/<int:id>')
+@bp.route('/vehicles/delete/<int:id>', methods=['POST'])
 def delete_vehicle(id):
     from app.models import Subscription, Booking
     vehicle = current_user.vehicles.filter_by(id=id).first_or_404()
@@ -490,7 +491,8 @@ def book():
                     }
                     send_push_notification(available_employee, notification_data)
                 except Exception as e:
-                    print(f"Failed to send notification to employee: {e}")
+                    # print(f"Failed to send notification to employee: {e}")
+                    pass
             flash('تم الحجز بنجاح!')
             return redirect(url_for('customer.booking_success'))
 
@@ -499,7 +501,7 @@ def book():
 @bp.route('/api/vehicle/<int:vehicle_id>/size-price')
 def get_vehicle_size_price(vehicle_id):
     """Get the size price for a vehicle"""
-    vehicle = Vehicle.query.get_or_404(vehicle_id)
+    vehicle = current_user.vehicles.filter_by(id=vehicle_id).first_or_404()
     size_price = vehicle.size.price_adjustment if vehicle.size else 0
     return jsonify({'size_price': size_price})
 
@@ -612,7 +614,7 @@ def verify_discount():
             'discount_type': discount_code.discount_type
         })
     except Exception as e:
-        print(f"Error in verify_discount: {str(e)}")
+        # print(f"Error in verify_discount: {str(e)}")
         return jsonify({'valid': False, 'message': f'حدث خطأ: {str(e)}'})
 
 @bp.route('/api/available-times')
@@ -898,6 +900,16 @@ def book_subscription_wash(subscription_id):
             booking_time = datetime.strptime(booking_time_str, '%H:%M').time()
         except ValueError:
             flash('تنسيق التاريخ أو الوقت غير صحيح', 'error')
+            return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+        
+        # Check for existing active booking on the same day for this subscription
+        existing_booking = Booking.query.filter(
+            Booking.subscription_id == subscription.id,
+            Booking.date == booking_date,
+            ~Booking.status.in_(['completed', 'cancelled'])
+        ).first()
+        if existing_booking:
+            flash('لديك حجز قائم بالفعل في هذا اليوم لهذا الاشتراك', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
         # Find available employee (same logic as regular booking)

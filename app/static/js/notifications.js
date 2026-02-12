@@ -111,6 +111,30 @@ document.addEventListener('DOMContentLoaded', () => {
             // Check for existing subscription first
             let subscription = await registration.pushManager.getSubscription();
 
+            // Check if existing subscription uses the correct VAPID key
+            if (subscription && subscription.options && subscription.options.applicationServerKey) {
+                const currentKey = new Uint8Array(subscription.options.applicationServerKey);
+                const expectedKey = urlBase64ToUint8Array(publicVapidKey);
+
+                let keysMatch = true;
+                if (currentKey.length !== expectedKey.length) {
+                    keysMatch = false;
+                } else {
+                    for (let i = 0; i < currentKey.length; i++) {
+                        if (currentKey[i] !== expectedKey[i]) {
+                            keysMatch = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (!keysMatch) {
+                    console.log('VAPID key mismatch. Unsubscribing from old subscription.');
+                    await subscription.unsubscribe();
+                    subscription = null;
+                }
+            }
+
             if (!subscription) {
                 // Create new subscription
                 subscription = await registration.pushManager.subscribe({
@@ -119,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 console.log('New push subscription created');
             } else {
-                console.log('Using existing push subscription');
+                console.log('Using existing push subscription (Keys match)');
             }
 
             console.log('User is subscribed:', subscription.endpoint);
@@ -129,7 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 body: JSON.stringify(subscription),
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 }
             });
 

@@ -33,6 +33,8 @@ class User(UserMixin, db.Model):
     push_subscription = db.Column(db.Text) # JSON string for Web Push subscription
     reset_code = db.Column(db.String(6), nullable=True)
     reset_code_expiration = db.Column(db.DateTime, nullable=True)
+    is_banned = db.Column(db.Boolean, default=False)
+    ban_reason = db.Column(db.String(255), nullable=True)
     
     # Relationships
     vehicles = db.relationship('Vehicle', backref='owner', lazy='dynamic')

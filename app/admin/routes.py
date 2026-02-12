@@ -426,7 +426,7 @@ def employee_schedule(id):
     return render_template('admin/employee_schedule.html', employee=employee, schedules=schedules)
 
 
-@bp.route('/employees/delete/<int:id>')
+@bp.route('/employees/delete/<int:id>', methods=['POST'])
 def delete_employee(id):
     employee = User.query.get_or_404(id)
     db.session.delete(employee)
@@ -674,6 +674,43 @@ def delete_customer(id):
     flash(f'تم حذف العميل {username} بنجاح (مع الاحتفاظ بالسجلات المالية)', 'success')
     return redirect(url_for('admin.customers'))
 
+
+@bp.route('/customers/<int:id>/ban', methods=['POST'])
+def ban_customer(id):
+    """Ban a customer permanently"""
+    customer = User.query.get_or_404(id)
+    
+    if customer.role != 'customer':
+        flash('لا يمكن حظر هذا المستخدم', 'error')
+        return redirect(url_for('admin.customers'))
+    
+    ban_reason = request.form.get('ban_reason', '').strip()
+    customer.is_banned = True
+    customer.ban_reason = ban_reason if ban_reason else 'حظر بواسطة الإدارة'
+    db.session.commit()
+    
+    flash(f'تم حظر العميل {customer.username} بنجاح', 'success')
+    return redirect(url_for('admin.customers'))
+
+
+@bp.route('/customers/<int:id>/unban', methods=['POST'])
+def unban_customer(id):
+    """Unban a customer"""
+    customer = User.query.get_or_404(id)
+    
+    customer.is_banned = False
+    customer.ban_reason = None
+    db.session.commit()
+    
+    flash(f'تم إلغاء حظر العميل {customer.username} بنجاح', 'success')
+    return redirect(url_for('admin.banned_customers'))
+
+
+@bp.route('/banned-customers')
+def banned_customers():
+    """View all banned customers"""
+    banned = User.query.filter_by(is_banned=True).order_by(User.id.desc()).all()
+    return render_template('admin/banned_customers.html', customers=banned)
 
 @bp.route('/customers/<int:id>/stats')
 def customer_stats(id):
@@ -951,7 +988,7 @@ def edit_service(id):
         return redirect(url_for('admin.services'))
     return render_template('admin/service_form.html', form=form, title='تعديل خدمة')
 
-@bp.route('/services/delete/<int:id>')
+@bp.route('/services/delete/<int:id>', methods=['POST'])
 def delete_service(id):
     service = Service.query.get_or_404(id)
     db.session.delete(service)
@@ -995,7 +1032,7 @@ def edit_vehicle_size(id):
         return redirect(url_for('admin.vehicle_sizes'))
     return render_template('admin/vehicle_size_form.html', form=form, title='تعديل حجم سيارة')
 
-@bp.route('/vehicle-sizes/delete/<int:id>')
+@bp.route('/vehicle-sizes/delete/<int:id>', methods=['POST'])
 def delete_vehicle_size(id):
     size = VehicleSize.query.get_or_404(id)
     db.session.delete(size)
@@ -1251,7 +1288,7 @@ def edit_product(id):
     return render_template('admin/product_form.html', form=form, title='تعديل منتج', product=product)
 
 
-@bp.route('/products/delete/<int:id>')
+@bp.route('/products/delete/<int:id>', methods=['POST'])
 def delete_product(id):
     product = Product.query.get_or_404(id)
     db.session.delete(product)
@@ -1330,7 +1367,7 @@ def edit_neighborhood(id):
         return redirect(url_for('admin.locations'))
     return render_template('admin/location_form.html', form=form, title='تعديل حي', type='neighborhood')
 
-@bp.route('/locations/city/delete/<int:id>')
+@bp.route('/locations/city/delete/<int:id>', methods=['POST'])
 def delete_city(id):
     city = City.query.get_or_404(id)
     # Check if city has neighborhoods
@@ -1343,7 +1380,7 @@ def delete_city(id):
     flash('تم حذف المدينة بنجاح')
     return redirect(url_for('admin.locations'))
 
-@bp.route('/locations/neighborhood/delete/<int:id>')
+@bp.route('/locations/neighborhood/delete/<int:id>', methods=['POST'])
 def delete_neighborhood(id):
     neighborhood = Neighborhood.query.get_or_404(id)
     db.session.delete(neighborhood)
@@ -1399,7 +1436,7 @@ def edit_package(id):
         form.description.data = package.description
     return render_template('admin/package_form.html', form=form, title='تعديل باقة اشتراك')
 
-@bp.route('/packages/delete/<int:id>')
+@bp.route('/packages/delete/<int:id>', methods=['POST'])
 def delete_package(id):
     package = SubscriptionPackage.query.get_or_404(id)
     db.session.delete(package)
@@ -1554,7 +1591,7 @@ def approve_subscription(id):
     flash('تم قبول الاشتراك بنجاح')
     return redirect(url_for('admin.subscriptions', status='active'))
 
-@bp.route('/subscriptions/<int:id>/reject')
+@bp.route('/subscriptions/<int:id>/reject', methods=['POST'])
 def reject_subscription(id):
     subscription = Subscription.query.get_or_404(id)
     subscription.status = 'rejected'
@@ -1605,7 +1642,7 @@ def edit_subscription(id):
     flash('تم تحديث الاشتراك بنجاح')
     return redirect(url_for('admin.subscriptions', status='active'))
 
-@bp.route('/subscriptions/<int:id>/delete')
+@bp.route('/subscriptions/<int:id>/delete', methods=['POST'])
 def delete_subscription(id):
     subscription = Subscription.query.get_or_404(id)
     db.session.delete(subscription)
@@ -1926,7 +1963,7 @@ def get_available_slots(employee_id, date):
     date_obj = datetime.strptime(date, '%Y-%m-%d').date()
     day_of_week = date_obj.weekday()
     
-    print(f"[DEBUG] Looking for slots: employee_id={employee_id}, date={date}, day_of_week={day_of_week}")
+    # print(f"[DEBUG] Looking for slots: employee_id={employee_id}, date={date}, day_of_week={day_of_week}")
     
     schedule = EmployeeSchedule.query.filter_by(
         employee_id=employee_id, 
@@ -1934,12 +1971,13 @@ def get_available_slots(employee_id, date):
         is_active=True
     ).first()
     
-    print(f"[DEBUG] Found schedule: {schedule}")
+    # print(f"[DEBUG] Found schedule: {schedule}")
     if schedule:
-        print(f"[DEBUG] Schedule details: day={schedule.day_of_week}, start={schedule.start_time}, end={schedule.end_time}")
+        # print(f"[DEBUG] Schedule details: day={schedule.day_of_week}, start={schedule.start_time}, end={schedule.end_time}")
+        pass
     
     if not schedule:
-        print(f"[DEBUG] No schedule found, returning empty")
+        # print(f"[DEBUG] No schedule found, returning empty")
         return jsonify([])
     
     # Get all bookings for this employee on this date
@@ -1955,14 +1993,14 @@ def get_available_slots(employee_id, date):
         booking_end = booking_start + timedelta(minutes=BOOKING_DURATION_MINUTES)
         blocked_ranges.append((booking_start, booking_end))
     
-    print(f"[DEBUG] Blocked ranges: {[(r[0].time(), r[1].time()) for r in blocked_ranges]}")
+    # print(f"[DEBUG] Blocked ranges: {[(r[0].time(), r[1].time()) for r in blocked_ranges]}")
     
     # Get current time if booking for today
     now = datetime.now()
     is_today = date_obj == now.date()
     current_time = now.time() if is_today else None
     
-    print(f"[DEBUG] is_today={is_today}, current_time={current_time}")
+    # print(f"[DEBUG] is_today={is_today}, current_time={current_time}")
     
     slots = []
     current = datetime.combine(date_obj, schedule.start_time)
@@ -1981,7 +2019,7 @@ def get_available_slots(employee_id, date):
         
         # Skip if it's today and the time has passed
         if is_today and current_time and slot_time <= current_time:
-            print(f"[DEBUG] Skipping {time_str} - past time")
+            # print(f"[DEBUG] Skipping {time_str} - past time")
             current = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
             continue
         
@@ -1991,7 +2029,7 @@ def get_available_slots(employee_id, date):
             # Check if there's any overlap
             if current < blocked_end and slot_end > blocked_start:
                 slot_blocked = True
-                print(f"[DEBUG] Skipping {time_str} - conflicts with booking at {blocked_start.time()}")
+                # print(f"[DEBUG] Skipping {time_str} - conflicts with booking at {blocked_start.time()}")
                 break
         
         if not slot_blocked:
@@ -1999,7 +2037,7 @@ def get_available_slots(employee_id, date):
         
         current = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
     
-    print(f"[DEBUG] Final slots: {slots}")
+    # print(f"[DEBUG] Final slots: {slots}")
     return jsonify(slots)
 
 @bp.route('/api/area-available-slots/<int:neighborhood_id>/<date>')
@@ -2183,7 +2221,7 @@ def reassign_booking(id):
     flash('تم إعادة إسناد الحجز بنجاح')
     return redirect(url_for('admin.bookings'))
 
-@bp.route('/bookings/<int:id>/cancel')
+@bp.route('/bookings/<int:id>/cancel', methods=['POST'])
 def cancel_booking(id):
     from app.utils.timezone import get_saudi_time
     
@@ -2761,7 +2799,7 @@ def edit_admin(id):
         return redirect(url_for('admin.admins'))
     return render_template('admin/admin_form.html', form=form, title='تعديل مسؤول', admin=admin)
 
-@bp.route('/admins/delete/<int:id>')
+@bp.route('/admins/delete/<int:id>', methods=['POST'])
 def delete_admin(id):
     if id == current_user.id:
         flash('لا يمكنك حذف حسابك الحالي', 'error')
@@ -2812,7 +2850,7 @@ def gift_orders():
                          status_filter=status_filter)
 
 
-@bp.route('/gift-orders/<int:id>/accept')
+@bp.route('/gift-orders/<int:id>/accept', methods=['POST'])
 def accept_gift_order(id):
     """Accept a gift order"""
     from app.models import GiftOrder
@@ -2825,7 +2863,7 @@ def accept_gift_order(id):
     return redirect(url_for('admin.gift_orders'))
 
 
-@bp.route('/gift-orders/<int:id>/reject')
+@bp.route('/gift-orders/<int:id>/reject', methods=['POST'])
 def reject_gift_order(id):
     """Reject a gift order"""
     from app.models import GiftOrder
@@ -2861,6 +2899,11 @@ def add_announcement():
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename:
+                from app.utils.file_handling import allowed_file
+                if not allowed_file(file.filename):
+                    flash('نوع الملف غير مدعوم. يرجى رفع صورة (png, jpg, jpeg, gif, webp)', 'error')
+                    return redirect(url_for('admin.announcements'))
+                
                 filename = secure_filename(file.filename)
                 # Create unique filename
                 unique_filename = f"announcement_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
@@ -2902,6 +2945,11 @@ def edit_announcement(id):
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename:
+                from app.utils.file_handling import allowed_file
+                if not allowed_file(file.filename):
+                    flash('نوع الملف غير مدعوم. يرجى رفع صورة (png, jpg, jpeg, gif, webp)', 'error')
+                    return redirect(url_for('admin.announcements'))
+
                 filename = secure_filename(file.filename)
                 unique_filename = f"announcement_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
                 upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'announcements')
@@ -2916,7 +2964,7 @@ def edit_announcement(id):
     return render_template('admin/announcement_form.html', announcement=announcement)
 
 
-@bp.route('/announcements/delete/<int:id>')
+@bp.route('/announcements/delete/<int:id>', methods=['POST'])
 def delete_announcement(id):
     """Delete an announcement"""
     announcement = Announcement.query.get_or_404(id)
@@ -2926,7 +2974,7 @@ def delete_announcement(id):
     return redirect(url_for('admin.announcements'))
 
 
-@bp.route('/announcements/toggle/<int:id>')
+@bp.route('/announcements/toggle/<int:id>', methods=['POST'])
 def toggle_announcement(id):
     """Toggle announcement active status"""
     announcement = Announcement.query.get_or_404(id)

@@ -233,16 +233,21 @@
                         {% endif %}
                         <form action="{{ url_for('admin.delete_booking', id=booking.id) }}" method="post"
                             onsubmit="return confirm('هل أنت متأكد من حذف هذا الحجز نهائياً؟')" style="display:inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="text-red-400 hover:text-red-300" title="حذف">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </form>
                         {% if booking.status != 'cancelled' %}
-                        <a href="{{ url_for('admin.cancel_booking', id=booking.id) }}"
-                            onclick="return confirm('هل أنت متأكد من إلغاء الحجز؟ سيتم إعادة المنتجات للمخزون.')"
-                            class="text-orange-400 hover:text-orange-300" title="إلغاء">
-                            <i class="fas fa-ban"></i>
-                        </a>
+                        <form action="{{ url_for('admin.cancel_booking', id=booking.id) }}" method="post" class="inline"
+                            style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="text-orange-400 hover:text-orange-300"
+                                onclick="return confirm('هل أنت متأكد من إلغاء الحجز؟ سيتم إعادة المنتجات للمخزون.')"
+                                title="إلغاء">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                        </form>
                         {% endif %}
                     </div>
                 </td>
@@ -261,6 +266,7 @@
     <div class="bg-primary p-6 rounded-lg max-w-lg w-full mx-4">
         <h3 class="text-xl font-bold mb-4">تعديل الحجز</h3>
         <form id="editBookingForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-4">
                 <label class="block text-sm mb-2">تعديل سعر الخدمة (تجاوز السعر الأصلي)</label>
                 <input type="number" name="custom_service_price" id="editServicePrice" step="0.01"
@@ -360,6 +366,13 @@
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/admin/bookings/${bookingId}/refund-product/${productId}`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        form.appendChild(csrfInput);
+
         document.body.appendChild(form);
         form.submit();
     }
@@ -370,6 +383,7 @@
     <div class="bg-primary p-6 rounded-lg max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
         <h3 class="text-xl font-bold mb-4">إضافة حجز جديد</h3>
         <form action="{{ url_for('admin.create_booking') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div class="col-span-2">
                     <label class="block text-sm mb-2">العميل *</label>
@@ -467,6 +481,7 @@
     <div class="bg-primary p-6 rounded-lg max-w-md w-full mx-4">
         <h3 class="text-xl font-bold mb-4">إعادة إسناد الحجز</h3>
         <form id="reassignForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" id="reassignBookingId">
             <input type="hidden" id="reassignDate">
             <input type="hidden" id="reassignNeighborhoodId">

@@ -85,12 +85,15 @@
                             <i class="fas fa-calendar-alt"></i>
                         </a>
                         {% endif %}
-                        <a href="{{ url_for('admin.delete_employee', id=emp.id) }}"
-                            class="text-red-400 hover:text-red-300"
-                            onclick="return confirm('هل أنت متأكد من حذف هذا {% if emp.role == 'supervisor' %}المشرف{% else %}الموظف{% endif %}؟')"
-                            title="حذف">
-                            <i class="fas fa-trash"></i>
-                        </a>
+                        <form action="{{ url_for('admin.delete_employee', id=emp.id) }}" method="post"
+                            style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="text-red-400 hover:text-red-300"
+                                onclick="return confirm('هل أنت متأكد من حذف هذا {% if emp.role == 'supervisor' %}المشرف{% else %}الموظف{% endif %}؟')"
+                                title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </td>
             </tr>

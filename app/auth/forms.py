@@ -13,8 +13,13 @@ class RegistrationForm(FlaskForm):
     username = StringField('اسم المستخدم', validators=[DataRequired()])
     email = StringField('البريد الإلكتروني', validators=[DataRequired(), Email()])
     phone = StringField('رقم الجوال', validators=[DataRequired(), Length(min=10, max=15)])
-    password = PasswordField('كلمة المرور', validators=[DataRequired()])
+    password = PasswordField('كلمة المرور', validators=[DataRequired(), Length(min=8, message='كلمة المرور يجب أن تكون 8 أحرف على الأقل')])
     confirm_password = PasswordField('تأكيد كلمة المرور', validators=[DataRequired(), EqualTo('password')])
+
+    def validate_password(self, password):
+        import re
+        if not re.search(r"[a-z]", password.data) or not re.search(r"[A-Z]", password.data) or not re.search(r"[0-9]", password.data):
+            raise ValidationError('كلمة المرور يجب أن تحتوي على أحرف صغيرة وكبيرة وأرقام.')
     submit = SubmitField('تسجيل جديد')
 
     def validate_username(self, username):
@@ -51,6 +56,11 @@ class ResetCodeForm(FlaskForm):
     submit = SubmitField('تحقق')
 
 class ResetPasswordForm(FlaskForm):
-    password = PasswordField('كلمة المرور الجديدة', validators=[DataRequired()])
+    password = PasswordField('كلمة المرور الجديدة', validators=[DataRequired(), Length(min=8, message='كلمة المرور يجب أن تكون 8 أحرف على الأقل')])
     confirm_password = PasswordField('تأكيد كلمة المرور', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('تغيير كلمة المرور')
+
+    def validate_password(self, password):
+        import re
+        if not re.search(r"[a-z]", password.data) or not re.search(r"[A-Z]", password.data) or not re.search(r"[0-9]", password.data):
+             raise ValidationError('كلمة المرور يجب أن تحتوي على أحرف صغيرة وكبيرة وأرقام.')

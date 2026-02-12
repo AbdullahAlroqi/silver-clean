@@ -158,7 +158,7 @@ def active_bookings():
                           selected_date=selected_date,
                           has_schedule=len(employee_schedules) > 0)
 
-@bp.route('/booking/<int:id>/status/<status>')
+@bp.route('/booking/<int:id>/status/<status>', methods=['POST'])
 def update_status(id, status):
     """Update booking status"""
     booking = Booking.query.get_or_404(id)
@@ -179,15 +179,16 @@ def update_status(id, status):
             from app.utils.timezone import get_saudi_time
             booking.completed_at = get_saudi_time().replace(tzinfo=None)
             
-            # Add loyalty point
-            current_points = (booking.customer.points or 0) + 1
-            if current_points >= 10:
-                booking.customer.points = 0
-                booking.customer.free_washes = (booking.customer.free_washes or 0) + 1
-                flash('تم إكمال الخدمة. وصل العميل لـ 10 نقاط وحصل على غسلة مجانية! 🎉', 'success')
-            else:
-                booking.customer.points = current_points
-                flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
+            # Add loyalty point (only if not a subscription booking)
+            if not booking.subscription_id:
+                current_points = (booking.customer.points or 0) + 1
+                if current_points >= 10:
+                    booking.customer.points = 0
+                    booking.customer.free_washes = (booking.customer.free_washes or 0) + 1
+                    flash('تم إكمال الخدمة. وصل العميل لـ 10 نقاط وحصل على غسلة مجانية! 🎉', 'success')
+                else:
+                    booking.customer.points = current_points
+                    flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
             
             # Deduct products from stock
             for booking_product in booking.products:

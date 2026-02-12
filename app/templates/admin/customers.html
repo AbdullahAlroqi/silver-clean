@@ -3,10 +3,16 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold text-white">إدارة العملاء</h2>
-    <a href="{{ url_for('admin.export_customers') }}"
-        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
-        <i class="fas fa-download mr-2"></i>تصدير CSV
-    </a>
+    <div class="flex gap-2">
+        <a href="{{ url_for('admin.banned_customers') }}"
+            class="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded">
+            <i class="fas fa-ban mr-2"></i>الحسابات المحظورة
+        </a>
+        <a href="{{ url_for('admin.export_customers') }}"
+            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+            <i class="fas fa-download mr-2"></i>تصدير CSV
+        </a>
+    </div>
 </div>
 
 <div class="mb-6">
@@ -45,7 +51,12 @@
             {% for customer in customers %}
             <tr class="hover:bg-gray-700 transition">
                 <td class="px-6 py-4 text-sm">{{ customer.id }}</td>
-                <td class="px-6 py-4 text-sm font-medium">{{ customer.username }}</td>
+                <td class="px-6 py-4 text-sm font-medium">
+                    {{ customer.username }}
+                    {% if customer.is_banned %}
+                    <span class="bg-red-600 text-white text-xs px-2 py-1 rounded-full mr-1">محظور</span>
+                    {% endif %}
+                </td>
                 <td class="px-6 py-4 text-sm text-gray-300">{{ customer.phone or '-' }}</td>
                 <td class="px-6 py-4 text-sm text-gray-300">{{ customer.email or '-' }}</td>
                 <td class="px-6 py-4 text-sm">{{ customer.free_washes or 0 }}</td>
@@ -80,6 +91,18 @@
                             title="تعديل الغسلات">
                             <i class="fas fa-gift"></i>
                         </button>
+                        {% if not customer.is_banned %}
+                        <button onclick="showBanModal({{ customer.id }}, '{{ customer.username }}')"
+                            class="bg-red-800 hover:bg-red-900 text-white px-3 py-1 rounded text-xs" title="حظر العميل">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                        {% else %}
+                        <button onclick="unbanCustomer({{ customer.id }}, '{{ customer.username }}')"
+                            class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs"
+                            title="إلغاء الحظر">
+                            <i class="fas fa-unlock"></i>
+                        </button>
+                        {% endif %}
                         <button onclick="deleteCustomer({{ customer.id }}, '{{ customer.username }}')"
                             class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs" title="حذف العميل">
                             <i class="fas fa-trash"></i>
@@ -101,6 +124,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
         <h3 class="text-xl font-bold text-white mb-4">تغيير كلمة السر</h3>
         <form id="passwordForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <p class="text-gray-300 mb-4">العميل: <span id="customerName" class="font-bold"></span></p>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-300 mb-2">كلمة السر الجديدة</label>
@@ -121,6 +145,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
         <h3 class="text-xl font-bold text-white mb-4">تعديل نقاط الولاء</h3>
         <form id="pointsForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <p class="text-gray-300 mb-4">العميل: <span id="pointsCustomerName" class="font-bold"></span></p>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-300 mb-2">عدد النقاط (استخدم - للخصم)</label>
@@ -142,6 +167,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
         <h3 class="text-xl font-bold text-white mb-4">تعديل الغسلات المجانية</h3>
         <form id="washesForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <p class="text-gray-300 mb-4">العميل: <span id="washesCustomerName" class="font-bold"></span></p>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-300 mb-2">عدد الغسلات (استخدم - للخصم)</label>
@@ -194,9 +220,68 @@
             var form = document.createElement('form');
             form.method = 'POST';
             form.action = '/admin/customers/' + customerId + '/delete';
+
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            form.appendChild(csrfInput);
+
             document.body.appendChild(form);
             form.submit();
         }
     }
+
+    function showBanModal(customerId, customerName) {
+        document.getElementById('banCustomerName').textContent = customerName;
+        document.getElementById('banForm').action = '/admin/customers/' + customerId + '/ban';
+        document.getElementById('banModal').classList.remove('hidden');
+    }
+
+    function closeBanModal() {
+        document.getElementById('banModal').classList.add('hidden');
+    }
+
+    function unbanCustomer(customerId, customerName) {
+        if (confirm('هل أنت متأكد من إلغاء حظر العميل "' + customerName + '"؟')) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/admin/customers/' + customerId + '/unban';
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
 </script>
+
+<!-- Ban Modal -->
+<div id="banModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-red-400 mb-4"><i class="fas fa-ban mr-2"></i>حظر العميل</h3>
+        <form id="banForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p class="text-gray-300 mb-4">العميل: <span id="banCustomerName" class="font-bold text-white"></span></p>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">سبب الحظر</label>
+                <input type="text" name="ban_reason" placeholder="اكتب سبب الحظر..."
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white">
+            </div>
+            <div class="bg-red-900 bg-opacity-30 border border-red-600 rounded p-3 mb-4">
+                <p class="text-red-300 text-sm"><i class="fas fa-exclamation-triangle mr-1"></i>تحذير: سيتم منع العميل
+                    من تسجيل الدخول والتسجيل بنفس رقم الجوال والبريد الإلكتروني.</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded font-bold">تأكيد
+                    الحظر</button>
+                <button type="button" onclick="closeBanModal()"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

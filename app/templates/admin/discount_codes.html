@@ -59,6 +59,7 @@
                             </a>
                             <form action="{{ url_for('admin.delete_discount_code', id=code.id) }}" method="POST"
                                 class="inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="text-red-400 hover:text-red-300"
                                     onclick="return confirm('هل أنت متأكد من حذف كود الخصم هذا؟')" title="حذف">
                                     <i class="fas fa-trash"></i>

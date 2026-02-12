@@ -10,6 +10,8 @@ login = LoginManager()
 login.login_view = 'auth.login'
 from flask_mail import Mail
 mail = Mail()
+from flask_wtf.csrf import CSRFProtect
+csrf = CSRFProtect()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -19,6 +21,10 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     login.init_app(app)
     mail.init_app(app)
+    csrf.init_app(app)
+    
+    from app.limiter import limiter
+    limiter.init_app(app)
     
     def get_locale():
         from flask import session, request
@@ -54,6 +60,13 @@ def create_app(config_class=Config):
     def inject_settings():
         from app.models import SiteSettings
         return dict(site_settings=SiteSettings.get_settings(), get_locale=get_locale)
+
+    @app.after_request
+    def set_security_headers(response):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        return response
 
     return app
 

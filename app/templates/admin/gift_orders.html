@@ -161,14 +161,20 @@
     <!-- Actions (only for pending) -->
     {% if show_actions %}
     <div class="flex gap-2">
-        <a href="{{ url_for('admin.accept_gift_order', id=order.id) }}"
-            class="flex-1 bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded text-center transition">
-            <i class="fas fa-check ml-1"></i> قبول
-        </a>
-        <a href="{{ url_for('admin.reject_gift_order', id=order.id) }}"
-            class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-center transition">
-            <i class="fas fa-times ml-1"></i> رفض
-        </a>
+        <form action="{{ url_for('admin.accept_gift_order', id=order.id) }}" method="post" class="flex-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit"
+                class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded text-center transition">
+                <i class="fas fa-check ml-1"></i> قبول
+            </button>
+        </form>
+        <form action="{{ url_for('admin.reject_gift_order', id=order.id) }}" method="post" class="flex-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit"
+                class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded text-center transition">
+                <i class="fas fa-times ml-1"></i> رفض
+            </button>
+        </form>
     </div>
     {% endif %}
 </div>

@@ -44,11 +44,14 @@
                     class="text-blue-400 hover:text-blue-300 px-2" title="تعديل">
                     <i class="fas fa-edit"></i>
                 </a>
-                <a href="{{ url_for('admin.delete_city', id=stat.city.id) }}"
-                    class="text-red-400 hover:text-red-300 px-2" title="حذف"
-                    onclick="return confirm('هل أنت متأكد من حذف المدينة {{ stat.city.name_ar }}؟')">
-                    <i class="fas fa-trash"></i>
-                </a>
+                <form action="{{ url_for('admin.delete_city', id=stat.city.id) }}" method="post"
+                    style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="text-red-400 hover:text-red-300 px-2" title="حذف"
+                        onclick="return confirm('هل أنت متأكد من حذف المدينة {{ stat.city.name_ar }}؟')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </form>
             </div>
         </div>
         <div class="p-4">
@@ -65,11 +68,14 @@
                             class="text-blue-400 hover:text-blue-300" title="تعديل">
                             <i class="fas fa-edit"></i>
                         </a>
-                        <a href="{{ url_for('admin.delete_neighborhood', id=neighborhood.id) }}"
-                            class="text-red-400 hover:text-red-300" title="حذف"
-                            onclick="return confirm('هل أنت متأكد من حذف الحي {{ neighborhood.name_ar }}؟')">
-                            <i class="fas fa-trash"></i>
-                        </a>
+                        <form action="{{ url_for('admin.delete_neighborhood', id=neighborhood.id) }}" method="post"
+                            style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-400 hover:text-red-300" title="حذف"
+                                onclick="return confirm('هل أنت متأكد من حذف الحي {{ neighborhood.name_ar }}؟')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </div>
                 {% endfor %}

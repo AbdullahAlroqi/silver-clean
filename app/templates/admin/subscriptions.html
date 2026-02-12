@@ -73,13 +73,20 @@
                         {% if current_status == 'pending' %}
                         <button onclick="showApprove({{ sub.id }}, {{ sub.neighborhood_id or 0 }})"
                             class="text-green-400" title="قبول">✓</button>
-                        <a href="{{ url_for('admin.reject_subscription', id=sub.id) }}" class="text-red-400"
-                            onclick="return confirm('رفض؟')">✕</a>
+                        <form action="{{ url_for('admin.reject_subscription', id=sub.id) }}" method="post"
+                            style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="text-red-400" onclick="return confirm('رفض؟')">✕</button>
+                        </form>
                         {% elif current_status == 'active' %}
                         <button onclick="showEdit({{ sub.id }})" class="text-blue-400" title="تعديل"><i
                                 class="fas fa-edit"></i></button>
-                        <a href="{{ url_for('admin.delete_subscription', id=sub.id) }}" class="text-red-400"
-                            onclick="return confirm('حذف؟')"><i class="fas fa-trash"></i></a>
+                        <form action="{{ url_for('admin.delete_subscription', id=sub.id) }}" method="post"
+                            style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="text-red-400" onclick="return confirm('حذف؟')"><i
+                                    class="fas fa-trash"></i></button>
+                        </form>
                         {% endif %}
                         {% set phone = sub.customer.phone %}
                         {% if phone and phone.startswith('0') %}
@@ -105,6 +112,7 @@
     <div class="bg-primary p-6 rounded-lg max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
         <h3 class="text-xl font-bold mb-4">إضافة اشتراك جديد</h3>
         <form action="{{ url_for('admin.create_subscription') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div class="col-span-2">
                     <label class="block text-sm mb-2">العميل *</label>
@@ -182,6 +190,7 @@
     <div class="bg-primary p-6 rounded-lg max-w-md w-full mx-4">
         <h3 class="text-xl font-bold mb-4">قبول الاشتراك</h3>
         <form id="approveForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <p class="text-gray-300 mb-4">سيتم تفعيل الاشتراك وسيتمكن العميل من حجز الغسلات حسب توفر الموظفين في منطقته.
             </p>
             <div class="flex gap-2">
@@ -198,6 +207,7 @@
     <div class="bg-primary p-6 rounded-lg max-w-2xl w-full mx-4">
         <h3 class="text-xl font-bold mb-4">تعديل الاشتراك</h3>
         <form id="editForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
                     <label class="block text-sm mb-2">المدينة</label>
