@@ -2773,6 +2773,10 @@ def add_admin():
             flash('اسم المستخدم موجود مسبقاً', 'error')
             return render_template('admin/admin_form.html', form=form, title='إضافة مسؤول')
         
+        if User.query.filter_by(email=form.email.data).first():
+            flash('البريد الإلكتروني مسجل مسبقاً لمستخدم آخر', 'error')
+            return render_template('admin/admin_form.html', form=form, title='إضافة مسؤول')
+        
         user = User(
             username=form.username.data,
             email=form.email.data,
