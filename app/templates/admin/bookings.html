@@ -292,9 +292,26 @@
             <div class="mb-4">
                 <label class="block text-sm mb-2">المنتجات (السعر والإسترجاع)</label>
                 <div id="editProductsList"
-                    class="space-y-2 bg-darkbg p-3 rounded border border-gray-600 max-h-40 overflow-y-auto">
+                    class="space-y-2 bg-darkbg p-3 rounded border border-gray-600 max-h-40 overflow-y-auto mb-2">
                     <!-- Products will be loaded here -->
                     <p class="text-gray-400 text-sm text-center">لا يوجد منتجات</p>
+                </div>
+
+                <!-- Add New Product Section -->
+                <div class="bg-gray-800 p-3 rounded border border-gray-700">
+                    <label class="block text-xs text-gray-400 mb-2">إضافة منتج جديد</label>
+                    <div class="flex gap-2">
+                        <select id="newProductSelect"
+                            class="flex-1 bg-darkbg border border-gray-600 rounded px-2 py-1 text-sm">
+                            <option value="">-- اختر منتج --</option>
+                        </select>
+                        <input type="number" id="newProductQty" value="1" min="1"
+                            class="w-16 bg-darkbg border border-gray-600 rounded px-2 py-1 text-sm text-center">
+                        <button type="button" onclick="addProductToBooking()"
+                            class="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-sm">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -310,7 +327,10 @@
 <script>
     // Existing functions...
 
+    let currentBookingId = null;
+
     function showEditBookingModal(bookingId, vehicleSizePrice, paymentMethod, customServicePrice) {
+        currentBookingId = bookingId;
         document.getElementById('editBookingForm').action = `/admin/bookings/${bookingId}/edit`;
         document.getElementById('editVehicleSizePrice').value = vehicleSizePrice;
         document.getElementById('editPaymentMethod').value = paymentMethod;
@@ -354,6 +374,55 @@
                 console.error('Error fetching products:', error);
                 productsList.innerHTML = '<p class="text-red-400 text-sm text-center">خطأ في تحميل المنتجات</p>';
             });
+
+        // Fetch available products for adding
+        fetch('/admin/api/products/available')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('newProductSelect');
+                select.innerHTML = '<option value="">-- اختر منتج --</option>';
+                data.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = `${p.name} (${p.price} ريال) - متوفر: ${p.stock}`;
+                    select.appendChild(option);
+                });
+            });
+    }
+
+    function addProductToBooking() {
+        const productId = document.getElementById('newProductSelect').value;
+        const quantity = document.getElementById('newProductQty').value;
+
+        if (!productId) {
+            alert('الرجاء اختيار منتج');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/bookings/${currentBookingId}/add-product`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = document.querySelector('input[name="csrf_token"]').value;
+        form.appendChild(csrfInput);
+
+        const prodInput = document.createElement('input');
+        prodInput.type = 'hidden';
+        prodInput.name = 'product_id';
+        prodInput.value = productId;
+        form.appendChild(prodInput);
+
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'hidden';
+        qtyInput.name = 'quantity';
+        qtyInput.value = quantity;
+        form.appendChild(qtyInput);
+
+        document.body.appendChild(form);
+        form.submit();
     }
 
     function closeEditBookingModal() {

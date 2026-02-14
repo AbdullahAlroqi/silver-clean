@@ -6,6 +6,7 @@
 
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <form method="post" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
             {% set days = [
             ('sunday', 'الأحد', 6),
             ('monday', 'الاثنين', 0),

@@ -256,6 +256,7 @@
                     <th class="px-4 py-3 text-right text-sm font-bold">الحالة</th>
                     <th class="px-4 py-3 text-right text-sm font-bold">المدة</th>
                     <th class="px-4 py-3 text-right text-sm font-bold">السعر</th>
+                    <th class="px-4 py-3 text-right text-sm font-bold">إجراءات</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-700">
@@ -429,6 +430,13 @@
                         {% endif %}
                         {% endif %}
                     </td>
+                    <td class="px-4 py-4">
+                        <button
+                            onclick='showEditBookingModal({{ booking.id }}, {{ booking.vehicle_size_price or 0 }}, "{{ booking.payment_method }}", {{ booking.custom_service_price if booking.custom_service_price is not none else "null" }})'
+                            class="text-yellow-400 hover:text-yellow-300" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
@@ -565,5 +573,190 @@
         </button>
     </div>
 </div>
+
+<!-- Edit Booking Modal -->
+<div id="editBookingModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg max-w-lg w-full mx-4">
+        <h3 class="text-xl font-bold mb-4">تعديل الحجز</h3>
+        <form id="editBookingForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-4">
+                <label class="block text-sm mb-2">تعديل سعر الخدمة (تجاوز السعر الأصلي)</label>
+                <input type="number" name="custom_service_price" id="editServicePrice" step="0.01"
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2"
+                    placeholder="اتركه فارغاً للسعر الافتراضي">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm mb-2">تعديل سعر حجم السيارة (إضافي)</label>
+                <input type="number" name="vehicle_size_price" id="editVehicleSizePrice" step="0.01"
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm mb-2">طريقة الدفع</label>
+                <select name="payment_method" id="editPaymentMethod"
+                    class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                    <option value="cash">كاش</option>
+                    <option value="card">بطاقة / شبكة</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm mb-2">المنتجات (السعر والإسترجاع)</label>
+                <div id="editProductsList"
+                    class="space-y-2 bg-darkbg p-3 rounded border border-gray-600 max-h-40 overflow-y-auto mb-2">
+                    <!-- Products will be loaded here -->
+                    <p class="text-gray-400 text-sm text-center">لا يوجد منتجات</p>
+                </div>
+
+                <!-- Add New Product Section -->
+                <div class="bg-gray-800 p-3 rounded border border-gray-700">
+                    <label class="block text-xs text-gray-400 mb-2">إضافة منتج جديد</label>
+                    <div class="flex gap-2">
+                        <select id="newProductSelect"
+                            class="flex-1 bg-darkbg border border-gray-600 rounded px-2 py-1 text-sm">
+                            <option value="">-- اختر منتج --</option>
+                        </select>
+                        <input type="number" id="newProductQty" value="1" min="1"
+                            class="w-16 bg-darkbg border border-gray-600 rounded px-2 py-1 text-sm text-center">
+                        <button type="button" onclick="addProductToBooking()"
+                            class="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-sm">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">حفظ التغييرات</button>
+                <button type="button" onclick="closeEditBookingModal()"
+                    class="flex-1 bg-gray-600 text-white py-2 rounded">إلغاء</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Booking Edit Functions
+    let currentBookingId = null;
+
+    function showEditBookingModal(bookingId, vehicleSizePrice, paymentMethod, customServicePrice) {
+        currentBookingId = bookingId;
+        document.getElementById('editBookingForm').action = `/admin/bookings/${bookingId}/edit`;
+        document.getElementById('editVehicleSizePrice').value = vehicleSizePrice;
+        document.getElementById('editPaymentMethod').value = paymentMethod;
+        document.getElementById('editServicePrice').value = customServicePrice !== null ? customServicePrice : '';
+
+        const productsList = document.getElementById('editProductsList');
+        productsList.innerHTML = '<p class="text-gray-400 text-sm text-center">جاري التحميل...</p>';
+        document.getElementById('editBookingModal').classList.remove('hidden');
+
+        // Fetch products via API
+        fetch(`/admin/bookings/${bookingId}/products`)
+            .then(response => response.json())
+            .then(data => {
+                productsList.innerHTML = '';
+                if (data && data.length > 0) {
+                    data.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'flex justify-between items-start bg-gray-700 p-2 rounded gap-2';
+                        div.innerHTML = `
+                            <div class="flex-1">
+                                <div class="text-sm font-bold">${item.product_name}</div>
+                                <div class="text-xs text-gray-400 mb-1">الكمية: ${item.quantity} | السعر الأصلي: ${item.original_price}</div>
+                                <div class="flex items-center gap-2">
+                                    <label class="text-[10px] text-gray-300">السعر:</label>
+                                    <input type="number" name="product_price_${item.product_id}" value="${item.price}" 
+                                        step="0.01" class="w-20 bg-gray-600 border border-gray-500 rounded px-1 py-0.5 text-xs text-white">
+                                </div>
+                            </div>
+                            <button type="button" onclick="refundProduct(${bookingId}, ${item.product_id})" 
+                                    class="text-xs bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded h-fit">
+                                استرجاع
+                            </button>
+                        `;
+                        productsList.appendChild(div);
+                    });
+                } else {
+                    productsList.innerHTML = '<p class="text-gray-400 text-sm text-center">لا يوجد منتجات</p>';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching products:', error);
+                productsList.innerHTML = '<p class="text-red-400 text-sm text-center">خطأ في تحميل المنتجات</p>';
+            });
+
+        // Fetch available products for adding
+        fetch('/admin/api/products/available')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('newProductSelect');
+                select.innerHTML = '<option value="">-- اختر منتج --</option>';
+                data.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p.id;
+                    option.textContent = `${p.name} (${p.price} ريال) - متوفر: ${p.stock}`;
+                    select.appendChild(option);
+                });
+            });
+    }
+
+    function addProductToBooking() {
+        const productId = document.getElementById('newProductSelect').value;
+        const quantity = document.getElementById('newProductQty').value;
+
+        if (!productId) {
+            alert('الرجاء اختيار منتج');
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/bookings/${currentBookingId}/add-product`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = document.querySelector('input[name="csrf_token"]').value;
+        form.appendChild(csrfInput);
+
+        const prodInput = document.createElement('input');
+        prodInput.type = 'hidden';
+        prodInput.name = 'product_id';
+        prodInput.value = productId;
+        form.appendChild(prodInput);
+
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'hidden';
+        qtyInput.name = 'quantity';
+        qtyInput.value = quantity;
+        form.appendChild(qtyInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function closeEditBookingModal() {
+        document.getElementById('editBookingModal').classList.add('hidden');
+    }
+
+    function refundProduct(bookingId, productId) {
+        if (!confirm('هل أنت متأكد من استرجاع هذا المنتج للمخزون؟ سيتم حذف المنتج من الحجز.')) return;
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/bookings/${bookingId}/refund-product/${productId}`;
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        form.appendChild(csrfInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
 
 {% endblock %}

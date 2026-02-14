@@ -1907,7 +1907,7 @@ def edit_booking(id):
         
     db.session.commit()
     flash('تم تحديث الحجز بنجاح', 'success')
-    return redirect(url_for('admin.bookings'))
+    return redirect(request.referrer or url_for('admin.bookings'))
 
 @bp.route('/bookings/<int:id>/refund-product/<int:product_id>', methods=['POST'])
 def refund_product(id, product_id):
@@ -1929,7 +1929,59 @@ def refund_product(id, product_id):
     else:
         flash('المنتج غير موجود في هذا الحجز', 'error')
         
-    return redirect(url_for('admin.bookings'))
+    return redirect(request.referrer or url_for('admin.bookings'))
+
+@bp.route('/bookings/<int:id>/add-product', methods=['POST'])
+def add_booking_product(id):
+    from app.models import BookingProduct, Product
+    
+    booking = Booking.query.get_or_404(id)
+    product_id = request.form.get('product_id')
+    quantity = int(request.form.get('quantity', 1))
+    
+    if not product_id:
+        flash('الرجاء اختيار منتج', 'error')
+        return redirect(url_for('admin.bookings'))
+        
+    product = Product.query.get_or_404(product_id)
+    
+    # Check stock
+    if product.stock_quantity < quantity:
+        flash(f'الكمية المطلوبة غير متوفرة. المتوفر: {product.stock_quantity}', 'error')
+        return redirect(url_for('admin.bookings'))
+        
+    # Check if product already in booking
+    existing = BookingProduct.query.filter_by(booking_id=id, product_id=product_id).first()
+    
+    if existing:
+        existing.quantity += quantity
+    else:
+        new_item = BookingProduct(
+            booking_id=id,
+            product_id=product_id,
+            quantity=quantity,
+            unit_price=product.price # Lock price at time of addition
+        )
+        db.session.add(new_item)
+        
+    # Deduct from stock
+    product.stock_quantity -= quantity
+    
+    db.session.commit()
+    flash('تم إضافة المنتج للحجز بنجاح', 'success')
+    
+    # Redirect back to referring page (could be bookings or employee stats)
+    return redirect(request.referrer or url_for('admin.bookings'))
+
+@bp.route('/api/products/available')
+def get_available_products_api():
+    products = Product.query.filter(Product.stock_quantity > 0).all()
+    return jsonify([{
+        'id': p.id,
+        'name': p.name_ar,
+        'price': p.price,
+        'stock': p.stock_quantity
+    } for p in products])
 
 # --- APIs ---
 
