@@ -95,9 +95,13 @@ def active_bookings():
         try:
             selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
-            selected_date = get_saudi_time().date()
+            # Fallback to current shift date if parsing fails
+            from app.utils.shift_utils import get_employee_current_shift_date
+            selected_date = get_employee_current_shift_date(current_user.id, get_saudi_time())
     else:
-        selected_date = get_saudi_time().date()
+        # Default to current shift date (handles night shifts crossing midnight)
+        from app.utils.shift_utils import get_employee_current_shift_date
+        selected_date = get_employee_current_shift_date(current_user.id, get_saudi_time())
     
     # Get day of week (Python: 0=Monday, 6=Sunday)
     day_of_week = selected_date.weekday()
