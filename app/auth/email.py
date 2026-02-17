@@ -6,12 +6,20 @@ from threading import Thread
 def send_async_email(app, msg):
     with app.app_context():
         try:
+            print(f"Async Thread: Sending email to {msg.recipients}...")
             mail.send(msg)
-            print(f"Email sent successfully to {msg.recipients}")
+            print(f"Async Thread: Email sent successfully to {msg.recipients}")
         except Exception as e:
-            print(f"Failed to send email: {str(e)}")
+            # Print to stdout/stderr so it shows in Gunicorn logs
+            print(f"Async Thread ERROR: Failed to send email to {msg.recipients}")
+            print(f"Error details: {str(e)}")
             import traceback
             traceback.print_exc()
+            # Also use app logger if available
+            try:
+                app.logger.error(f"Async Email Failed: {str(e)}")
+            except:
+                pass
 
 def send_email(subject, sender, recipients, text_body, html_body):
     msg = Message(subject, sender=sender, recipients=recipients)
