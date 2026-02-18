@@ -11,6 +11,7 @@
 
     <div class="bg-primary rounded-lg shadow-lg p-6">
         <form action="{{ url_for('admin.edit_discount_code', id=code.id) }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="space-y-4">
                 <div>
                     <label class="block text-gray-300 mb-2">الكود</label>

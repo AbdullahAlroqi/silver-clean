@@ -6,6 +6,7 @@
 
     <div class="bg-primary rounded-lg shadow-lg p-6">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-4">
                 <label class="block text-gray-300 mb-2">الاسم (عربي)</label>
                 <input type="text" name="name_ar" required
