@@ -2641,6 +2641,8 @@ def settings():
         settings.tiktok_url = form.tiktok_url.data
         settings.mawthooq_url = form.mawthooq_url.data
         settings.terms_content = form.terms_content.data
+        settings.booking_days_limit = form.booking_days_limit.data
+        settings.subscription_days_limit = form.subscription_days_limit.data
         
         if form.logo.data:
             import os
@@ -2676,6 +2678,8 @@ def settings():
         form.tiktok_url.data = settings.tiktok_url
         form.mawthooq_url.data = settings.mawthooq_url
         form.terms_content.data = settings.terms_content
+        form.booking_days_limit.data = settings.booking_days_limit
+        form.subscription_days_limit.data = settings.subscription_days_limit
 
     return render_template('admin/settings.html', form=form, settings=settings)
 

@@ -88,12 +88,24 @@
         var timeLoading = document.getElementById('time-loading');
         var noTimes = document.getElementById('no-times');
         var submitBtn = document.getElementById('submit-btn');
-        var neighborhoodId = {{ subscription.neighborhood_id }};
+        var neighborhoodId = {{ subscription.neighborhood_id }
+    };
     var serviceId = 1;
 
     // Set min date to today
     var today = new Date().toISOString().split('T')[0];
     dateInput.min = today;
+
+    // Set max date based on subscription days limit
+    var subscriptionDaysLimit = {{ site_settings.subscription_days_limit or 7 }};
+
+    if (subscriptionDaysLimit === 0) {
+        document.querySelector('form').innerHTML = '<div class="text-center p-6"><i class="fas fa-tools text-4xl text-yellow-500 mb-4"></i><h3 class="text-xl font-bold text-white">حجز الاشتراكات متوقف حالياً للصيانة</h3></div>';
+    } else {
+        var maxDate = new Date();
+        maxDate.setDate(maxDate.getDate() + subscriptionDaysLimit);
+        dateInput.max = maxDate.toISOString().split('T')[0];
+    }
 
     dateInput.addEventListener('change', function () {
         var selectedDate = this.value;
@@ -105,7 +117,7 @@
         timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
         submitBtn.disabled = true;
 
-        fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId)
+        fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId + '&type=subscription')
             .then(function (response) { return response.json(); })
             .then(function (times) {
                 timeLoading.classList.add('hidden');

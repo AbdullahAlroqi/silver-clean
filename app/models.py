@@ -259,6 +259,8 @@ class SiteSettings(db.Model):
     terms_content = db.Column(db.Text, default='')
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     loyalty_points_threshold = db.Column(db.Integer, default=10)
+    booking_days_limit = db.Column(db.Integer, default=7)       # عدد أيام حجز الخدمة (0 = إيقاف)
+    subscription_days_limit = db.Column(db.Integer, default=7)   # عدد أيام حجز الاشتراك (0 = إيقاف)
     
     @staticmethod
     def get_settings():

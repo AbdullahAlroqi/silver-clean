@@ -73,6 +73,8 @@ class SiteSettingsForm(FlaskForm):
     tiktok_url = StringField('TikTok URL')
     mawthooq_url = StringField('Mawthooq URL')
     terms_content = TextAreaField('Terms and Conditions')
+    booking_days_limit = IntegerField('عدد أيام الحجز (الخدمة)', validators=[InputRequired(), NumberRange(min=0)])
+    subscription_days_limit = IntegerField('عدد أيام الحجز (الاشتراك)', validators=[InputRequired(), NumberRange(min=0)])
     submit = SubmitField('Save Settings')
 
 class NotificationForm(FlaskForm):

@@ -334,9 +334,17 @@
     let productsData = [];
 
     const dateInput = document.getElementById('date-input');
-    if (dateInput) {
+    const bookingDaysLimit = {{ site_settings.booking_days_limit or 7 }};
+
+    if (bookingDaysLimit === 0) {
+        document.getElementById('bookingForm').innerHTML = '<div class="text-center p-8"><i class="fas fa-tools text-4xl text-yellow-500 mb-4"></i><h3 class="text-xl font-bold text-white">الحجز متوقف حالياً للصيانة</h3><p class="text-gray-400 mt-2">نعتذر عن الإزعاج، يرجى المحاولة لاحقاً.</p></div>';
+    } else if (dateInput) {
         const today = new Date().toISOString().split('T')[0];
         dateInput.min = today;
+
+        const maxDate = new Date();
+        maxDate.setDate(maxDate.getDate() + bookingDaysLimit);
+        dateInput.max = maxDate.toISOString().split('T')[0];
     }
 
     function showStep(step) {
@@ -574,12 +582,12 @@
         timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
         if (!date || !nId || !sId) return;
 
-        const params = new URLSearchParams({ date: date, neighborhood_id: nId, service_id: sId });
+        const params = new URLSearchParams({ date: date, neighborhood_id: nId, service_id: sId, type: 'service' });
         fetch('/customer/api/available-times?' + params)
             .then(response => response.json())
             .then(times => {
                 if (times.length === 0) {
-                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
+                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة (قد يكون اليوم محجوز بالكامل)</option>';
                 } else {
                     times.forEach(time => {
                         const option = document.createElement('option');

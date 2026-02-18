@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.customer import bp
 from app.customer.forms import VehicleForm, BookingForm, EditProfileForm, ChangePasswordForm
-from app.models import Vehicle, Service, Booking, City, Neighborhood, VehicleSize
+from app.models import Vehicle, Service, Booking, City, Neighborhood, VehicleSize, SiteSettings
 
 def check_expired_bookings():
     """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
@@ -260,6 +260,20 @@ def book():
             
             # Get booking details
             booking_date = form.date.data
+            
+            # Backend Validation for Booking Days Limit
+            settings = SiteSettings.get_settings()
+            limit = settings.booking_days_limit if settings.booking_days_limit is not None else 7
+            if limit == 0:
+                flash('الحجز متوقف حالياً للكشف والصيانة', 'error')
+                return redirect(url_for('customer.index'))
+            
+            from app.utils.timezone import get_saudi_date  
+            today = get_saudi_date()
+            if booking_date > today + timedelta(days=limit):
+                flash(f'عذراً، الحجز متاح فقط لمدة {limit} أيام قادمة', 'error')
+                return redirect(url_for('customer.book'))
+                
             booking_time = datetime.strptime(request.form.get('time'), '%H:%M').time()
             neighborhood_id = int(request.form.get('neighborhood_id'))
             service_id = form.service_id.data
@@ -496,7 +510,8 @@ def book():
             flash('تم الحجز بنجاح!')
             return redirect(url_for('customer.booking_success'))
 
-    return render_template('customer/booking_form.html', form=form, service_eligibility=service_eligibility, service_durations=service_durations)
+    settings = SiteSettings.get_settings()
+    return render_template('customer/booking_form.html', form=form, service_eligibility=service_eligibility, service_durations=service_durations, site_settings=settings)
 
 @bp.route('/api/vehicle/<int:vehicle_id>/size-price')
 def get_vehicle_size_price(vehicle_id):
@@ -640,6 +655,24 @@ def get_available_times():
     from app.utils.timezone import get_saudi_date
     today = get_saudi_date()
     if booking_date < today:
+        return jsonify([])
+        
+    # Check max days limit
+    booking_type = request.args.get('type', 'service')
+    settings = SiteSettings.get_settings()
+    
+    limit = settings.booking_days_limit
+    if booking_type == 'subscription':
+        limit = settings.subscription_days_limit
+        
+    # Handle None (migration might produce NULL)
+    if limit is None:
+        limit = 7
+        
+    if limit == 0:
+        return jsonify([])
+        
+    if booking_date > today + timedelta(days=limit): 
         return jsonify([])
     
     # Dynamic duration based on service
@@ -901,6 +934,19 @@ def book_subscription_wash(subscription_id):
         except ValueError:
             flash('تنسيق التاريخ أو الوقت غير صحيح', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+            
+        # Backend Validation for Subscription Days Limit
+        settings = SiteSettings.get_settings()
+        limit = settings.subscription_days_limit if settings.subscription_days_limit is not None else 7
+        if limit == 0:
+            flash('حجز الاشتراكات متوقف حالياً للكشف والصيانة', 'error')
+            return redirect(url_for('customer.subscriptions'))
+            
+        from app.utils.timezone import get_saudi_date
+        today = get_saudi_date()
+        if booking_date > today + timedelta(days=limit):
+             flash(f'عذراً، الحجز متاح فقط لمدة {limit} أيام قادمة', 'error')
+             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
         # Check for existing active booking on the same day for this subscription
         existing_booking = Booking.query.filter(
@@ -1035,7 +1081,8 @@ def book_subscription_wash(subscription_id):
         flash('تم حجز الغسلة بنجاح!', 'success')
         return redirect(url_for('customer.subscriptions'))
     
-    return render_template('customer/book_subscription_wash.html', subscription=subscription)
+    settings = SiteSettings.get_settings()
+    return render_template('customer/book_subscription_wash.html', subscription=subscription, site_settings=settings)
 
 @bp.route('/loyalty')
 def loyalty():
