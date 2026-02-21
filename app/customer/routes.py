@@ -897,6 +897,7 @@ def subscribe_details(package_id):
                          cities=cities)
 
 @bp.route('/subscription/<int:subscription_id>/book', methods=['GET', 'POST'])
+@login_required
 def book_subscription_wash(subscription_id):
     """Book a wash from active subscription"""
     from datetime import datetime, timedelta
@@ -1082,7 +1083,7 @@ def book_subscription_wash(subscription_id):
         return redirect(url_for('customer.subscriptions'))
     
     settings = SiteSettings.get_settings()
-    return render_template('customer/book_subscription_wash.html', subscription=subscription, site_settings=settings)
+    return render_template('customer/book_subscription_wash.html', subscription=subscription, default_service=default_service, site_settings=settings)
 
 @bp.route('/loyalty')
 def loyalty():

@@ -88,16 +88,15 @@
         var timeLoading = document.getElementById('time-loading');
         var noTimes = document.getElementById('no-times');
         var submitBtn = document.getElementById('submit-btn');
-        var neighborhoodId = {{ subscription.neighborhood_id }
-    };
-    var serviceId = 1;
+        var neighborhoodId = "{{ subscription.neighborhood_id if subscription.neighborhood_id else '' }}";
+        var serviceId = "{{ default_service.id if default_service else '' }}";
 
-    // Set min date to today
-    var today = new Date().toISOString().split('T')[0];
-    dateInput.min = today;
+        // Set min date to today
+        var today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
 
-    // Set max date based on subscription days limit
-    var subscriptionDaysLimit = {{ site_settings.subscription_days_limit or 7 }};
+        // Set max date based on subscription days limit
+        var subscriptionDaysLimit = {{ site_settings.subscription_days_limit or 7 }};
 
     if (subscriptionDaysLimit === 0) {
         document.querySelector('form').innerHTML = '<div class="text-center p-6"><i class="fas fa-tools text-4xl text-yellow-500 mb-4"></i><h3 class="text-xl font-bold text-white">حجز الاشتراكات متوقف حالياً للصيانة</h3></div>';
@@ -110,6 +109,13 @@
     dateInput.addEventListener('change', function () {
         var selectedDate = this.value;
         if (!selectedDate) return;
+
+        if (neighborhoodId === null || serviceId === null) {
+            timeLoading.classList.add('hidden');
+            noTimes.classList.remove('hidden');
+            noTimes.innerHTML = '<i class="fas fa-exclamation-triangle ml-2"></i>بيانات الاشتراك غير مكتملة (الحي أو الخدمة غير محددة)';
+            return;
+        }
 
         // Show loading
         timeLoading.classList.remove('hidden');
@@ -152,6 +158,6 @@
     timeSelect.addEventListener('change', function () {
         submitBtn.disabled = !this.value;
     });
-});
+    });
 </script>
 {% endblock %}

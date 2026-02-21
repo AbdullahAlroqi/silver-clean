@@ -226,7 +226,7 @@
                         </button>
                         {% if booking.status != 'cancelled' and booking.employee_id %}
                         <button
-                            onclick='showReassignModal({{ booking.id }}, {{ booking.employee_id }}, "{{ booking.date }}", "{{ booking.time.strftime("%H:%M") if booking.time else "" }}", {{ booking.neighborhood_id if booking.neighborhood_id else "null" }})'
+                            onclick='showReassignModal({{ booking.id }}, {{ booking.employee_id }}, "{{ booking.date }}", "{{ booking.time.strftime("%H:%M") if booking.time else "" }}", {{ booking.neighborhood_id if booking.neighborhood_id else "null" }}, {{ booking.service_id }})'
                             class="text-blue-400 hover:text-blue-300" title="إعادة إسناد">
                             <i class="fas fa-user-plus"></i>
                         </button>
@@ -554,6 +554,7 @@
             <input type="hidden" id="reassignBookingId">
             <input type="hidden" id="reassignDate">
             <input type="hidden" id="reassignNeighborhoodId">
+            <input type="hidden" id="reassignServiceId">
 
             <div class="mb-4 text-sm text-gray-400">
                 <div>التاريخ: <span id="displayDate"></span></div>
@@ -594,10 +595,11 @@
         document.getElementById('createBookingModal').classList.add('hidden');
     }
 
-    function showReassignModal(bookingId, currentEmployeeId, date, time, neighborhoodId) {
+    function showReassignModal(bookingId, currentEmployeeId, date, time, neighborhoodId, serviceId) {
         document.getElementById('reassignBookingId').value = bookingId;
         document.getElementById('reassignDate').value = date;
         document.getElementById('reassignNeighborhoodId').value = neighborhoodId;
+        document.getElementById('reassignServiceId').value = serviceId;
         document.getElementById('displayDate').textContent = date;
         document.getElementById('displayCurrentTime').textContent = time;
 
@@ -632,10 +634,11 @@
     function loadReassignSlots() {
         const employeeId = document.getElementById('reassignEmployee').value;
         const date = document.getElementById('reassignDate').value;
+        const serviceId = document.getElementById('reassignServiceId').value;
 
         if (!employeeId || !date) return;
 
-        fetch(`/admin/api/available-slots/${employeeId}/${date}`)
+        fetch(`/admin/api/available-slots/${employeeId}/${date}?service_id=${serviceId}`)
             .then(response => response.json())
             .then(data => {
                 const select = document.getElementById('reassignTime');
@@ -692,6 +695,7 @@
     function loadAvailableSlots() {
         const employeeId = document.getElementById('bookingEmployee').value;
         const date = document.getElementById('bookingDate').value;
+        const serviceId = document.getElementById('serviceSelect').value;
         const timeSelect = document.getElementById('bookingTime');
 
         if (!employeeId || !date) {
@@ -701,7 +705,7 @@
 
         timeSelect.innerHTML = '<option value="">-- جاري التحميل... --</option>';
 
-        fetch(`/admin/api/available-slots/${employeeId}/${date}`)
+        fetch(`/admin/api/available-slots/${employeeId}/${date}?service_id=${serviceId}`)
             .then(response => response.json())
             .then(data => {
                 timeSelect.innerHTML = '<option value="">-- اختر الوقت --</option>';

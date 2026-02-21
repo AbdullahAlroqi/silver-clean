@@ -1829,6 +1829,14 @@ def create_booking():
     hour, minute = map(int, time_str.split(':'))
     time_obj = dt_time(hour, minute)
     
+    # Calculate custom service price with discount if discount > 0
+    custom_service_price = None
+    if discount > 0:
+        service = Service.query.get(int(service_id))
+        if service:
+            discount_amount = service.price * (discount / 100.0)
+            custom_service_price = service.price - discount_amount
+
     # If employee is assigned, status should be 'assigned', otherwise 'pending'
     booking_status = 'assigned' if employee_id else 'pending'
     
@@ -1839,7 +1847,8 @@ def create_booking():
         neighborhood_id=int(neighborhood_id) if neighborhood_id else None,
         date=datetime.strptime(date, '%Y-%m-%d').date(), 
         time=time_obj,
-        status=booking_status
+        status=booking_status,
+        custom_service_price=custom_service_price
     )
     db.session.add(booking)
     db.session.commit()
@@ -2008,106 +2017,111 @@ def get_booking_products_api(id):
 @bp.route('/api/available-slots/<int:employee_id>/<date>')
 def get_available_slots(employee_id, date):
     from datetime import datetime, timedelta, time as dt_time
+    from app.utils.timezone import get_saudi_time
     
-    # BOOKING DURATION: Each booking takes 90 minutes (1.5 hours)
-    BOOKING_DURATION_MINUTES = 90
-    
+    # Get service duration if provided
+    service_id = request.args.get('service_id')
+    booking_duration = 90 # Default
+    if service_id:
+        from app.models import Service
+        service = Service.query.get(service_id)
+        if service and service.duration:
+            booking_duration = service.duration
+
     date_obj = datetime.strptime(date, '%Y-%m-%d').date()
     day_of_week = date_obj.weekday()
     
-    # print(f"[DEBUG] Looking for slots: employee_id={employee_id}, date={date}, day_of_week={day_of_week}")
-    
-    schedule = EmployeeSchedule.query.filter_by(
+    schedules = EmployeeSchedule.query.filter_by(
         employee_id=employee_id, 
         day_of_week=day_of_week, 
         is_active=True
-    ).first()
-    
-    # print(f"[DEBUG] Found schedule: {schedule}")
-    if schedule:
-        # print(f"[DEBUG] Schedule details: day={schedule.day_of_week}, start={schedule.start_time}, end={schedule.end_time}")
-        pass
-    
-    if not schedule:
-        # print(f"[DEBUG] No schedule found, returning empty")
-        return jsonify([])
-    
-    # Get all bookings for this employee on this date
-    bookings = Booking.query.filter_by(
-        employee_id=employee_id,
-        date=date_obj
     ).all()
     
-    # Build set of blocked time ranges (each booking blocks 90 minutes)
+    if not schedules:
+        return jsonify([])
+    
+    # Get all bookings for this employee on this date, excluding cancelled ones
+    bookings = Booking.query.filter(
+        Booking.employee_id == employee_id,
+        Booking.date == date_obj,
+        Booking.status != 'cancelled'
+    ).all()
+    
+    # Build set of blocked time ranges
     blocked_ranges = []
     for booking in bookings:
+        # Get duration for this specific booking
+        duration = booking.service.duration if (booking.service and booking.service.duration) else 90
         booking_start = datetime.combine(date_obj, booking.time)
-        booking_end = booking_start + timedelta(minutes=BOOKING_DURATION_MINUTES)
+        booking_end = booking_start + timedelta(minutes=duration)
         blocked_ranges.append((booking_start, booking_end))
     
-    # print(f"[DEBUG] Blocked ranges: {[(r[0].time(), r[1].time()) for r in blocked_ranges]}")
-    
-    # Get current time if booking for today
-    now = datetime.now()
+    # Get current Saudi time for "today" check
+    now = get_saudi_time()
     is_today = date_obj == now.date()
-    current_time = now.time() if is_today else None
     
-    # print(f"[DEBUG] is_today={is_today}, current_time={current_time}")
-    
-    slots = []
-    current = datetime.combine(date_obj, schedule.start_time)
-    end = datetime.combine(date_obj, schedule.end_time)
-    
-    # Generate slots every 90 minutes
-    while current < end:
-        slot_end = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
+    slots = set()
+    for schedule in schedules:
+        current = datetime.combine(date_obj, schedule.start_time)
         
-        # Skip if slot would extend beyond working hours
-        if slot_end > end:
-            break
+        # Handle night shift
+        if schedule.end_time < schedule.start_time:
+            end = datetime.combine(date_obj + timedelta(days=1), schedule.end_time)
+        else:
+            end = datetime.combine(date_obj, schedule.end_time)
         
-        time_str = current.strftime('%H:%M')
-        slot_time = current.time()
-        
-        # Skip if it's today and the time has passed
-        if is_today and current_time and slot_time <= current_time:
-            # print(f"[DEBUG] Skipping {time_str} - past time")
-            current = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
-            continue
-        
-        # Check if this slot overlaps with any blocked range
-        slot_blocked = False
-        for blocked_start, blocked_end in blocked_ranges:
-            # Check if there's any overlap
-            if current < blocked_end and slot_end > blocked_start:
-                slot_blocked = True
-                # print(f"[DEBUG] Skipping {time_str} - conflicts with booking at {blocked_start.time()}")
+        # Generate slots every 30 minutes for better flexibility
+        while current < end:
+            slot_end = current + timedelta(minutes=booking_duration)
+            
+            # Skip if slot would extend beyond working hours
+            if slot_end > end:
                 break
-        
-        if not slot_blocked:
-            slots.append(time_str)
-        
-        current = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
-    
-    # print(f"[DEBUG] Final slots: {slots}")
-    return jsonify(slots)
+            
+            time_str = current.strftime('%H:%M')
+            
+            # Skip if it's today and the time has passed (plus 30 min buffer)
+            if is_today and current <= (now + timedelta(minutes=30)).replace(tzinfo=None):
+                current = current + timedelta(minutes=30)
+                continue
+            
+            # Check if this slot overlaps with any blocked range
+            slot_blocked = False
+            for blocked_start, blocked_end in blocked_ranges:
+                if current < blocked_end and slot_end > blocked_start:
+                    slot_blocked = True
+                    break
+            
+            if not slot_blocked:
+                # For admin, we use 30 min increments to allow more flexibility than customer side
+                slots.add(time_str)
+            
+            current = current + timedelta(minutes=30)
+            
+    return jsonify(sorted(list(slots)))
 
 @bp.route('/api/area-available-slots/<int:neighborhood_id>/<date>')
 def get_area_available_slots(neighborhood_id, date):
     """Get all available time slots from all employees in a neighborhood"""
     from datetime import datetime, timedelta
     from app.models import employee_neighborhoods
+    from app.utils.timezone import get_saudi_time
     
-    # BOOKING DURATION: Each booking takes 90 minutes (1.5 hours)
-    BOOKING_DURATION_MINUTES = 90
-    
+    # Get service duration if provided
+    service_id = request.args.get('service_id')
+    booking_duration = 90 # Default
+    if service_id:
+        from app.models import Service
+        service = Service.query.get(service_id)
+        if service and service.duration:
+            booking_duration = service.duration
+
     date_obj = datetime.strptime(date, '%Y-%m-%d').date()
     day_of_week = date_obj.weekday()
     
-    # Get current time if booking for today
-    now = datetime.now()
+    # Get current Saudi time for "today" check
+    now = get_saudi_time()
     is_today = date_obj == now.date()
-    current_time = now.time() if is_today else None
     
     # Get all employees in this neighborhood
     employees = User.query.join(employee_neighborhoods).filter(
@@ -2118,42 +2132,48 @@ def get_area_available_slots(neighborhood_id, date):
     # Collect all available slots from all employees
     all_slots = set()
     for emp in employees:
-        schedule = EmployeeSchedule.query.filter_by(
+        schedules = EmployeeSchedule.query.filter_by(
             employee_id=emp.id,
             day_of_week=day_of_week,
             is_active=True
-        ).first()
+        ).all()
         
-        if schedule:
-            # Get bookings for this employee
-            bookings = Booking.query.filter_by(
-                employee_id=emp.id,
-                date=date_obj
-            ).all()
-            
-            # Build blocked ranges
-            blocked_ranges = []
-            for booking in bookings:
-                booking_start = datetime.combine(date_obj, booking.time)
-                booking_end = booking_start + timedelta(minutes=BOOKING_DURATION_MINUTES)
-                blocked_ranges.append((booking_start, booking_end))
-            
+        # Get bookings for this employee, excluding cancelled ones
+        bookings = Booking.query.filter(
+            Booking.employee_id == emp.id,
+            Booking.date == date_obj,
+            Booking.status != 'cancelled'
+        ).all()
+        
+        # Build blocked ranges
+        blocked_ranges = []
+        for booking in bookings:
+            duration = booking.service.duration if (booking.service and booking.service.duration) else 90
+            booking_start = datetime.combine(date_obj, booking.time)
+            booking_end = booking_start + timedelta(minutes=duration)
+            blocked_ranges.append((booking_start, booking_end))
+        
+        for schedule in schedules:
             current = datetime.combine(date_obj, schedule.start_time)
-            end = datetime.combine(date_obj, schedule.end_time)
+            
+            # Handle night shift
+            if schedule.end_time < schedule.start_time:
+                end = datetime.combine(date_obj + timedelta(days=1), schedule.end_time)
+            else:
+                end = datetime.combine(date_obj, schedule.end_time)
             
             while current < end:
-                slot_end = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
+                slot_end = current + timedelta(minutes=booking_duration)
                 
                 # Skip if slot would extend beyond working hours
                 if slot_end > end:
                     break
                 
                 time_str = current.strftime('%H:%M')
-                slot_time = current.time()
                 
-                # Skip if it's today and the time has passed
-                if is_today and current_time and slot_time <= current_time:
-                    current = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
+                # Skip if it's today and the time has passed (plus 30 min buffer)
+                if is_today and current <= (now + timedelta(minutes=30)).replace(tzinfo=None):
+                    current = current + timedelta(minutes=30)
                     continue
                 
                 # Check if this slot overlaps with any blocked range
@@ -2166,7 +2186,7 @@ def get_area_available_slots(neighborhood_id, date):
                 if not slot_blocked:
                     all_slots.add(time_str)
                 
-                current = current + timedelta(minutes=BOOKING_DURATION_MINUTES)
+                current = current + timedelta(minutes=30)
     
     return jsonify(sorted(list(all_slots)))
 
