@@ -61,6 +61,16 @@ class ProductForm(FlaskForm):
     image = FileField('صورة المنتج', validators=[FileAllowed(['jpg', 'jpeg', 'png', 'gif', 'webp'], 'الصور فقط!')])
     submit = SubmitField('حفظ')
 
+class SeasonForm(FlaskForm):
+    name_ar = StringField('اسم الموسم (عربي)', validators=[DataRequired()])
+    name_en = StringField('اسم الموسم (إنجليزي)', validators=[Optional()])
+    start_date = StringField('تاريخ البداية', validators=[DataRequired()])
+    end_date = StringField('تاريخ النهاية', validators=[DataRequired()])
+    is_active = BooleanField('مفعل', default=True)
+    allow_free_washes = BooleanField('السماح بالغسلات المجانية', default=False)
+    # The actual pricing will be handled via dynamic fields in the template
+    submit = SubmitField('حفظ')
+
 class SiteSettingsForm(FlaskForm):
     site_name = StringField('Site Name', validators=[DataRequired()])
     logo = FileField('Logo', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])

@@ -1,0 +1,77 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+    <h2 class="text-2xl font-bold text-white">إدارة المواسم والأسعار الخاصة</h2>
+    <a href="{{ url_for('admin.add_season') }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+        <i class="fas fa-plus"></i> إضافة موسم جديد
+    </a>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg overflow-hidden">
+    <table class="w-full text-right">
+        <thead class="bg-gray-800 text-gray-300">
+            <tr>
+                <th class="p-4">اسم الموسم</th>
+                <th class="p-4">تاريخ البداية</th>
+                <th class="p-4">تاريخ النهاية</th>
+                <th class="p-4">الحالة</th>
+                <th class="p-4">المنتجات/الخدمات المعدّلة</th>
+                <th class="p-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody class="text-gray-200">
+            {% for season in seasons %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
+                <td class="p-4 font-bold">{{ season.name_ar }}</td>
+                <td class="p-4">{{ season.start_date.strftime('%Y-%m-%d') }}</td>
+                <td class="p-4">{{ season.end_date.strftime('%Y-%m-%d') }}</td>
+                <td class="p-4">
+                    {% if season.is_active %}
+                    <span class="px-2 py-1 bg-green-600 text-white rounded text-xs">مفعل</span>
+                    {% else %}
+                    <span class="px-2 py-1 bg-gray-600 text-white rounded text-xs">غير مفعل</span>
+                    {% endif %}
+                </td>
+                <td class="p-4">
+                    <div class="text-xs space-y-1">
+                        <span class="bg-blue-900 text-blue-300 px-2 py-1 rounded">{{ season.service_prices.count() }}
+                            خدمات</span>
+                        <span class="bg-purple-900 text-purple-300 px-2 py-1 rounded">{{ season.product_prices.count()
+                            }} منتجات</span>
+                    </div>
+                </td>
+                <td class="p-4">
+                    <div class="flex gap-2">
+                        <a href="{{ url_for('admin.edit_season', id=season.id) }}"
+                            class="text-yellow-400 hover:text-yellow-300" title="تعديل">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('admin.delete_season', id=season.id) }}" method="post" class="inline"
+                            onsubmit="return confirm('هل أنت متأكد من حذف هذا الموسم؟')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-400 hover:text-red-300" title="حذف">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="p-8 text-center text-gray-500">
+                    لا توجد مواسم مضافة حالياً.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-4 p-4 bg-blue-900/30 border border-blue-500 rounded-lg text-blue-200 text-sm">
+    <i class="fas fa-info-circle mr-2"></i>
+    <strong>ملاحظة:</strong>
+    تُطبق أسعار المواسم تلقائياً على أي حجز يقع تاريخه ضمن فترة الموسم. إذا لم يتم تحديد سعر لخدمة أو منتج في الموسم،
+    سيتم استخدام السعر الأساسي.
+</div>
+{% endblock %}

@@ -196,6 +196,49 @@ class DiscountCode(db.Model):
     max_uses_per_customer = db.Column(db.Integer, nullable=True, default=1)  # الحد الأقصى للاستخدام لكل عميل
     is_active = db.Column('active', db.Boolean, default=True)
 
+class Season(db.Model):
+    """Seasonal periods where custom prices apply (e.g., Eid, National Day)"""
+    id = db.Column(db.Integer, primary_key=True)
+    name_ar = db.Column(db.String(100), nullable=False)
+    name_en = db.Column(db.String(100), nullable=True)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    allow_free_washes = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    service_prices = db.relationship('SeasonalServicePrice', backref='season', lazy='dynamic', cascade='all, delete-orphan')
+    product_prices = db.relationship('SeasonalProductPrice', backref='season', lazy='dynamic', cascade='all, delete-orphan')
+
+class SeasonalServicePrice(db.Model):
+    """Override price for a service during a specific season"""
+    id = db.Column(db.Integer, primary_key=True)
+    season_id = db.Column(db.Integer, db.ForeignKey('season.id'), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    
+    # Relationship
+    service = db.relationship('Service')
+    
+    __table_args__ = (
+        db.UniqueConstraint('season_id', 'service_id', name='unique_season_service'),
+    )
+
+class SeasonalProductPrice(db.Model):
+    """Override price for a product during a specific season"""
+    id = db.Column(db.Integer, primary_key=True)
+    season_id = db.Column(db.Integer, db.ForeignKey('season.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    
+    # Relationship
+    product = db.relationship('Product')
+    
+    __table_args__ = (
+        db.UniqueConstraint('season_id', 'product_id', name='unique_season_product'),
+    )
+
 class SubscriptionPackage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name_ar = db.Column(db.String(64))

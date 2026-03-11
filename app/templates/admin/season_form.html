@@ -1,0 +1,151 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex items-center mb-6">
+        <a href="{{ url_for('admin.seasons') }}" class="text-gray-400 hover:text-white ml-4">
+            <i class="fas fa-arrow-right"></i>
+        </a>
+        <h2 class="text-2xl font-bold text-white">{{ title }}</h2>
+    </div>
+
+    <div class="bg-primary p-6 rounded-lg shadow-lg">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Basic Season Info -->
+                <div class="bg-gray-800 p-4 rounded-lg space-y-4">
+                    <h3 class="text-lg font-bold text-accent mb-4 border-b border-gray-700 pb-2">بيانات الموسم</h3>
+
+                    <div>
+                        {{ form.name_ar.label(class="block text-gray-300 mb-2") }}
+                        {{ form.name_ar(class="w-full bg-darkbg border border-gray-600 rounded px-4 py-2 text-white
+                        focus:outline-none focus:border-accent") }}
+                        {% for error in form.name_ar.errors %}
+                        <span class="text-red-500 text-sm mt-1">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div>
+                        {{ form.start_date.label(class="block text-gray-300 mb-2") }}
+                        <input type="date" name="start_date" value="{{ form.start_date.data }}" required
+                            class="w-full bg-darkbg border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-accent">
+                        {% for error in form.start_date.errors %}
+                        <span class="text-red-500 text-sm mt-1">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div>
+                        {{ form.end_date.label(class="block text-gray-300 mb-2") }}
+                        <input type="date" name="end_date" value="{{ form.end_date.data }}" required
+                            class="w-full bg-darkbg border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-accent">
+                        {% for error in form.end_date.errors %}
+                        <span class="text-red-500 text-sm mt-1">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="flex items-center gap-2 mt-4">
+                        {{ form.is_active(class="form-checkbox h-5 w-5 text-accent rounded bg-darkbg border-gray-600")
+                        }}
+                        {{ form.is_active.label(class="text-gray-300 font-bold") }}
+                    </div>
+
+                    <div class="flex items-center gap-2 mt-2">
+                        {{ form.allow_free_washes(class="form-checkbox h-5 w-5 text-green-500 rounded bg-darkbg
+                        border-gray-600") }}
+                        {{ form.allow_free_washes.label(class="text-gray-300 font-bold") }}
+                    </div>
+                </div>
+
+                <!-- Custom Pricing Notice -->
+                <div
+                    class="bg-blue-900/20 p-4 rounded-lg border border-blue-800 flex flex-col justify-center text-center space-y-3">
+                    <i class="fas fa-tags text-4xl text-blue-400 mb-2"></i>
+                    <h4 class="font-bold text-blue-300">أسعار مخصصة للموسم</h4>
+                    <p class="text-sm text-gray-400">
+                        في الأسفل، يمكنك تحديد أسعار خاصة للخدمات والمنتجات خلال فترة هذا الموسم.<br><br>
+                        <strong>اترك الحقل فارغاً</strong> إذا كنت تريد استخدام السعر الأساسي للخدمة/المنتج، ولن يتم
+                        تعديله في هذا الموسم.
+                    </p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Services Pricing -->
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="text-lg font-bold text-accent mb-4 border-b border-gray-700 pb-2">
+                        <i class="fas fa-spray-can mr-2"></i>أسعار الخدمات
+                    </h3>
+
+                    <div class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                        {% for service in services %}
+                        <div
+                            class="flex items-center justify-between gap-4 p-3 bg-darkbg rounded border border-gray-700">
+                            <div>
+                                <div class="font-bold text-white text-sm">{{ service.name_ar }}</div>
+                                <div class="text-xs text-gray-400">السعر الأساسي: {{ service.price }} ريال</div>
+                            </div>
+                            <div class="w-24">
+                                {% set price_val = ssp_dict.get(service.id, '') %}
+                                <input type="number" step="0.01" name="service_price_{{ service.id }}"
+                                    value="{{ price_val }}" placeholder="السعر الجديد"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-accent text-center">
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-gray-500 text-sm text-center py-4">لا توجد خدمات مضافة</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Products Pricing -->
+                <div class="bg-gray-800 p-4 rounded-lg">
+                    <h3 class="text-lg font-bold text-accent mb-4 border-b border-gray-700 pb-2">
+                        <i class="fas fa-box-open mr-2"></i>أسعار المنتجات
+                    </h3>
+
+                    <div class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                        {% for product in products %}
+                        <div
+                            class="flex items-center justify-between gap-4 p-3 bg-darkbg rounded border border-gray-700">
+                            <div class="flex items-center gap-3">
+                                {% if product.image_url %}
+                                <img src="{{ url_for('static', filename='uploads/products/' + product.image_url) }}"
+                                    class="w-8 h-8 rounded object-cover" alt="{{ product.name_ar }}">
+                                {% else %}
+                                <div
+                                    class="w-8 h-8 rounded bg-gray-700 flex items-center justify-center text-gray-500 text-xs">
+                                    صورة</div>
+                                {% endif %}
+                                <div>
+                                    <div class="font-bold text-white text-sm">{{ product.name_ar }}</div>
+                                    <div class="text-xs text-gray-400">السعر الأساسي: {{ product.price }} ريال</div>
+                                </div>
+                            </div>
+                            <div class="w-24">
+                                {% set price_val = spp_dict.get(product.id, '') %}
+                                <input type="number" step="0.01" name="product_price_{{ product.id }}"
+                                    value="{{ price_val }}" placeholder="السعر الجديد"
+                                    class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-accent text-center">
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-gray-500 text-sm text-center py-4">لا توجد منتجات مضافة</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-4">
+                <a href="{{ url_for('admin.seasons') }}"
+                    class="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 font-bold transition">إلغاء</a>
+                <button type="submit"
+                    class="px-8 py-2 bg-accent text-white rounded hover:bg-blue-600 font-bold transition">
+                    <i class="fas fa-save mr-2"></i> حفظ الموسم
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

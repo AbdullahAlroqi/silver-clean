@@ -75,6 +75,134 @@ def index():
                            total_revenue=total_revenue,
                            recent_bookings=recent_bookings)
 
+# --- Seasons Management ---
+@bp.route('/seasons')
+def seasons():
+    from app.models import Season
+    # Subquery/property could be used, but let's just fetch all
+    seasons = Season.query.order_by(Season.start_date.desc()).all()
+    return render_template('admin/seasons.html', seasons=seasons)
+
+@bp.route('/seasons/add', methods=['GET', 'POST'])
+def add_season():
+    from app.admin.forms import SeasonForm
+    from app.models import Season, Service, Product, SeasonalServicePrice, SeasonalProductPrice
+    from datetime import datetime
+    
+    form = SeasonForm()
+    services = Service.query.all()
+    products = Product.query.all()
+    
+    if form.validate_on_submit():
+        season = Season(
+            name_ar=form.name_ar.data,
+            name_en=form.name_en.data,
+            start_date=datetime.strptime(form.start_date.data, '%Y-%m-%d').date(),
+            end_date=datetime.strptime(form.end_date.data, '%Y-%m-%d').date(),
+            is_active=form.is_active.data,
+            allow_free_washes=form.allow_free_washes.data
+        )
+        db.session.add(season)
+        db.session.flush() # Get season ID
+
+        # Save service prices
+        for service in services:
+            price_val = request.form.get(f'service_price_{service.id}')
+            if price_val and price_val.strip():
+                try:
+                    price = float(price_val)
+                    ssp = SeasonalServicePrice(season_id=season.id, service_id=service.id, price=price)
+                    db.session.add(ssp)
+                except ValueError:
+                    pass
+
+        # Save product prices
+        for product in products:
+            price_val = request.form.get(f'product_price_{product.id}')
+            if price_val and price_val.strip():
+                try:
+                    price = float(price_val)
+                    spp = SeasonalProductPrice(season_id=season.id, product_id=product.id, price=price)
+                    db.session.add(spp)
+                except ValueError:
+                    pass
+                    
+        db.session.commit()
+        flash('تمت إضافة الموسم بنجاح', 'success')
+        return redirect(url_for('admin.seasons'))
+        
+    return render_template('admin/season_form.html', form=form, services=services, products=products, ssp_dict={}, spp_dict={}, title='إضافة موسم')
+
+@bp.route('/seasons/<int:id>/edit', methods=['GET', 'POST'])
+def edit_season(id):
+    from app.admin.forms import SeasonForm
+    from app.models import Season, Service, Product, SeasonalServicePrice, SeasonalProductPrice
+    from datetime import datetime
+    
+    season = Season.query.get_or_404(id)
+    form = SeasonForm(obj=season)
+    services = Service.query.all()
+    products = Product.query.all()
+    
+    if request.method == 'POST' and form.validate_on_submit():
+        season.name_ar = form.name_ar.data
+        season.name_en = form.name_en.data
+        season.start_date = datetime.strptime(form.start_date.data, '%Y-%m-%d').date()
+        season.end_date = datetime.strptime(form.end_date.data, '%Y-%m-%d').date()
+        season.is_active = form.is_active.data
+        season.allow_free_washes = form.allow_free_washes.data
+        
+        # Clear old prices
+        SeasonalServicePrice.query.filter_by(season_id=season.id).delete()
+        SeasonalProductPrice.query.filter_by(season_id=season.id).delete()
+        
+        # Save new service prices
+        for service in services:
+            price_val = request.form.get(f'service_price_{service.id}')
+            if price_val and price_val.strip():
+                try:
+                    price = float(price_val)
+                    ssp = SeasonalServicePrice(season_id=season.id, service_id=service.id, price=price)
+                    db.session.add(ssp)
+                except ValueError:
+                    pass
+
+        # Save new product prices
+        for product in products:
+            price_val = request.form.get(f'product_price_{product.id}')
+            if price_val and price_val.strip():
+                try:
+                    price = float(price_val)
+                    spp = SeasonalProductPrice(season_id=season.id, product_id=product.id, price=price)
+                    db.session.add(spp)
+                except ValueError:
+                    pass
+                    
+        db.session.commit()
+        flash('تم تحديث الموسم بنجاح', 'success')
+        return redirect(url_for('admin.seasons'))
+        
+    # GET: Populate dates
+    if request.method == 'GET':
+        form.start_date.data = season.start_date.strftime('%Y-%m-%d')
+        form.end_date.data = season.end_date.strftime('%Y-%m-%d')
+        
+    # Fetch existing prices to populate template
+    ssp_dict = {ssp.service_id: ssp.price for ssp in season.service_prices}
+    spp_dict = {spp.product_id: spp.price for spp in season.product_prices}
+
+    return render_template('admin/season_form.html', form=form, season=season, services=services, 
+                           products=products, ssp_dict=ssp_dict, spp_dict=spp_dict, title='تعديل موسم')
+
+@bp.route('/seasons/<int:id>/delete', methods=['POST'])
+def delete_season(id):
+    from app.models import Season
+    season = Season.query.get_or_404(id)
+    db.session.delete(season)
+    db.session.commit()
+    flash('تم حذف الموسم بنجاح', 'success')
+    return redirect(url_for('admin.seasons'))
+
 # --- Employee Management ---
 @bp.route('/employees')
 def employees():
@@ -1829,13 +1957,29 @@ def create_booking():
     hour, minute = map(int, time_str.split(':'))
     time_obj = dt_time(hour, minute)
     
+    # Calculate base service price (considering seasons)
+    booking_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    service = Service.query.get(int(service_id))
+    base_price = service.price if service else 0.0
+    
+    from app.models import Season
+    active_season = Season.query.filter(
+        Season.is_active == True,
+        Season.start_date <= booking_date_obj,
+        Season.end_date >= booking_date_obj
+    ).first()
+    
+    if active_season and service:
+        ssp = active_season.service_prices.filter_by(service_id=service.id).first()
+        if ssp:
+            base_price = ssp.price
+            
     # Calculate custom service price with discount if discount > 0
-    custom_service_price = None
+    # Always set custom_service_price if there's a seasonal price or discount to lock it
+    custom_service_price = base_price
     if discount > 0:
-        service = Service.query.get(int(service_id))
-        if service:
-            discount_amount = service.price * (discount / 100.0)
-            custom_service_price = service.price - discount_amount
+        discount_amount = base_price * (discount / 100.0)
+        custom_service_price = base_price - discount_amount
 
     # If employee is assigned, status should be 'assigned', otherwise 'pending'
     booking_status = 'assigned' if employee_id else 'pending'
@@ -1845,7 +1989,7 @@ def create_booking():
         service_id=int(service_id), 
         employee_id=int(employee_id) if employee_id else None,
         neighborhood_id=int(neighborhood_id) if neighborhood_id else None,
-        date=datetime.strptime(date, '%Y-%m-%d').date(), 
+        date=booking_date_obj, 
         time=time_obj,
         status=booking_status,
         custom_service_price=custom_service_price

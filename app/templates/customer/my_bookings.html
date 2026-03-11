@@ -40,6 +40,24 @@
                             <strong>الموظف:</strong> {{ booking.employee.username }}
                         </div>
                         {% endif %}
+                        {% if booking.neighborhood %}
+                        <div>
+                            <i class="fas fa-map-marker-alt text-accent mr-2"></i>
+                            <strong>العنوان:</strong> {{ booking.neighborhood.city.name_ar }} - {{
+                            booking.neighborhood.name_ar }}
+                        </div>
+                        {% endif %}
+                        <div>
+                            <i class="fas fa-tag text-accent mr-2"></i>
+                            <strong>نوع الطلب:</strong>
+                            {% if booking.subscription_id %}
+                            <span class="text-blue-400">حجز اشتراك</span>
+                            {% elif booking.used_free_wash %}
+                            <span class="text-green-400">غسلة مجانية</span>
+                            {% else %}
+                            <span>حجز عادي</span>
+                            {% endif %}
+                        </div>
                     </div>
 
                     <!-- Discount/Free Wash Info -->
@@ -81,6 +99,8 @@
 
                         {% if booking.used_free_wash %}
                         {% set service_price = 0 %}
+                        {% elif booking.subscription_id %}
+                        {% set service_price = 0 %}
                         {% elif booking.discount_code %}
                         {% if booking.discount_code.discount_type == 'percentage' %}
                         {% set discount_amount = (service_price * booking.discount_code.value / 100) %}
@@ -94,9 +114,15 @@
                         <div class="space-y-2 text-sm">
                             <div class="flex justify-between text-gray-300">
                                 <span><i class="fas fa-spray-can text-accent mr-2"></i>سعر الخدمة:</span>
-                                <span class="font-bold">{% if booking.used_free_wash %}<span
-                                        class="text-green-400">مجاناً</span>{% else %}{{ service_price }} ريال{%
-                                    endif %}</span>
+                                <span class="font-bold">
+                                    {% if booking.subscription_id %}
+                                    <span class="text-blue-400">مشمول بالاشتراك</span>
+                                    {% elif booking.used_free_wash %}
+                                    <span class="text-green-400">مجاناً</span>
+                                    {% else %}
+                                    {{ service_price }} ريال
+                                    {% endif %}
+                                </span>
                             </div>
                             {% if discount_amount > 0 %}
                             <div class="flex justify-between text-green-400">

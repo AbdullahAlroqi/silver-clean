@@ -83,6 +83,12 @@
                 <td class="p-4">
                     <div class="font-bold">{{ booking.customer.username }}</div>
                     <div class="text-xs text-gray-400">{{ booking.customer.phone }}</div>
+                    {% if booking.neighborhood %}
+                    <div class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-map-marker-alt"></i> {{ booking.neighborhood.city.name_ar }} - {{
+                        booking.neighborhood.name_ar }}
+                    </div>
+                    {% endif %}
                 </td>
                 <td class="p-4">
                     <div>{{ booking.service.name_ar }}</div>
@@ -722,11 +728,63 @@
                     });
                 }
             });
+
+        // Fetch seasonal prices for the selected date
+        fetchAdminPricesForDate(date);
+    }
+
+    function fetchAdminPricesForDate(date) {
+        if (!date) return;
+
+        // Save original prices if not saved yet
+        const serviceSelect = document.getElementById('serviceSelect');
+        Array.from(serviceSelect.options).forEach(opt => {
+            if (opt.value && !opt.hasAttribute('data-original-price')) {
+                opt.setAttribute('data-original-price', opt.getAttribute('data-price'));
+                opt.setAttribute('data-original-text', opt.text);
+            }
+        });
+
+        fetch('/customer/api/prices?date=' + date)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) return;
+
+                Array.from(serviceSelect.options).forEach(opt => {
+                    if (!opt.value) return; // Skip placeholder
+
+                    const origPrice = opt.getAttribute('data-original-price');
+                    const origTextBase = opt.getAttribute('data-original-text').split('(')[0].trim();
+                    let newPrice = parseFloat(origPrice);
+                    let isSeasonal = false;
+
+                    // Check if seasonal price exists for this service
+                    if (data.prices && data.prices.services && data.prices.services[opt.value] !== undefined) {
+                        newPrice = data.prices.services[opt.value];
+                        isSeasonal = true;
+                    }
+
+                    // Update the option element
+                    opt.setAttribute('data-price', newPrice);
+                    opt.text = `${origTextBase} (${newPrice} ريال)${data.seasonal_applied && isSeasonal ? ' - ' + data.season_name : ''}`;
+                });
+
+                // Trigger price recalculation
+                updateBookingPrice();
+            })
+            .catch(err => console.error("Error fetching seasonal prices:", err));
     }
 
     function updateBookingPrice() {
         const serviceSelect = document.getElementById('serviceSelect');
         const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            document.getElementById('bookingOrigPrice').textContent = '0 ريال';
+            document.getElementById('bookingDiscAmount').textContent = '0 ريال';
+            document.getElementById('bookingFinalPrice').textContent = '0 ريال';
+            return;
+        }
+
         const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
 
         const discountInput = document.getElementById('bookingDiscount');

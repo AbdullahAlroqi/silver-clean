@@ -334,6 +334,18 @@ def book():
                 if current_user.free_washes <= 0:
                     flash('ليس لديك غسلات مجانية متاحة')
                     return redirect(url_for('customer.book'))
+                    
+                # Check for active season
+                from app.models import Season
+                active_season_fw = Season.query.filter(
+                    Season.is_active == True,
+                    Season.start_date <= booking_date,
+                    Season.end_date >= booking_date
+                ).first()
+                
+                if active_season_fw and not active_season_fw.allow_free_washes:
+                    flash('عذراً، لا يمكن استخدام الغسلات المجانية خلال هذا الوقت')
+                    return redirect(url_for('customer.book'))
             
             # Find an available employee for this time slot
             neighborhood = Neighborhood.query.get(neighborhood_id)
@@ -440,6 +452,21 @@ def book():
                 flash('عذراً، لا يوجد موظفين متاحين في هذا الوقت')
                 return redirect(url_for('customer.book'))
             
+            # --- Seasonal Pricing Logic ---
+            from app.models import Season
+            active_season = Season.query.filter(
+                Season.is_active == True,
+                Season.start_date <= booking_date,
+                Season.end_date >= booking_date
+            ).first()
+            
+            custom_service_price = None
+            if active_season:
+                # Check for service override
+                ssp = active_season.service_prices.filter_by(service_id=form.service_id.data).first()
+                if ssp:
+                    custom_service_price = ssp.price
+                
             # Create booking with assigned employee
             booking = Booking(
                 customer_id=current_user.id,
@@ -453,7 +480,8 @@ def book():
                 discount_code_id=discount_code.id if discount_code else None,
                 used_free_wash=use_free_wash,
                 vehicle_size_price=0.0,
-                payment_method=request.form.get('payment_method', 'cash')
+                payment_method=request.form.get('payment_method', 'cash'),
+                custom_service_price=custom_service_price
             )
             
             # Get vehicle size price
@@ -471,10 +499,20 @@ def book():
                     quantity_key = f'quantity_{product_id}'
                     quantity = int(request.form.get(quantity_key, 1))
                     
+                    product = Product.query.get(product_id)
+                    unit_price = product.price if product else 0.0
+                    
+                    # Apply seasonal product price if applicable
+                    if active_season and product:
+                        spp = active_season.product_prices.filter_by(product_id=product.id).first()
+                        if spp:
+                            unit_price = spp.price
+                    
                     booking_product = BookingProduct(
                         booking_id=booking.id,
                         product_id=product_id,
-                        quantity=quantity
+                        quantity=quantity,
+                        unit_price=unit_price
                     )
                     db.session.add(booking_product)
             
@@ -1171,6 +1209,67 @@ def booking_success():
 def subscription_success():
     """Subscription success confirmation page"""
     return render_template('customer/subscription_success.html')
+
+@bp.route('/api/prices')
+def api_prices():
+    """API endpoint to get prices for a specific date (handling seasons)"""
+    from app.models import Season, Service, Product
+    from datetime import datetime
+    
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({'error': 'Date is required'}), 400
+        
+    try:
+        booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format'}), 400
+        
+    # Find active season for this date
+    # A date is within a season if it falls between start_date and end_date inclusive
+    active_season = Season.query.filter(
+        Season.is_active == True,
+        Season.start_date <= booking_date,
+        Season.end_date >= booking_date
+    ).first()
+    
+    prices = {
+        'services': {},
+        'products': {}
+    }
+    
+    # Get base prices first (fallback)
+    services = Service.query.all()
+    products = Product.query.all()
+    
+    for service in services:
+        prices['services'][str(service.id)] = service.price
+        
+    for product in products:
+        prices['products'][str(product.id)] = product.price
+        
+    # Override with seasonal prices if applicable
+    seasonal_applied = False
+    season_name = None
+    allow_free_washes = False
+    
+    if active_season:
+        seasonal_applied = True
+        season_name = active_season.name_ar
+        allow_free_washes = active_season.allow_free_washes
+        
+        for sp in active_season.service_prices:
+            prices['services'][str(sp.service_id)] = sp.price
+            
+        for pp in active_season.product_prices:
+            prices['products'][str(pp.product_id)] = pp.price
+            
+    return jsonify({
+        'seasonal_applied': seasonal_applied,
+        'season_name': season_name,
+        'allow_free_washes': allow_free_washes,
+        'prices': prices
+    })
 
 
 # ===== Gift Feature Routes =====

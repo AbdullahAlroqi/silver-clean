@@ -428,25 +428,26 @@
                     productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2">لا توجد منتجات متاحة في هذا الموقع</p>';
                     return;
                 }
-                productsContainer.innerHTML = '';
-                products.forEach(product => {
-                    const card = document.createElement('div');
-                    card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
-                    const img = product.image_url
-                        ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-20 h-20 object-cover rounded-lg mb-3">`
-                        : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
 
-                    card.innerHTML = img + `<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">${product.name_ar}</h5><span class="text-accent font-bold">${product.price} ريال</span></div>` +
-                        `<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">` +
-                        `<input type="checkbox" name="product_${product.id}" value="${product.id}" class="ml-2 w-5 h-5">` +
-                        `<span class="text-gray-300">إضافة</span></label>` +
-                        `<input type="number" name="quantity_${product.id}" min="1" value="1" disabled class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>`;
-
-                    const checkbox = card.querySelector('input[type="checkbox"]');
-                    const qty = card.querySelector('input[type="number"]');
-                    checkbox.addEventListener('change', () => qty.disabled = !checkbox.checked);
-                    productsContainer.appendChild(card);
-                });
+                // If we already have a date selected, fetch seasonal prices for these products immediately
+                const date = dateInput.value;
+                if (date) {
+                    fetch('/customer/api/prices?date=' + date)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (!data.error && data.prices && data.prices.products) {
+                                productsData.forEach(p => {
+                                    if (data.prices.products[p.id] !== undefined) {
+                                        p.price = data.prices.products[p.id];
+                                    }
+                                });
+                            }
+                            renderProductsFromData();
+                        })
+                        .catch(() => renderProductsFromData());
+                } else {
+                    renderProductsFromData();
+                }
             })
             .catch(error => {
                 console.error('Error loading products:', error);
@@ -597,12 +598,133 @@
                     });
                 }
             });
+
+        // Also fetch seasonal prices for the selected date
+        fetchPricesForDate(date);
+    }
+
+    function fetchPricesForDate(date) {
+        if (!date) return;
+
+        fetch('/customer/api/prices?date=' + date)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) return;
+
+                // Update Service Price
+                const sId = serviceSelect.value;
+                if (sId && data.prices && data.prices.services && data.prices.services[sId] !== undefined) {
+                    servicePrice = data.prices.services[sId];
+                    // Also update the dropdown text dynamically to show new price
+                    const option = serviceSelect.options[serviceSelect.selectedIndex];
+                    const baseName = option.text.split('(')[0].trim();
+                    option.text = `${baseName} (${servicePrice} ريال)${data.seasonal_applied ? ' - ' + data.season_name : ''}`;
+                }
+
+                // Update Products Prices
+                if (productsData && data.prices && data.prices.products) {
+                    productsData.forEach(product => {
+                        if (data.prices.products[product.id] !== undefined) {
+                            product.price = data.prices.products[product.id];
+                        }
+                    });
+
+                    // Re-render product prices in DOM if products-container has children
+                    const container = document.getElementById('products-container');
+                    if (container && container.children.length > 0 && !container.innerHTML.includes('جاري تحميل') && !container.innerHTML.includes('لا توجد منتجات')) {
+                        // Re-render to show updated prices
+                        loadProducts(false); // passing false could prevent full reload, but it's simpler to just re-render from productsData
+                        renderProductsFromData();
+                    }
+                }
+
+                // Handle Free Wash availability during seasons
+                const freeWashContainer = document.getElementById('free-wash-container');
+                const freeWashCheckbox = document.getElementById('use_free_wash');
+
+                if (data.seasonal_applied && !data.allow_free_washes) {
+                    if (freeWashContainer) {
+                        freeWashContainer.style.display = 'none';
+                    }
+                    if (freeWashCheckbox) {
+                        freeWashCheckbox.checked = false;
+                    }
+
+                    let seasonalWarning = document.getElementById('seasonal-free-wash-warning');
+                    if (!seasonalWarning) {
+                        seasonalWarning = document.createElement('div');
+                        seasonalWarning.id = 'seasonal-free-wash-warning';
+                        seasonalWarning.className = 'bg-yellow-900 bg-opacity-20 border border-yellow-600 rounded-lg p-4 mb-4 text-yellow-500 text-sm';
+                        if (freeWashContainer && freeWashContainer.parentNode) {
+                            freeWashContainer.parentNode.insertBefore(seasonalWarning, freeWashContainer);
+                        }
+                    }
+                    seasonalWarning.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>عذراً، لا يمكن استخدام الغسلات المجانية خلال هذا الوقت';
+                    seasonalWarning.style.display = 'block';
+                } else {
+                    if (freeWashContainer) {
+                        freeWashContainer.style.display = 'block';
+                    }
+                    const seasonalWarning = document.getElementById('seasonal-free-wash-warning');
+                    if (seasonalWarning) {
+                        seasonalWarning.style.display = 'none';
+                    }
+                }
+
+                updateTotals();
+            })
+            .catch(err => console.error("Error fetching seasonal prices:", err));
+    }
+
+    function renderProductsFromData() {
+        const productsContainer = document.getElementById('products-container');
+        if (!productsData || productsData.length === 0) return;
+
+        // Save current selections
+        const userSelections = {};
+        productsData.forEach(product => {
+            const checkbox = document.querySelector(`input[name="product_${product.id}"]`);
+            if (checkbox) {
+                userSelections[product.id] = {
+                    checked: checkbox.checked,
+                    qty: document.querySelector(`input[name="quantity_${product.id}"]`).value
+                };
+            }
+        });
+
+        productsContainer.innerHTML = '';
+        productsData.forEach(product => {
+            const card = document.createElement('div');
+            card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
+            const img = product.image_url
+                ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-20 h-20 object-cover rounded-lg mb-3">`
+                : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
+
+            const selection = userSelections[product.id] || { checked: false, qty: 1 };
+
+            card.innerHTML = img + `<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">${product.name_ar}</h5><span class="text-accent font-bold">${product.price} ريال</span></div>` +
+                `<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">` +
+                `<input type="checkbox" name="product_${product.id}" value="${product.id}" class="ml-2 w-5 h-5" ${selection.checked ? 'checked' : ''}>` +
+                `<span class="text-gray-300">إضافة</span></label>` +
+                `<input type="number" name="quantity_${product.id}" min="1" value="${selection.qty}" ${selection.checked ? '' : 'disabled'} class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>`;
+
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            const qty = card.querySelector('input[type="number"]');
+            checkbox.addEventListener('change', () => qty.disabled = !checkbox.checked);
+            productsContainer.appendChild(card);
+        });
     }
 
     if (dateInput) dateInput.addEventListener('change', loadAvailableTimes);
     if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
     if (serviceSelect) {
-        serviceSelect.addEventListener('change', loadAvailableTimes);
+        serviceSelect.addEventListener('change', () => {
+            loadAvailableTimes();
+            // Refetch price when service changes just in case date was already set
+            if (dateInput.value) {
+                fetchPricesForDate(dateInput.value);
+            }
+        });
         serviceSelect.addEventListener('change', checkFreeWashEligibility);
         serviceSelect.addEventListener('change', updateServiceDurationText);
     }
