@@ -25,7 +25,6 @@ def upgrade():
     sa.Column('start_date', sa.Date(), nullable=False),
     sa.Column('end_date', sa.Date(), nullable=False),
     sa.Column('is_active', sa.Boolean(), nullable=True),
-    sa.Column('allow_free_washes', sa.Boolean(), server_default='0', nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
