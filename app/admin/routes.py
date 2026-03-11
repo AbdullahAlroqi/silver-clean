@@ -78,9 +78,47 @@ def index():
 # --- Seasons Management ---
 @bp.route('/seasons')
 def seasons():
-    from app.models import Season
-    # Subquery/property could be used, but let's just fetch all
+    from app.models import Season, Booking
     seasons = Season.query.order_by(Season.start_date.desc()).all()
+    
+    # Calculate stats for each season
+    for season in seasons:
+        # Get all bookings within the season date range
+        season_bookings = Booking.query.filter(
+            Booking.date >= season.start_date,
+            Booking.date <= season.end_date
+        ).all()
+        
+        season.total_bookings = len(season_bookings)
+        completed_bookings = [b for b in season_bookings if b.status == 'completed']
+        season.completed_bookings = len(completed_bookings)
+        
+        # Calculate revenue for completed bookings
+        total_revenue = 0
+        for b in completed_bookings:
+            # Calculate Service Revenue
+            if b.subscription_id or b.used_free_wash:
+                final_service_price = 0
+            else:
+                service_price = b.custom_service_price if b.custom_service_price is not None else (b.service.price if b.service else 0)
+                vehicle_size_price = b.vehicle_size_price or 0
+                discount_amount = 0
+                
+                if b.discount_code:
+                    if b.discount_code.discount_type == 'percentage':
+                        discount_amount = (service_price + vehicle_size_price) * (b.discount_code.value / 100)
+                    else:
+                        discount_amount = b.discount_code.value
+                
+                final_service_price = max(0, service_price + vehicle_size_price - discount_amount)
+            
+            # Calculate Products Revenue
+            products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products])
+            
+            total_revenue += (final_service_price + products_total)
+            
+        season.total_revenue = total_revenue
+
     return render_template('admin/seasons.html', seasons=seasons)
 
 @bp.route('/seasons/add', methods=['GET', 'POST'])

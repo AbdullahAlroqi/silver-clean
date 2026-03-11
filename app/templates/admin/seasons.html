@@ -16,6 +16,9 @@
                 <th class="p-4">تاريخ البداية</th>
                 <th class="p-4">تاريخ النهاية</th>
                 <th class="p-4">الحالة</th>
+                <th class="p-4">إجمالي الحجوزات</th>
+                <th class="p-4 text-green-400">المكتملة</th>
+                <th class="p-4 text-accent">إجمالي المبيعات</th>
                 <th class="p-4">المنتجات/الخدمات المعدّلة</th>
                 <th class="p-4">الإجراءات</th>
             </tr>
@@ -33,12 +36,17 @@
                     <span class="px-2 py-1 bg-gray-600 text-white rounded text-xs">غير مفعل</span>
                     {% endif %}
                 </td>
+                <td class="p-4 text-center">{{ season.total_bookings }}</td>
+                <td class="p-4 text-center">
+                    <span class="text-green-400">{{ season.completed_bookings }}</span>
+                </td>
+                <td class="p-4">
+                    <span class="font-bold text-accent">{{ "%.2f"|format(season.total_revenue) }} ريال</span>
+                </td>
                 <td class="p-4">
                     <div class="text-xs space-y-1">
-                        <span class="bg-blue-900 text-blue-300 px-2 py-1 rounded">{{ season.service_prices.count() }}
-                            خدمات</span>
-                        <span class="bg-purple-900 text-purple-300 px-2 py-1 rounded">{{ season.product_prices.count()
-                            }} منتجات</span>
+                        <span class="bg-blue-900 text-blue-300 px-2 py-1 rounded">{{ season.service_prices.count() }} خدمات</span>
+                        <span class="bg-purple-900 text-purple-300 px-2 py-1 rounded">{{ season.product_prices.count() }} منتجات</span>
                     </div>
                 </td>
                 <td class="p-4">

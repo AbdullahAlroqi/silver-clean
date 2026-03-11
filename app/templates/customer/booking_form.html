@@ -618,7 +618,7 @@
                     // Also update the dropdown text dynamically to show new price
                     const option = serviceSelect.options[serviceSelect.selectedIndex];
                     const baseName = option.text.split('(')[0].trim();
-                    option.text = `${baseName} (${servicePrice} ريال)${data.seasonal_applied ? ' - ' + data.season_name : ''}`;
+                    option.text = `${baseName} (${servicePrice} ريال)`;
                 }
 
                 // Update Products Prices
