@@ -21,6 +21,7 @@ class ServiceForm(FlaskForm):
     duration = IntegerField('المدة (دقيقة)', validators=[DataRequired()])
     description = TextAreaField('الوصف')
     includes_free_wash = BooleanField(' يشمل الغسلة المجانية', default=True)
+    is_active = BooleanField('مفعل', default=True)
     submit = SubmitField('حفظ')
 
 class VehicleSizeForm(FlaskForm):

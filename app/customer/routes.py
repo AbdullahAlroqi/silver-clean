@@ -69,7 +69,7 @@ def index():
     packages = SubscriptionPackage.query.filter_by(is_active=True).limit(3).all()
     
     # Get services for service selection
-    services = Service.query.all()
+    services = Service.query.filter_by(is_active=True).all()
     
     # Get loyalty settings
     site_settings = SiteSettings.get_settings()
@@ -223,7 +223,7 @@ def book():
     form.vehicle_id.choices = [(v.id, f"{v.brand} - {v.plate_number}") for v in user_vehicles]
     
     # Add placeholder for service and populate choices
-    services_query = Service.query.all()
+    services_query = Service.query.filter_by(is_active=True).all()
     form.service_id.choices = [('', 'اختر الخدمة')] + [(s.id, f"{s.name_ar} ({s.price} ريال)") for s in services_query]
     
     # Create a dictionary for service eligibility (ID -> Boolean)
@@ -956,8 +956,8 @@ def book_subscription_wash(subscription_id):
         flash('لا توجد غسلات متبقية في هذا الاشتراك', 'error')
         return redirect(url_for('customer.subscriptions'))
     
-    # Get default service (first one or a specific wash service)
-    default_service = Service.query.first()
+    # Get default service (first active one)
+    default_service = Service.query.filter_by(is_active=True).first()
     
     if request.method == 'POST':
         booking_date_str = request.form.get('date')
@@ -1239,7 +1239,7 @@ def api_prices():
     }
     
     # Get base prices first (fallback)
-    services = Service.query.all()
+    services = Service.query.filter_by(is_active=True).all()
     products = Product.query.all()
     
     for service in services:
@@ -1285,7 +1285,7 @@ def gift_wash():
     """Gift a single wash"""
     from app.models import Service, Product, GiftOrder, GiftOrderProduct, City
     
-    services = Service.query.all()
+    services = Service.query.filter_by(is_active=True).all()
     products = Product.query.all()  # Get all products
     cities = City.query.filter_by(is_active=True).all()
     

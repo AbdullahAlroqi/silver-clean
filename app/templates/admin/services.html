@@ -20,6 +20,7 @@
                 <th class="p-4">غسلة مجانية</th>
                 <th class="p-4">عدد الحجوزات</th>
                 <th class="p-4">الإيرادات</th>
+                <th class="p-4">الحالة</th>
                 <th class="p-4">الإجراءات</th>
             </tr>
         </thead>
@@ -35,6 +36,13 @@
                     <span class="text-green-500"><i class="fas fa-check"></i> نعم</span>
                     {% else %}
                     <span class="text-red-500"><i class="fas fa-times"></i> لا</span>
+                    {% endif %}
+                </td>
+                <td class="p-4">
+                    {% if item.service.is_active %}
+                    <span class="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs border border-green-600/30">مفعل</span>
+                    {% else %}
+                    <span class="px-2 py-1 bg-red-600/20 text-red-400 rounded text-xs border border-red-600/30">غير مفعل</span>
                     {% endif %}
                 </td>
                 <td class="p-4">{{ item.completed_bookings_count }}</td>

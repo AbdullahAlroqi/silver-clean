@@ -100,6 +100,7 @@ class Service(db.Model):
     duration = db.Column(db.Integer) # in minutes
     description = db.Column(db.String(255))
     includes_free_wash = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True)
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)

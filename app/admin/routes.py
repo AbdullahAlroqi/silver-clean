@@ -1128,7 +1128,8 @@ def add_service():
             service = Service(name_ar=form.name_ar.data, name_en=form.name_en.data, 
                               price=form.price.data, duration=form.duration.data, 
                               description=form.description.data,
-                              includes_free_wash=form.includes_free_wash.data)
+                              includes_free_wash=form.includes_free_wash.data,
+                              is_active=form.is_active.data)
             db.session.add(service)
             db.session.commit()
             flash('تم إضافة الخدمة بنجاح', 'success')
