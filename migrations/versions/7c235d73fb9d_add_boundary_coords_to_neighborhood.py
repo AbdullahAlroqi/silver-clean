@@ -63,6 +63,7 @@ def upgrade():
             batch_op.create_unique_constraint('unique_city_service', ['city_id', 'service_id'])
 
     with op.batch_alter_table('neighborhood', schema=None) as batch_op:
+        batch_op.add_column(sa.Column('osm_name', sa.String(length=200), nullable=True))
         batch_op.add_column(sa.Column('boundary_coords', sa.Text(), nullable=True))
 
     # ### end Alembic commands ###
