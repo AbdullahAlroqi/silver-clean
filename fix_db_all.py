@@ -34,6 +34,16 @@ def fix_all_schema():
         
         # City Fixes
         add_column_if_missing('city', 'osm_place_id', 'VARCHAR(50)')
+        add_column_if_missing('city', 'is_active', 'BOOLEAN DEFAULT 1')
+        
+        # Product Fixes
+        add_column_if_missing('product', 'stock_quantity', 'INTEGER DEFAULT 0')
+        add_column_if_missing('product', 'is_active', 'BOOLEAN DEFAULT 1')
+        add_column_if_missing('product', 'image_url', 'VARCHAR(255)')
+        
+        # Service Fixes
+        add_column_if_missing('service', 'is_active', 'BOOLEAN DEFAULT 1')
+        add_column_if_missing('service', 'includes_free_wash', 'BOOLEAN DEFAULT 1')
         
         # Site Settings Fixes
         add_column_if_missing('site_settings', 'referral_target_count', 'INTEGER DEFAULT 10')
