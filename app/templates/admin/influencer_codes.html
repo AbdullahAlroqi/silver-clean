@@ -1,0 +1,149 @@
+{% extends "admin/base.html" %}
+
+{% block title %}أكواد المؤثرين{% endblock %}
+{% block header %}أكواد المؤثرين{% endblock %}
+
+{% block content %}
+<!-- Add New Code Button -->
+<div class="flex justify-between items-center mb-6">
+    <h3 class="text-xl font-bold text-white">إدارة أكواد المؤثرين</h3>
+    <button onclick="document.getElementById('addCodeModal').style.display='flex'"
+        class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition">
+        <i class="fas fa-plus ml-2"></i>إضافة كود جديد
+    </button>
+</div>
+
+<!-- Stats Overview -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-primary rounded-xl p-4 border border-gray-700">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-purple-600/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-hashtag text-purple-400 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-white">{{ codes|length }}</p>
+                <p class="text-gray-400 text-sm">إجمالي الأكواد</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-primary rounded-xl p-4 border border-gray-700">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-600/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-chart-bar text-blue-400 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-blue-400">{{ total_usage }}</p>
+                <p class="text-gray-400 text-sm">إجمالي الاستخدامات</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-primary rounded-xl p-4 border border-gray-700">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-emerald-600/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-check-double text-emerald-400 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-emerald-400">---</p>
+                <p class="text-gray-400 text-sm">التحديث القادم</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Codes Table -->
+<div class="bg-primary rounded-xl p-6 border border-gray-700">
+    {% if codes %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-right">
+            <thead>
+                <tr class="text-gray-400 text-sm border-b border-gray-700">
+                    <th class="py-3 px-4">الكود</th>
+                    <th class="py-3 px-4">اسم المؤثر</th>
+                    <th class="py-3 px-4">نسبة الخصم</th>
+                    <th class="py-3 px-4">الحالة</th>
+                    <th class="py-3 px-4">مرات الاستخدام</th>
+                    <th class="py-3 px-4">تاريخ الإنشاء</th>
+                    <th class="py-3 px-4">إجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for code in codes %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-3 px-4">
+                        <span class="bg-purple-600/20 text-purple-400 px-2 py-1 rounded font-mono text-sm font-bold">{{ code.code }}</span>
+                    </td>
+                    <td class="py-3 px-4 text-white font-bold">{{ code.influencer_name }}</td>
+                    <td class="py-3 px-4 text-emerald-400 font-bold">{{ code.value|round(0)|int }}%</td>
+                    <td class="py-3 px-4">
+                        {% if code.is_active %}
+                        <span class="bg-emerald-600/20 text-emerald-400 px-2 py-1 rounded text-sm">نشط</span>
+                        {% else %}
+                        <span class="bg-red-600/20 text-red-400 px-2 py-1 rounded text-sm">معطل</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-white font-bold">{{ code.used_count }}</td>
+                    <td class="py-3 px-4 text-gray-400 text-sm">
+                        {{ code.valid_from.strftime('%Y-%m-%d') if code.valid_from else '-' }}
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="flex gap-2">
+                            <form method="POST" action="{{ url_for('admin.toggle_influencer_code', id=code.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="{% if code.is_active %}bg-yellow-600 hover:bg-yellow-700{% else %}bg-emerald-600 hover:bg-emerald-700{% endif %} text-white px-3 py-1 rounded text-sm transition" title="{{ 'تعطيل' if code.is_active else 'تفعيل' }}">
+                                    <i class="fas {{ 'fa-pause' if code.is_active else 'fa-play' }}"></i>
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin.delete_influencer_code', id=code.id) }}" onsubmit="return confirm('هل أنت متأكد من حذف هذا الكود؟')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition" title="حذف">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-400 text-center py-8">لا توجد أكواد مؤثرين. أضف كوداً جديداً للبدء.</p>
+    {% endif %}
+</div>
+
+<!-- Add Code Modal -->
+<div id="addCodeModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4">
+    <div class="bg-primary rounded-2xl p-6 w-full max-w-md border border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-white">إضافة كود مؤثر جديد</h3>
+            <button onclick="document.getElementById('addCodeModal').style.display='none'" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('admin.add_influencer_code') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-300 mb-1">الكود</label>
+                    <input type="text" name="code" required placeholder="مثال: PARTNER2024" 
+                        class="w-full bg-darkbg border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent"
+                        style="text-transform: uppercase;">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-300 mb-1">اسم المؤثر / الشريك</label>
+                    <input type="text" name="name" required placeholder="مثال: أحمد محمد"
+                        class="w-full bg-darkbg border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-300 mb-1">نسبة الخصم (%)</label>
+                    <input type="number" name="discount" required min="1" max="100" placeholder="مثال: 15"
+                        class="w-full bg-darkbg border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-accent">
+                </div>
+                <button type="submit" class="w-full bg-accent hover:bg-blue-600 text-white py-2 rounded-lg transition font-bold mt-2">
+                    <i class="fas fa-plus ml-2"></i>إضافة
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

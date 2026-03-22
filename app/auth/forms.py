@@ -20,6 +20,8 @@ class RegistrationForm(FlaskForm):
         import re
         if not re.search(r"[a-z]", password.data) or not re.search(r"[A-Z]", password.data) or not re.search(r"[0-9]", password.data):
             raise ValidationError('كلمة المرور يجب أن تحتوي على أحرف صغيرة وكبيرة وأرقام.')
+    
+    referral_code = StringField('كود الإحالة (اختياري)')  # Optional referral code
     submit = SubmitField('تسجيل جديد')
 
     def validate_username(self, username):

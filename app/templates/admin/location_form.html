@@ -1,12 +1,30 @@
 {% extends "admin/base.html" %}
 
 {% block content %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet Draw CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<style>
+    .leaflet-popup-content-wrapper { background: #1a1a2e; color: white; border-radius: 12px; border: 1px solid #4b5563; }
+    .leaflet-popup-tip { background: #1a1a2e; }
+    .leaflet-control-zoom a, .leaflet-draw-toolbar a { background-color: #1a1a2e !important; color: white !important; border-color: #4b5563 !important; }
+    .leaflet-control-zoom a:hover, .leaflet-draw-toolbar a:hover { background-color: #2d2d4e !important; }
+    .map-container { border-radius: 12px; overflow: hidden; border: 1px solid #374151; margin-top: 8px; position: relative; }
+    .leaflet-draw-tooltip { background: #1a1a2e; color: white; border: 1px solid #4b5563; }
+    .leaflet-draw-tooltip:before { border-right-color: #4b5563; }
+</style>
+
 <div class="max-w-2xl mx-auto">
     <h2 class="text-2xl font-bold text-white mb-6">{{ title }}</h2>
 
     <div class="bg-primary p-8 rounded-lg shadow-lg">
-        <form method="post" class="space-y-6">
+        <form method="post" class="space-y-6" id="locationForm">
             {{ form.hidden_tag() }}
+            
+            {% if type == 'neighborhood' %}
+            <input type="hidden" name="boundary_coords" id="boundary_coords" value="{{ neighborhood.boundary_coords if neighborhood and neighborhood.boundary_coords else '' }}">
+            {% endif %}
 
             {% if type == 'neighborhood' %}
             <div>
@@ -27,6 +45,49 @@
                     {{ form.name_en(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
                     focus:outline-none focus:border-accent") }}
                 </div>
+                
+                {% if type == 'city' %}
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">معرف OSM (اختياري)</label>
+                    <div class="flex gap-2">
+                        {{ form.osm_place_id(class="flex-1 bg-darkbg border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-accent", placeholder="سيتم تعبئته تلقائياً عند البحث") }}
+                        <button type="button" onclick="openOSMModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 rounded transition flex items-center shrink-0">
+                            <i class="fas fa-search ml-2"></i> بحث OSM
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if type == 'neighborhood' %}
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-300 mb-1">اسم OSM (اختياري)</label>
+                    <div class="flex gap-2">
+                        {{ form.osm_name(class="flex-1 bg-darkbg border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-accent", placeholder="سيتم تعبئته تلقائياً عند البحث") }}
+                        <button type="button" onclick="openOSMModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 rounded transition flex items-center shrink-0">
+                            <i class="fas fa-search ml-2"></i> بحث OSM
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1"><i class="fas fa-info-circle"></i> يمكنك البحث في خريطة الشارع المفتوح لتعبئة الحدود تلقائياً إذا كانت متوفرة.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Map Preview & Editing -->
+            <div id="editMapWrapper" class="{% if not neighborhood and not form.name_ar.data %}hidden{% endif %}">
+                <label class="block text-sm font-medium text-gray-300 mb-1">
+                    <i class="fas fa-draw-polygon ml-1 text-accent"></i> 
+                    {% if type == 'neighborhood' %}
+                    حدود الحي (ارسم أو عدل المضلع للتحكم بنطاق الخدمة المسموح)
+                    {% else %}
+                    الموقع على الخريطة
+                    {% endif %}
+                </label>
+                <div class="map-container">
+                    <div id="editMap" style="height: 350px; width: 100%;"></div>
+                </div>
+                {% if type == 'neighborhood' %}
+                <p class="text-xs text-yellow-400 mt-2"><i class="fas fa-exclamation-triangle"></i> سيتم منع العملاء خارج هذه الحدود من الحجز في هذا الحي.</p>
+                {% endif %}
             </div>
 
             <div class="flex items-center">
@@ -34,11 +95,360 @@
                 <label class="mr-2 block text-sm text-gray-300">مفعل</label>
             </div>
 
-            <div class="pt-4">
-                {{ form.submit(class="w-full bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded
-                transition cursor-pointer") }}
+            <div class="pt-4 flex gap-3">
+                <a href="{{ url_for('admin.locations') }}" class="w-1/3 text-center bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition">إلغاء</a>
+                <button type="submit" class="w-2/3 bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">حفظ التعديلات</button>
             </div>
         </form>
     </div>
 </div>
+
+<!-- OSM Search Modal -->
+<div id="osmModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-white"><i class="fas fa-map-marker-alt ml-2"></i>البحث في الخريطة OSM</h3>
+            <button onclick="closeOSMModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-400 mb-2 text-sm">أدخل اسم المُدخل ({{ 'مدينة' if type == 'city' else 'حي في المدينة المختارة' }}):</label>
+            <div class="relative">
+                <input type="text" id="osmSearchInput" placeholder="اكتب للبحث..."
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg py-2 pr-4 pl-10 focus:outline-none focus:border-accent">
+                <button onclick="performOSMSearch()" class="absolute left-2 top-2 text-accent hover:text-white">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <div id="osmSpinner" class="hidden mt-2 text-center">
+                <i class="fas fa-spinner fa-spin text-accent text-xl"></i>
+                <p class="text-gray-400 text-sm mt-1">جاري البحث...</p>
+            </div>
+        </div>
+
+        <div id="osmResults" class="max-h-48 overflow-y-auto mb-4 space-y-2"></div>
+
+        <!-- OSM Modal Map Preview -->
+        <div id="osmModalMapWrapper" class="hidden mb-4">
+            <label class="block text-gray-400 mb-2 text-sm"><i class="fas fa-map-marked-alt ml-1"></i>الموقع على الخريطة</label>
+            <div class="map-container">
+                <div id="osmModalMap" style="height: 250px; width: 100%;"></div>
+            </div>
+        </div>
+        
+        <div class="flex justify-end mt-4">
+            <button onclick="closeOSMModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet Draw JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+    const formType = '{{ type }}';
+    const SAT_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    const SAT_ATTR = '&copy; Esri, Maxar, Earthstar Geographics';
+    const BOUNDARY_STYLE = { color: '#00e5ff', weight: 3, fillColor: '#00e5ff', fillOpacity: 0.15 };
+
+    // --- Map instances ---
+    let editMap = null;
+    let drawnItems = new L.FeatureGroup();
+    let drawControl = null;
+    let osmModalMap = null;
+    let osmModalLayers = [];
+
+    // Build boundary from boundingbox [south, north, west, east]
+    function bboxToLatLngs(bb) {
+        const s = parseFloat(bb[0]), n = parseFloat(bb[1]), w = parseFloat(bb[2]), e = parseFloat(bb[3]);
+        return [[s, w], [n, w], [n, e], [s, e]];
+    }
+
+    function clearLayers(map, layers) {
+        layers.forEach(l => map.removeLayer(l));
+        layers.length = 0;
+    }
+
+    function initEditMap() {
+        if (editMap) return;
+        editMap = L.map('editMap', { zoomControl: true }).setView([24.7136, 46.6753], 6);
+        L.tileLayer(SAT_TILES, { attribution: SAT_ATTR, maxZoom: 18 }).addTo(editMap);
+        editMap.addLayer(drawnItems);
+        
+        if (formType === 'neighborhood') {
+            drawControl = new L.Control.Draw({
+                edit: {
+                    featureGroup: drawnItems,
+                    remove: true
+                },
+                draw: {
+                    polygon: {
+                        shapeOptions: BOUNDARY_STYLE,
+                        allowIntersection: false,
+                        drawError: { color: '#e1e100', message: '<strong>خطأ:</strong> لا يمكن للمضلع أن يتقاطع مع نفسه!' }
+                    },
+                    polyline: false,
+                    rectangle: { shapeOptions: BOUNDARY_STYLE },
+                    circle: false,
+                    marker: false,
+                    circlemarker: false
+                }
+            });
+            editMap.addControl(drawControl);
+            
+            // Events for drawing
+            editMap.on(L.Draw.Event.CREATED, function (event) {
+                var layer = event.layer;
+                // Only allow one boundary, clear others if needed, but let's clear existing to replace
+                drawnItems.clearLayers();
+                drawnItems.addLayer(layer);
+                updateBoundaryInput();
+            });
+
+            editMap.on(L.Draw.Event.EDITED, function (event) {
+                updateBoundaryInput();
+            });
+
+            editMap.on(L.Draw.Event.DELETED, function (event) {
+                updateBoundaryInput();
+            });
+        }
+    }
+    
+    function updateBoundaryInput() {
+        if (formType !== 'neighborhood') return;
+        const data = drawnItems.toGeoJSON();
+        if (data.features.length > 0) {
+            // we just store the geometry of the first feature
+            document.getElementById('boundary_coords').value = JSON.stringify(data.features[0].geometry);
+        } else {
+            document.getElementById('boundary_coords').value = '';
+        }
+    }
+
+    function showEditMapLocation(lat, lon, name, geojson, bbox) {
+        const wrapper = document.getElementById('editMapWrapper');
+        wrapper.classList.remove('hidden');
+        initEditMap();
+        setTimeout(() => {
+            editMap.invalidateSize();
+            drawnItems.clearLayers();
+            
+            if (geojson) {
+                const gl = L.geoJSON(geojson, { style: BOUNDARY_STYLE });
+                gl.eachLayer(layer => {
+                    drawnItems.addLayer(layer);
+                    layer.bindPopup(`<b>${name}</b>`);
+                });
+                editMap.fitBounds(gl.getBounds(), { padding: [20, 20] });
+            } else if (bbox) {
+                const rect = L.polygon(bboxToLatLngs(bbox), BOUNDARY_STYLE);
+                rect.bindPopup(`<b>${name}</b>`);
+                drawnItems.addLayer(rect);
+                editMap.fitBounds(rect.getBounds(), { padding: [20, 20] });
+            } else {
+                if (lat && lon) {
+                    editMap.setView([lat, lon], formType === 'city' ? 12 : 14);
+                }
+            }
+            updateBoundaryInput();
+        }, 150);
+    }
+
+    function initOsmModalMap() {
+        if (osmModalMap) return;
+        osmModalMap = L.map('osmModalMap', { zoomControl: true }).setView([24.7136, 46.6753], 6);
+        L.tileLayer(SAT_TILES, { attribution: SAT_ATTR, maxZoom: 18 }).addTo(osmModalMap);
+    }
+
+    function showOsmModalMapLocation(lat, lon, name, geojson, bbox) {
+        const wrapper = document.getElementById('osmModalMapWrapper');
+        wrapper.classList.remove('hidden');
+        initOsmModalMap();
+        setTimeout(() => {
+            osmModalMap.invalidateSize();
+            clearLayers(osmModalMap, osmModalLayers);
+            if (geojson) {
+                const gl = L.geoJSON(geojson, { style: BOUNDARY_STYLE }).addTo(osmModalMap).bindPopup(`<b>${name}</b>`);
+                osmModalLayers.push(gl);
+                osmModalMap.fitBounds(gl.getBounds(), { padding: [20, 20] });
+            } else if (bbox) {
+                const rect = L.polygon(bboxToLatLngs(bbox), BOUNDARY_STYLE).addTo(osmModalMap).bindPopup(`<b>${name}</b>`);
+                const mk = L.marker([lat, lon]).addTo(osmModalMap).bindPopup(`<b>${name}</b>`).openPopup();
+                osmModalLayers.push(rect, mk);
+                osmModalMap.fitBounds(rect.getBounds(), { padding: [20, 20] });
+            } else {
+                const mk = L.marker([lat, lon]).addTo(osmModalMap).bindPopup(`<b>${name}</b>`).openPopup();
+                osmModalLayers.push(mk);
+                osmModalMap.setView([lat, lon], formType === 'city' ? 12 : 14);
+            }
+        }, 150);
+    }
+
+    // --- OSM Modal ---
+    function openOSMModal() {
+        document.getElementById('osmModal').classList.remove('hidden');
+        document.getElementById('osmModal').classList.add('flex');
+        document.getElementById('osmSearchInput').value = document.getElementById('name_ar').value;
+        document.getElementById('osmResults').innerHTML = '';
+        document.getElementById('osmModalMapWrapper').classList.add('hidden');
+        setTimeout(() => {
+            document.getElementById('osmSearchInput').focus();
+            if(osmModalMap) osmModalMap.invalidateSize();
+        }, 100);
+    }
+
+    function closeOSMModal() {
+        document.getElementById('osmModal').classList.add('hidden');
+        document.getElementById('osmModal').classList.remove('flex');
+    }
+
+    let osmSearchData = [];
+
+    async function performOSMSearch() {
+        const q = document.getElementById('osmSearchInput').value.trim();
+        const spinner = document.getElementById('osmSpinner');
+        const results = document.getElementById('osmResults');
+        
+        if (!q) return;
+
+        spinner.classList.remove('hidden');
+        results.innerHTML = '';
+        
+        try {
+            let url = '';
+            if (formType === 'city') {
+                url = `https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(q)}&format=json&accept-language=ar&addressdetails=1&polygon_geojson=1&limit=10`;
+            } else {
+                const citySelect = document.getElementById('city_id');
+                const cityName = citySelect ? citySelect.options[citySelect.selectedIndex].text : '';
+                url = `https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(q + ' ' + cityName)}&format=json&accept-language=ar&addressdetails=1&polygon_geojson=1&limit=15`;
+            }
+
+            const resp = await fetch(url, { headers: { 'User-Agent': 'SilverCleanApp/1.0' } });
+            const data = await resp.json();
+            osmSearchData = data;
+            
+            if (!data.length) {
+                results.innerHTML = '<p class="text-gray-500 text-sm text-center py-2">لا توجد نتائج</p>';
+            } else {
+                data.forEach((item, idx) => {
+                    const nameAr = (formType === 'city' ? 
+                        (item.address?.city || item.address?.town || item.name || item.display_name.split(',')[0]) : 
+                        (item.address?.suburb || item.address?.neighbourhood || item.name || item.display_name.split(',')[0]));
+                    const nameEn = item.name || nameAr;
+                    const osmValue = formType === 'city' ? item.place_id : item.display_name;
+
+                    results.innerHTML += `
+                        <div class="bg-darkbg p-3 rounded-lg border border-gray-700 cursor-pointer hover:border-accent transition" 
+                             onclick="selectOSMResult('${nameAr.replace(/'/g, "\\'")}', '${nameEn.replace(/'/g, "\\'")}', '${String(osmValue).replace(/'/g, "\\'")}', ${idx})">
+                            <p class="text-white font-semibold">${nameAr}</p>
+                            <p class="text-gray-400 text-xs mt-1">${item.display_name} | Place ID: ${item.place_id}</p>
+                        </div>`;
+                });
+            }
+        } catch (err) {
+            results.innerHTML = '<p class="text-red-400 text-sm text-center py-2">خطأ في الاتصال بخدمة OSM</p>';
+            console.error(err);
+        }
+        spinner.classList.add('hidden');
+    }
+
+    function selectOSMResult(nameAr, nameEn, osmValue, idx) {
+        if (!document.getElementById('name_ar').value) document.getElementById('name_ar').value = nameAr;
+        if (!document.getElementById('name_en').value) document.getElementById('name_en').value = nameEn;
+        
+        if (formType === 'city') {
+            document.getElementById('osm_place_id').value = osmValue;
+        } else {
+            document.getElementById('osm_name').value = osmValue;
+        }
+
+        // Show map with boundary
+        if (osmSearchData[idx]) {
+            const item = osmSearchData[idx];
+            const lat = parseFloat(item.lat);
+            const lon = parseFloat(item.lon);
+            const geojson = (item.geojson && item.geojson.type !== 'Point') ? item.geojson : null;
+            showOsmModalMapLocation(lat, lon, nameAr, geojson, item.boundingbox);
+            showEditMapLocation(lat, lon, nameAr, geojson, item.boundingbox);
+        }
+        
+        closeOSMModal();
+    }
+
+    // Modal close on outside click
+    document.getElementById('osmModal').addEventListener('click', function(e) {
+        if (e.target === this) closeOSMModal();
+    });
+
+    // Enter key support
+    document.getElementById('osmSearchInput').addEventListener('keydown', e => { 
+        if (e.key === 'Enter') { e.preventDefault(); performOSMSearch(); }
+    });
+
+    // --- On Load: load existing boundary if available ---
+    document.addEventListener('DOMContentLoaded', function() {
+        if (formType === 'neighborhood') {
+            const savedBoundaryField = document.getElementById('boundary_coords');
+            if (savedBoundaryField && savedBoundaryField.value) {
+                try {
+                    const existingGeojson = JSON.parse(savedBoundaryField.value);
+                    const name = document.getElementById('name_ar').value;
+                    showEditMapLocation(null, null, name, existingGeojson, null);
+                } catch (e) {
+                    console.error("Could not parse saved boundary", e);
+                }
+            } else {
+                // Try to load map based on text search if new or no boundary
+                const nameField = document.getElementById('name_ar');
+                const citySelect = document.getElementById('city_id');
+                const cityName = citySelect ? citySelect.options[citySelect.selectedIndex].text : '';
+                let searchTerm = nameField && nameField.value ? nameField.value + ' ' + cityName : '';
+                
+                if (searchTerm && searchTerm.trim() !== cityName.trim()) {
+                    fetch(`https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(searchTerm)}&format=json&accept-language=ar&polygon_geojson=1&limit=1`, 
+                        { headers: { 'User-Agent': 'SilverCleanApp/1.0' } })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.length > 0) {
+                                const lat = parseFloat(data[0].lat);
+                                const lon = parseFloat(data[0].lon);
+                                const name = nameField.value;
+                                const geojson = (data[0].geojson && data[0].geojson.type !== 'Point') ? data[0].geojson : null;
+                                showEditMapLocation(lat, lon, name, geojson, data[0].boundingbox);
+                            } else {
+                                // Default fallback if not found
+                                showEditMapLocation(24.7136, 46.6753, 'الموقع الجديد', null, null);
+                            }
+                        })
+                        .catch(() => showEditMapLocation(24.7136, 46.6753, 'الموقع الجديد', null, null));
+                } else if (nameField && !nameField.value) {
+                     // Empty form, just show map
+                     showEditMapLocation(24.7136, 46.6753, '', null, null);
+                }
+            }
+        } else if (formType === 'city') {
+             const nameField = document.getElementById('name_ar');
+             if (nameField && nameField.value) {
+                 fetch(`https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(nameField.value)}&format=json&accept-language=ar&polygon_geojson=1&limit=1`, 
+                        { headers: { 'User-Agent': 'SilverCleanApp/1.0' } })
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.length > 0) {
+                                const lat = parseFloat(data[0].lat);
+                                const lon = parseFloat(data[0].lon);
+                                const name = nameField.value;
+                                const geojson = (data[0].geojson && data[0].geojson.type !== 'Point') ? data[0].geojson : null;
+                                showEditMapLocation(lat, lon, name, geojson, data[0].boundingbox);
+                            }
+                        })
+                        .catch(() => {});
+             }
+        }
+    });
+</script>
 {% endblock %}

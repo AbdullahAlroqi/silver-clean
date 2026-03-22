@@ -81,7 +81,15 @@
             <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
                 <td class="p-4">#{{ booking.id }}</td>
                 <td class="p-4">
-                    <div class="font-bold">{{ booking.customer.username }}</div>
+                    <div class="flex items-center gap-2">
+                        <div class="font-bold">{{ booking.customer.username }}</div>
+                        {% if booking.location_lat and booking.location_lng %}
+                        <a href="https://www.google.com/maps/dir/?api=1&destination={{ booking.location_lat }},{{ booking.location_lng }}" 
+                           target="_blank" class="text-accent hover:text-blue-400" title="فتح الموقع في جوجل ماب">
+                            <i class="fas fa-directions"></i>
+                        </a>
+                        {% endif %}
+                    </div>
                     <div class="text-xs text-gray-400">{{ booking.customer.phone }}</div>
                     {% if booking.neighborhood %}
                     <div class="text-xs text-gray-500 mt-1">
@@ -230,10 +238,10 @@
                             class="text-yellow-400 hover:text-yellow-300" title="تعديل">
                             <i class="fas fa-edit"></i>
                         </button>
-                        {% if booking.status != 'cancelled' and booking.employee_id %}
+                        {% if booking.status != 'cancelled' %}
                         <button
-                            onclick='showReassignModal({{ booking.id }}, {{ booking.employee_id }}, "{{ booking.date }}", "{{ booking.time.strftime("%H:%M") if booking.time else "" }}", {{ booking.neighborhood_id if booking.neighborhood_id else "null" }}, {{ booking.service_id }})'
-                            class="text-blue-400 hover:text-blue-300" title="إعادة إسناد">
+                            onclick='showReassignModal({{ booking.id }}, {{ booking.employee_id if booking.employee_id else "null" }}, "{{ booking.date }}", "{{ booking.time.strftime("%H:%M") if booking.time else "" }}", {{ booking.neighborhood_id if booking.neighborhood_id else "null" }}, {{ booking.service_id }})'
+                            class="text-blue-400 hover:text-blue-300" title="{{ 'إعادة إسناد' if booking.employee_id else 'إسناد موظف' }}">
                             <i class="fas fa-user-plus"></i>
                         </button>
                         {% endif %}

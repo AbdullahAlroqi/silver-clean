@@ -36,6 +36,11 @@ class User(UserMixin, db.Model):
     is_banned = db.Column(db.Boolean, default=False)
     ban_reason = db.Column(db.String(255), nullable=True)
     
+    # Referral System
+    referral_code = db.Column(db.String(10), unique=True, index=True)  # e.g. SILVC4821
+    referred_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # Who referred this user
+    used_influencer_code_id = db.Column(db.Integer, db.ForeignKey('discount_code.id'), nullable=True)  # Used an influencer code at signup
+    
     # Relationships
     vehicles = db.relationship('Vehicle', backref='owner', lazy='dynamic')
     bookings = db.relationship('Booking', backref='customer', foreign_keys='Booking.customer_id', lazy='dynamic')
@@ -45,6 +50,10 @@ class User(UserMixin, db.Model):
     assigned_subscriptions = db.relationship('Subscription', backref='assigned_employee', foreign_keys='Subscription.employee_id', lazy='dynamic')
     neighborhoods = db.relationship('Neighborhood', secondary=employee_neighborhoods, backref=db.backref('employees', lazy='dynamic'))
     schedules = db.relationship('EmployeeSchedule', backref='employee', lazy='dynamic')
+    
+    # Referral relationships
+    referrals_made = db.relationship('ReferralRecord', foreign_keys='ReferralRecord.referrer_id', backref='referrer', lazy='dynamic')
+    referral_record = db.relationship('ReferralRecord', foreign_keys='ReferralRecord.referred_user_id', backref='referred_user', uselist=False)
     
     # Supervisor Relationships
     supervisor_cities = db.relationship('City', secondary=supervisor_cities, backref=db.backref('supervisors', lazy='dynamic'))
@@ -58,6 +67,20 @@ class User(UserMixin, db.Model):
 
     def __repr__(self):
         return f'<User {self.username}>'
+
+    @staticmethod
+    def generate_referral_code():
+        """Generate a unique referral code in format SILVC + 4 digits (+ optional letter)"""
+        import random
+        import string
+        while True:
+            digits = ''.join(random.choices(string.digits, k=4))
+            # 50% chance of adding a trailing letter for variety
+            suffix = random.choice(string.ascii_uppercase) if random.random() > 0.5 else ''
+            code = f'SILVC{digits}{suffix}'
+            # Check uniqueness
+            if not User.query.filter_by(referral_code=code).first():
+                return code
 
 @login.user_loader
 def load_user(id):
@@ -82,15 +105,69 @@ class City(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name_ar = db.Column(db.String(64))
     name_en = db.Column(db.String(64))
+    osm_place_id = db.Column(db.String(50), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     neighborhoods = db.relationship('Neighborhood', backref='city', lazy='dynamic')
+    city_service_prices = db.relationship('CityServicePrice', backref='city', lazy='dynamic', cascade='all, delete-orphan')
+    city_product_prices = db.relationship('CityProductPrice', backref='city', lazy='dynamic', cascade='all, delete-orphan')
 
 class Neighborhood(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'))
     name_ar = db.Column(db.String(64))
     name_en = db.Column(db.String(64))
+    osm_name = db.Column(db.String(200), nullable=True)
+    boundary_coords = db.Column(db.Text, nullable=True)  # GeoJSON polygon
     is_active = db.Column(db.Boolean, default=True)
+
+    def contains_point(self, lat, lng):
+        """Check if a given (lat, lng) point is inside the neighborhood's boundary using Ray-Casting."""
+        if not self.boundary_coords:
+            return True  # If no boundary is defined, assume it's valid
+        
+        import json
+        try:
+            geometry = json.loads(self.boundary_coords)
+            
+            # GeoJSON format for Polygon: { "type": "Polygon", "coordinates": [ [ring0], [hole1], ... ] }
+            if geometry.get('type') == 'Polygon':
+                return self._is_in_poly_with_holes(lng, lat, geometry.get('coordinates', []))
+                
+            elif geometry.get('type') == 'MultiPolygon':
+                for polygon_coords in geometry.get('coordinates', []):
+                    if self._is_in_poly_with_holes(lng, lat, polygon_coords):
+                        return True
+                return False
+        except (json.JSONDecodeError, IndexError, TypeError):
+            pass
+            
+        return True # Fallback
+
+    def _is_in_poly_with_holes(self, x, y, rings):
+        """Check if point is in exterior ring and NOT in any interior holes."""
+        if not rings:
+            return False
+        # Point must be inside the first ring (exterior)
+        if not self._point_in_ring(x, y, rings[0]):
+            return False
+        # And NOT inside any subsequent rings (holes)
+        for hole in rings[1:]:
+            if self._point_in_ring(x, y, hole):
+                return False
+        return True
+
+    def _point_in_ring(self, x, y, ring):
+        """Ray-casting algorithm for a single ring."""
+        inside = False
+        n = len(ring)
+        if n < 3: return False
+        p1x, p1y = ring[0]
+        for i in range(1, n + 1):
+            p2x, p2y = ring[i % n]
+            if ((p1y > y) != (p2y > y)) and (x < (p2x - p1x) * (y - p1y) / (p2y - p1y) + p1x):
+                inside = not inside
+            p1x, p1y = p2x, p2y
+        return inside
 
 class Service(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -101,6 +178,7 @@ class Service(db.Model):
     description = db.Column(db.String(255))
     includes_free_wash = db.Column(db.Boolean, default=True)
     is_active = db.Column(db.Boolean, default=True)
+    city_prices = db.relationship('CityServicePrice', backref='service', lazy='dynamic', cascade='all, delete-orphan')
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -109,9 +187,11 @@ class Product(db.Model):
     price = db.Column(db.Float)
     image_url = db.Column(db.String(255))
     stock_quantity = db.Column(db.Integer, default=0)  # Global stock (fallback)
+    is_active = db.Column(db.Boolean, default=True)
     
     # Relationship to location-based stock
     location_stocks = db.relationship('ProductStock', backref='product', lazy='dynamic')
+    city_prices = db.relationship('CityProductPrice', backref='product', lazy='dynamic', cascade='all, delete-orphan')
 
 class ProductStock(db.Model):
     """Product stock per city/neighborhood"""
@@ -196,6 +276,10 @@ class DiscountCode(db.Model):
     used_count = db.Column('usage_count', db.Integer, default=0)
     max_uses_per_customer = db.Column(db.Integer, nullable=True, default=1)  # الحد الأقصى للاستخدام لكل عميل
     is_active = db.Column('active', db.Boolean, default=True)
+    
+    # Influencer specifics
+    is_influencer = db.Column(db.Boolean, default=False)
+    influencer_name = db.Column(db.String(100), nullable=True)
 
 class Season(db.Model):
     """Seasonal periods where custom prices apply (e.g., Eid, National Day)"""
@@ -305,6 +389,7 @@ class SiteSettings(db.Model):
     loyalty_points_threshold = db.Column(db.Integer, default=10)
     booking_days_limit = db.Column(db.Integer, default=7)       # عدد أيام حجز الخدمة (0 = إيقاف)
     subscription_days_limit = db.Column(db.Integer, default=7)   # عدد أيام حجز الاشتراك (0 = إيقاف)
+    referral_target_count = db.Column(db.Integer, default=10)    # عدد الإحالات المطلوبة للحصول على غسلة مجانية
     
     @staticmethod
     def get_settings():
@@ -388,3 +473,56 @@ class EmployeeLocation(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     employee = db.relationship('User', backref=db.backref('location', uselist=False, cascade="all, delete-orphan"))
+
+
+class CityServicePrice(db.Model):
+    """City-specific price override for a service"""
+    id = db.Column(db.Integer, primary_key=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    __table_args__ = (
+        db.UniqueConstraint('city_id', 'service_id', name='unique_city_service'),
+    )
+
+
+class CityProductPrice(db.Model):
+    """City-specific price override for a product"""
+    id = db.Column(db.Integer, primary_key=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    __table_args__ = (
+        db.UniqueConstraint('city_id', 'product_id', name='unique_city_product'),
+    )
+
+
+class CityPackagePrice(db.Model):
+    """City-specific price override for a subscription package"""
+    id = db.Column(db.Integer, primary_key=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
+    package_id = db.Column(db.Integer, db.ForeignKey('subscription_package.id'), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    __table_args__ = (
+        db.UniqueConstraint('city_id', 'package_id', name='unique_city_package'),
+    )
+
+
+class ReferralRecord(db.Model):
+    """Tracks each referral: who referred whom and first wash status"""
+    id = db.Column(db.Integer, primary_key=True)
+    referrer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    referred_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    name_prefix = db.Column(db.String(3))  # First 3 letters of referred user's name
+    first_wash_completed = db.Column(db.Boolean, default=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+

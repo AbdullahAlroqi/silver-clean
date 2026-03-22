@@ -75,13 +75,30 @@ def index():
     site_settings = SiteSettings.get_settings()
     loyalty_threshold = site_settings.loyalty_points_threshold or 10
     
+    # Referral system data
+    from app.models import ReferralRecord
+    referral_target = site_settings.referral_target_count or 10
+    referral_records = ReferralRecord.query.filter_by(referrer_id=current_user.id).order_by(ReferralRecord.created_at.desc()).all()
+    referral_completed = sum(1 for r in referral_records if r.first_wash_completed)
+    current_cycle_completed = referral_completed % referral_target
+    
+    # Auto-generate referral code if user doesn't have one
+    if not current_user.referral_code:
+        from app.models import User as UserModel
+        current_user.referral_code = UserModel.generate_referral_code()
+        db.session.commit()
+    
     return render_template('customer/index.html', 
                          upcoming_bookings=upcoming_bookings,
                          unrated_booking=unrated_booking,
                          announcements=announcements,
                          packages=packages,
                          services=services,
-                         loyalty_threshold=loyalty_threshold)
+                         loyalty_threshold=loyalty_threshold,
+                         referral_records=referral_records,
+                         referral_completed=referral_completed,
+                         current_cycle_completed=current_cycle_completed,
+                         referral_target=referral_target)
 
 @bp.route('/bookings')
 def my_bookings():
@@ -108,6 +125,29 @@ def my_bookings():
     ).all()
     
     return render_template('customer/my_bookings.html', bookings=bookings)
+
+@bp.route('/referrals')
+def referrals():
+    """View customer's referral dashboard"""
+    from app.models import ReferralRecord, SiteSettings
+    
+    site_settings = SiteSettings.get_settings()
+    referral_target = site_settings.referral_target_count or 10
+    referral_records = ReferralRecord.query.filter_by(referrer_id=current_user.id).order_by(ReferralRecord.created_at.desc()).all()
+    referral_completed = sum(1 for r in referral_records if r.first_wash_completed)
+    current_cycle_completed = referral_completed % referral_target
+    
+    # Auto-generate referral code if user doesn't have one
+    if not current_user.referral_code:
+        from app.models import User as UserModel
+        current_user.referral_code = UserModel.generate_referral_code()
+        db.session.commit()
+        
+    return render_template('customer/referrals.html',
+                         referral_records=referral_records,
+                         referral_completed=referral_completed,
+                         current_cycle_completed=current_cycle_completed,
+                         referral_target=referral_target)
 
 @bp.route('/bookings/cancel/<int:booking_id>', methods=['POST'])
 def cancel_booking(booking_id):
@@ -157,6 +197,19 @@ def cancel_booking(booking_id):
     
     flash('تم إلغاء الحجز بنجاح', 'success')
     return redirect(url_for('customer.my_bookings'))
+
+@bp.route('/api/neighborhood/<int:id>/boundary')
+def get_neighborhood_boundary(id):
+    """API Endpoint to fetch a neighborhood's boundary for the customer map picker."""
+    neighborhood = Neighborhood.query.get_or_404(id)
+    if neighborhood.boundary_coords:
+        import json
+        try:
+            boundary = json.loads(neighborhood.boundary_coords)
+            return jsonify({'boundary': boundary})
+        except json.JSONDecodeError:
+            pass
+    return jsonify({'boundary': None})
 
 # --- Vehicle Management ---
 @bp.route('/vehicles')
@@ -258,6 +311,12 @@ def book():
             from datetime import datetime, timedelta
             from app.models import DiscountCode
             
+            location_lat = request.form.get('location_lat')
+            location_lng = request.form.get('location_lng')
+            if not location_lat or not location_lng:
+                flash('الرجاء تحديد موقعك الدقيق على الخريطة للوصول إليك', 'error')
+                return redirect(url_for('customer.book'))
+
             # Get booking details
             booking_date = form.date.data
             
@@ -347,10 +406,20 @@ def book():
                     flash('عذراً، لا يمكن استخدام الغسلات المجانية خلال هذا الوقت')
                     return redirect(url_for('customer.book'))
             
-            # Find an available employee for this time slot
+            # Find the neighborhood and validate boundaries
             neighborhood = Neighborhood.query.get(neighborhood_id)
             if not neighborhood:
                 flash('الحي غير موجود')
+                return redirect(url_for('customer.book'))
+                
+            try:
+                lat = float(location_lat)
+                lng = float(location_lng)
+                if not neighborhood.contains_point(lat, lng):
+                    flash('عذراً، الموقع المحدد يقع خارج نطاق الحي المختار. يرجى تعديل الموقع للطلب.', 'error')
+                    return redirect(url_for('customer.book'))
+            except (ValueError, TypeError):
+                flash('إحداثيات الموقع غير صالحة', 'error')
                 return redirect(url_for('customer.book'))
             
             # Check for existing active bookings for the same vehicle on the same day
@@ -365,7 +434,20 @@ def book():
                 flash('لديك حجز آخر لنفس السيارة في نفس اليوم. الرجاء اختيار يوم آخر أو إلغاء الحجز السابق.')
                 return redirect(url_for('customer.book'))
             
+            # Sticky Employee Logic: Priority to employee already assigned to this customer today
             employees = neighborhood.employees.filter_by(role='employee').all()
+            
+            customer_active_booking = Booking.query.filter(
+                Booking.customer_id == current_user.id,
+                Booking.date == booking_date,
+                Booking.status.notin_(['cancelled', 'completed']),
+                Booking.employee_id.isnot(None)
+            ).first()
+            
+            if customer_active_booking:
+                sticky_id = customer_active_booking.employee_id
+                # Reorder employees to put the sticky employee first
+                employees.sort(key=lambda x: x.id != sticky_id)
             available_employee = None
             
             for employee in employees:
@@ -452,28 +534,41 @@ def book():
                 flash('عذراً، لا يوجد موظفين متاحين في هذا الوقت')
                 return redirect(url_for('customer.book'))
             
-            # --- Seasonal Pricing Logic ---
-            from app.models import Season
+            # --- Pricing Logic (City + Seasonal) ---
+            from app.models import Season, CityServicePrice, CityProductPrice
+            
+            # 1. Base Price + City Override
+            selected_service = Service.query.get(form.service_id.data)
+            custom_service_price = None
+            
+            city_service_price = CityServicePrice.query.filter_by(
+                city_id=neighborhood.city_id, 
+                service_id=form.service_id.data
+            ).first()
+            
+            if city_service_price:
+                custom_service_price = city_service_price.price
+            
+            # 2. Seasonal Override (takes highest priority if active)
             active_season = Season.query.filter(
                 Season.is_active == True,
                 Season.start_date <= booking_date,
                 Season.end_date >= booking_date
             ).first()
             
-            custom_service_price = None
             if active_season:
-                # Check for service override
                 ssp = active_season.service_prices.filter_by(service_id=form.service_id.data).first()
                 if ssp:
                     custom_service_price = ssp.price
                 
-            # Create booking with assigned employee
             booking = Booking(
                 customer_id=current_user.id,
                 employee_id=available_employee.id,
                 vehicle_id=form.vehicle_id.data,
                 service_id=form.service_id.data,
                 neighborhood_id=neighborhood_id,
+                location_lat=float(location_lat),
+                location_lng=float(location_lng),
                 date=booking_date,
                 time=booking_time,
                 status='assigned',
@@ -500,10 +595,23 @@ def book():
                     quantity = int(request.form.get(quantity_key, 1))
                     
                     product = Product.query.get(product_id)
-                    unit_price = product.price if product else 0.0
+                    if not product:
+                        continue
+                        
+                    # Determine product unit price
+                    unit_price = product.price
                     
-                    # Apply seasonal product price if applicable
-                    if active_season and product:
+                    # 1. Check City Product Price
+                    city_product_price = CityProductPrice.query.filter_by(
+                        city_id=neighborhood.city_id,
+                        product_id=product.id
+                    ).first()
+                    
+                    if city_product_price:
+                        unit_price = city_product_price.price
+                        
+                    # 2. Apply seasonal product price if applicable
+                    if active_season:
                         spp = active_season.product_prices.filter_by(product_id=product.id).first()
                         if spp:
                             unit_price = spp.price
@@ -563,6 +671,15 @@ def get_neighborhoods(city_id):
     neighborhoods = Neighborhood.query.filter_by(city_id=city_id, is_active=True).all()
     return jsonify([{'id': n.id, 'name': n.name_ar} for n in neighborhoods])
 
+@bp.route('/api/package-price/<int:package_id>/<int:city_id>')
+def get_package_price(package_id, city_id):
+    from app.models import CityPackagePrice, SubscriptionPackage
+    package = SubscriptionPackage.query.get_or_404(package_id)
+    city_price = CityPackagePrice.query.filter_by(package_id=package.id, city_id=city_id, is_active=True).first()
+    
+    price = city_price.price if city_price else package.price
+    return jsonify({'price': price})
+
 @bp.route('/api/products')
 def get_products():
     from app.models import Product, ProductStock, Neighborhood
@@ -581,6 +698,9 @@ def get_products():
             for p in all_products:
                 # Default to global stock
                 current_stock = p.stock_quantity
+                
+                # Default price
+                current_price = p.price
                 
                 if city_id:
                     # Check city-wide stock (neighborhood_id is None)
@@ -601,22 +721,44 @@ def get_products():
                     
                     if neigh_stock:
                         current_stock = neigh_stock.quantity
+                        
+                    # Check City Product Price
+                    from app.models import CityProductPrice
+                    city_price = CityProductPrice.query.filter_by(
+                        product_id=p.id,
+                        city_id=city_id
+                    ).first()
+                    
+                    if city_price:
+                        current_price = city_price.price
                 
                 if current_stock > 0:
-                    available_products.append(p)
+                    available_products.append({
+                        'id': p.id,
+                        'name_ar': p.name_ar,
+                        'price': float(current_price),
+                        'image_url': p.image_url if p.image_url else ''
+                    })
         except (ValueError, AttributeError):
             # Fallback to global stock if invalid ID
-            available_products = Product.query.filter(Product.stock_quantity > 0).all()
+            for p in Product.query.filter(Product.stock_quantity > 0).all():
+                available_products.append({
+                    'id': p.id,
+                    'name_ar': p.name_ar,
+                    'price': float(p.price),
+                    'image_url': p.image_url if p.image_url else ''
+                })
     else:
         # No neighborhood specified, show globally available products
-        available_products = Product.query.filter(Product.stock_quantity > 0).all()
+        for p in Product.query.filter(Product.stock_quantity > 0).all():
+            available_products.append({
+                'id': p.id,
+                'name_ar': p.name_ar,
+                'price': float(p.price),
+                'image_url': p.image_url if p.image_url else ''
+            })
 
-    return jsonify([{
-        'id': p.id,
-        'name_ar': p.name_ar,
-        'price': float(p.price),
-        'image_url': p.image_url if p.image_url else ''
-    } for p in available_products])
+    return jsonify(available_products)
 
 
 @bp.route('/api/verify-discount', methods=['POST'])
@@ -966,6 +1108,15 @@ def book_subscription_wash(subscription_id):
         if not all([booking_date_str, booking_time_str]):
             flash('الرجاء اختيار التاريخ والوقت', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+            
+        city_id = request.form.get('city_id')
+        neighborhood_id = request.form.get('neighborhood_id')
+        location_lat = request.form.get('location_lat')
+        location_lng = request.form.get('location_lng')
+        
+        if not all([city_id, neighborhood_id, location_lat, location_lng]):
+            flash('الرجاء اختيار المدينة والحي وتحديد الموقع من الخريطة', 'error')
+            return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
         try:
             booking_date = datetime.strptime(booking_date_str, '%Y-%m-%d').date()
@@ -997,10 +1148,22 @@ def book_subscription_wash(subscription_id):
             flash('لديك حجز قائم بالفعل في هذا اليوم لهذا الاشتراك', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
-        # Find available employee (same logic as regular booking)
-        neighborhood = subscription.neighborhood
+        # Find available employee
+        from app.models import Neighborhood
+        neighborhood = Neighborhood.query.get(neighborhood_id)
         if not neighborhood:
-            flash('الحي غير محدد في الاشتراك', 'error')
+            flash('الحي المحدد غير صحيح', 'error')
+            return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+        
+        # Boundary Validation
+        try:
+            lat = float(location_lat)
+            lng = float(location_lng)
+            if not neighborhood.contains_point(lat, lng):
+                flash('عذراً، الموقع المحدد يقع خارج نطاق الحي المختار. يرجى تعديل الموقع للطلب.', 'error')
+                return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+        except (ValueError, TypeError):
+            flash('إحداثيات الموقع غير صالحة', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
         employees = neighborhood.employees.filter_by(role='employee').all()
@@ -1083,7 +1246,9 @@ def book_subscription_wash(subscription_id):
             employee_id=available_employee.id,
             vehicle_id=subscription.vehicle_id,
             service_id=default_service.id if default_service else None,
-            neighborhood_id=subscription.neighborhood_id,
+            neighborhood_id=neighborhood.id,
+            location_lat=float(location_lat),
+            location_lng=float(location_lng),
             date=booking_date,
             time=booking_time,
             status='assigned',
@@ -1121,7 +1286,9 @@ def book_subscription_wash(subscription_id):
         return redirect(url_for('customer.subscriptions'))
     
     settings = SiteSettings.get_settings()
-    return render_template('customer/book_subscription_wash.html', subscription=subscription, default_service=default_service, site_settings=settings)
+    from app.models import City
+    cities = City.query.filter_by(is_active=True).all()
+    return render_template('customer/book_subscription_wash.html', subscription=subscription, default_service=default_service, site_settings=settings, cities=cities)
 
 @bp.route('/loyalty')
 def loyalty():
@@ -1212,18 +1379,21 @@ def subscription_success():
 
 @bp.route('/api/prices')
 def api_prices():
-    """API endpoint to get prices for a specific date (handling seasons)"""
-    from app.models import Season, Service, Product
+    """API endpoint to get prices for a specific date (handling seasons and cities)"""
+    from app.models import Season, Service, Product, CityServicePrice, CityProductPrice
     from datetime import datetime
     
     date_str = request.args.get('date')
+    city_id = request.args.get('city_id')
+    
     if not date_str:
-        return jsonify({'error': 'Date is required'}), 400
-        
-    try:
-        booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
+        from app.utils.timezone import get_saudi_date
+        booking_date = get_saudi_date()
+    else:
+        try:
+            booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format'}), 400
         
     # Find active season for this date
     # A date is within a season if it falls between start_date and end_date inclusive
@@ -1243,10 +1413,20 @@ def api_prices():
     products = Product.query.all()
     
     for service in services:
-        prices['services'][str(service.id)] = service.price
+        current_price = service.price
+        if city_id:
+            city_price = CityServicePrice.query.filter_by(service_id=service.id, city_id=city_id).first()
+            if city_price:
+                current_price = city_price.price
+        prices['services'][str(service.id)] = current_price
         
     for product in products:
-        prices['products'][str(product.id)] = product.price
+        current_price = product.price
+        if city_id:
+            city_price = CityProductPrice.query.filter_by(product_id=product.id, city_id=city_id).first()
+            if city_price:
+                current_price = city_price.price
+        prices['products'][str(product.id)] = current_price
         
     # Override with seasonal prices if applicable
     seasonal_applied = False
@@ -1382,3 +1562,69 @@ def gift_success():
 def more():
     """More options page - accessed from bottom navigation"""
     return render_template('customer/more.html')
+
+
+@bp.route('/booking/<int:booking_id>/employee-location')
+def booking_employee_location(booking_id):
+    """Get employee location for a specific booking (customer tracking)"""
+    from app.models import EmployeeLocation
+    from datetime import datetime, timedelta
+    
+    booking = Booking.query.get_or_404(booking_id)
+    
+    # Verify booking belongs to current user
+    if booking.customer_id != current_user.id:
+        return jsonify({'status': 'error', 'message': 'غير مصرح'}), 403
+    
+    # Only show tracking for en_route/arrived statuses
+    if booking.status not in ['en_route', 'arrived', 'in_progress']:
+        return jsonify({'status': 'not_tracking', 'message': 'التتبع غير متاح حالياً'})
+    
+    if not booking.employee_id:
+        return jsonify({'status': 'no_employee', 'message': 'لم يتم تعيين موظف بعد'})
+    
+    location = EmployeeLocation.query.filter_by(employee_id=booking.employee_id).first()
+    
+    if not location:
+        return jsonify({
+            'status': 'waiting',
+            'message': 'في انتظار تحديث موقع الموظف',
+            'employee_name': booking.employee.username if booking.employee else ''
+        })
+    
+    seconds_since_update = (datetime.utcnow() - location.updated_at).total_seconds()
+    is_stale = seconds_since_update > 60
+    
+    # Customer location
+    customer_lat = booking.location_lat
+    customer_lng = booking.location_lng
+    
+    return jsonify({
+        'status': 'tracking',
+        'employee_name': booking.employee.username if booking.employee else '',
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'accuracy': location.accuracy,
+        'seconds_since_update': seconds_since_update,
+        'is_stale': is_stale,
+        'is_tracking': location.is_tracking,
+        'customer_lat': customer_lat,
+        'customer_lng': customer_lng,
+        'booking_status': booking.status
+    })
+
+
+@bp.route('/booking/<int:booking_id>/track')
+def track_booking(booking_id):
+    """Customer tracking page for an active booking"""
+    booking = Booking.query.get_or_404(booking_id)
+    
+    if booking.customer_id != current_user.id:
+        flash('غير مصرح لك بالوصول لهذا الحجز', 'error')
+        return redirect(url_for('customer.my_bookings'))
+    
+    if booking.status not in ['en_route', 'arrived', 'in_progress', 'assigned']:
+        flash('التتبع غير متاح لهذا الحجز', 'error')
+        return redirect(url_for('customer.my_bookings'))
+    
+    return render_template('customer/track_booking.html', booking=booking)

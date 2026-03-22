@@ -10,7 +10,8 @@
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    {% for package in packages %}
+    {% for item in packages %}
+    {% set package = item.package %}
     <div class="bg-primary rounded-lg shadow-lg overflow-hidden border border-gray-700 relative">
         {% if not package.is_active %}
         <div class="absolute top-0 right-0 bg-red-600 text-white text-xs px-2 py-1 rounded-bl">غير مفعل</div>
@@ -25,6 +26,28 @@
             </div>
             <p class="text-gray-300 text-sm mb-4 h-12 overflow-hidden">{{ package.description }}</p>
             <p class="text-gray-500 text-xs mb-4">المدة: {{ package.duration_days }} يوم</p>
+            
+            <!-- Statistics -->
+            <div class="grid grid-cols-2 gap-2 mb-4 bg-gray-800 rounded p-3 text-center">
+                <div>
+                    <p class="text-xs text-gray-400">الاشتراكات</p>
+                    <p class="text-lg font-bold text-white">{{ item.subs_count }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-400">الإيرادات</p>
+                    <p class="text-lg font-bold text-green-400">{{ item.revenue }}</p>
+                </div>
+            </div>
+
+            <!-- City Prices Link -->
+            <div class="mb-4">
+                <button onclick="loadPackageCityPrices({{ package.id }})" class="text-accent hover:text-blue-300 text-sm flex items-center gap-1">
+                    <i class="fas fa-city"></i>عرض أسعار المدن
+                </button>
+                <button onclick="openAssignCityModal({{ package.id }}, '{{ package.name_ar }}')" class="text-green-400 hover:text-green-300 text-sm flex items-center gap-1 mt-2">
+                    <i class="fas fa-map-marker-alt"></i>إضافة سعر لمدينة
+                </button>
+            </div>
 
             <div class="flex gap-2 mt-4 border-t border-gray-700 pt-4">
                 <a href="{{ url_for('admin.edit_package', id=package.id) }}"
@@ -48,4 +71,122 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- Assign Package to City Modal -->
+<div id="assignCityModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-map-marker-alt ml-2"></i>إسناد الباقة لمدينة</h3>
+            <button onclick="closeAssignCityModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <p class="text-accent mb-4" id="assignPackageName"></p>
+        <form action="{{ url_for('admin.assign_package_to_city') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="package_id" id="assignPackageId">
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">المدينة</label>
+                <select name="city_id" required class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">السعر في هذه المدينة</label>
+                <input type="number" name="price" step="0.01" required min="0" class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeAssignCityModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
+                <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- City Prices Detail Modal -->
+<div id="cityPricesModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-city ml-2"></i>أسعار المدن للباقة</h3>
+            <button onclick="closeCityPricesModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <div id="cityPricesContent" class="space-y-3">
+            <p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button onclick="closeCityPricesModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openAssignCityModal(packageId, packageName) {
+        document.getElementById('assignPackageId').value = packageId;
+        document.getElementById('assignPackageName').textContent = packageName;
+        document.getElementById('assignCityModal').classList.remove('hidden');
+        document.getElementById('assignCityModal').classList.add('flex');
+    }
+    
+    function closeAssignCityModal() {
+        document.getElementById('assignCityModal').classList.add('hidden');
+        document.getElementById('assignCityModal').classList.remove('flex');
+    }
+
+    async function loadPackageCityPrices(packageId) {
+        const modal = document.getElementById('cityPricesModal');
+        const content = document.getElementById('cityPricesContent');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        content.innerHTML = '<p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>';
+
+        try {
+            const resp = await fetch(`/admin/api/city-package-prices/${packageId}`);
+            const data = await resp.json();
+            if (!data.length) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">لا توجد أسعار مدن مخصصة لهذه الباقة</p>';
+                return;
+            }
+            let html = '';
+            data.forEach(p => {
+                html += `
+                <div class="bg-darkbg p-3 rounded-lg border border-gray-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-white font-semibold">${p.city_name}</p>
+                        <p class="text-accent font-bold">${p.price} ريال</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <form action="/admin/packages/remove-city-price/${p.id}" method="POST" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-400 hover:text-red-300 text-sm" onclick="return confirm('إزالة هذا السعر؟')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>`;
+            });
+            content.innerHTML = html;
+        } catch (err) {
+            content.innerHTML = '<p class="text-red-400 text-center py-4">خطأ في تحميل البيانات</p>';
+        }
+    }
+
+    function closeCityPricesModal() {
+        document.getElementById('cityPricesModal').classList.add('hidden');
+        document.getElementById('cityPricesModal').classList.remove('flex');
+    }
+
+    // Close modals on outside click
+    ['assignCityModal', 'cityPricesModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+                this.classList.remove('flex');
+            }
+        });
+    });
+</script>
 {% endblock %}

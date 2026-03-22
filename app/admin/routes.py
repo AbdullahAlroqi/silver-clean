@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -1118,7 +1118,8 @@ def services():
             'total_revenue': total_revenue
         })
         
-    return render_template('admin/services.html', services=services_data)
+    cities = City.query.filter_by(is_active=True).all()
+    return render_template('admin/services.html', services=services_data, cities=cities)
 
 @bp.route('/services/add', methods=['GET', 'POST'])
 def add_service():
@@ -1400,13 +1401,38 @@ def locations():
 
 @bp.route('/locations/city/add', methods=['GET', 'POST'])
 def add_city():
-    form = CityForm()
-    if form.validate_on_submit():
-        city = City(name_ar=form.name_ar.data, name_en=form.name_en.data, is_active=form.is_active.data)
+    if request.method == 'POST':
+        # Handle JSON from OSM modal
+        name_ar = request.form.get('name_ar', '').strip()
+        name_en = request.form.get('name_en', '').strip()
+        osm_place_id = request.form.get('osm_place_id', '').strip()
+        
+        if not name_ar or not name_en:
+            flash('يجب إدخال اسم المدينة بالعربية والإنجليزية', 'error')
+            return redirect(url_for('admin.locations'))
+        
+        # Check if city already exists
+        existing = City.query.filter(
+            (City.name_en == name_en) | (City.osm_place_id == osm_place_id)
+        ).first() if osm_place_id else City.query.filter_by(name_en=name_en).first()
+        
+        if existing:
+            flash('هذه المدينة موجودة بالفعل', 'error')
+            return redirect(url_for('admin.locations'))
+        
+        city = City(
+            name_ar=name_ar,
+            name_en=name_en,
+            osm_place_id=osm_place_id if osm_place_id else None,
+            is_active=True
+        )
         db.session.add(city)
         db.session.commit()
-        flash('تم إضافة المدينة بنجاح')
+        flash('تم إضافة المدينة بنجاح', 'success')
         return redirect(url_for('admin.locations'))
+    
+    # GET: show simple form (fallback)
+    form = CityForm()
     return render_template('admin/location_form.html', form=form, title='إضافة مدينة', type='city')
 
 @bp.route('/locations/city/edit/<int:id>', methods=['GET', 'POST'])
@@ -1497,42 +1523,60 @@ def product_stats(id):
         
     return render_template('admin/product_stats.html', product=product, sold_quantity=sold_quantity, total_revenue=total_revenue, recent_bookings=recent_bookings)
 
-# --- Location Management ---
-    if form.validate_on_submit():
-        form.populate_obj(city)
-        db.session.commit()
-        flash('تم تعديل المدينة')
-        return redirect(url_for('admin.locations'))
-    return render_template('admin/location_form.html', form=form, title='تعديل مدينة', type='city')
+
+
 
 @bp.route('/locations/neighborhood/add/<int:city_id>', methods=['GET', 'POST'])
 def add_neighborhood(city_id):
     city = City.query.get_or_404(city_id)
+    
+    if request.method == 'POST':
+        name_ar = request.form.get('name_ar', '').strip()
+        name_en = request.form.get('name_en', '').strip()
+        osm_name = request.form.get('osm_name', '').strip()
+        boundary_coords = request.form.get('boundary_coords', '').strip()
+        
+        if not name_ar or not name_en:
+            flash('يجب إدخال اسم الحي بالعربية والإنجليزية', 'error')
+            return redirect(url_for('admin.locations'))
+        
+        neighborhood = Neighborhood(
+            city_id=city.id,
+            name_ar=name_ar,
+            name_en=name_en,
+            osm_name=osm_name if osm_name else None,
+            boundary_coords=boundary_coords if boundary_coords else None,
+            is_active=True
+        )
+        db.session.add(neighborhood)
+        db.session.commit()
+        flash('تم إضافة الحي بنجاح', 'success')
+        return redirect(url_for('admin.locations'))
+    
     form = NeighborhoodForm()
     form.city_id.choices = [(c.id, c.name_ar) for c in City.query.all()]
     form.city_id.data = city.id
-    
-    if form.validate_on_submit():
-        neighborhood = Neighborhood(city_id=form.city_id.data, name_ar=form.name_ar.data, 
-                                    name_en=form.name_en.data, is_active=form.is_active.data)
-        db.session.add(neighborhood)
-        db.session.commit()
-        flash('تم إضافة الحي بنجاح')
-        return redirect(url_for('admin.locations'))
     return render_template('admin/location_form.html', form=form, title='إضافة حي', type='neighborhood')
 
 @bp.route('/locations/neighborhood/edit/<int:id>', methods=['GET', 'POST'])
 def edit_neighborhood(id):
     neighborhood = Neighborhood.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        neighborhood.name_ar = request.form.get('name_ar', neighborhood.name_ar).strip()
+        neighborhood.name_en = request.form.get('name_en', neighborhood.name_en).strip()
+        osm_name = request.form.get('osm_name', '').strip()
+        neighborhood.osm_name = osm_name if osm_name else None
+        boundary_coords = request.form.get('boundary_coords', '').strip()
+        neighborhood.boundary_coords = boundary_coords if boundary_coords else None
+        neighborhood.is_active = 'is_active' in request.form or request.form.get('is_active') == 'true'
+        db.session.commit()
+        flash('تم تعديل الحي', 'success')
+        return redirect(url_for('admin.locations'))
+    
     form = NeighborhoodForm(obj=neighborhood)
     form.city_id.choices = [(c.id, c.name_ar) for c in City.query.all()]
-    
-    if form.validate_on_submit():
-        form.populate_obj(neighborhood)
-        db.session.commit()
-        flash('تم تعديل الحي')
-        return redirect(url_for('admin.locations'))
-    return render_template('admin/location_form.html', form=form, title='تعديل حي', type='neighborhood')
+    return render_template('admin/location_form.html', form=form, title='تعديل حي', type='neighborhood', neighborhood=neighborhood)
 
 @bp.route('/locations/city/delete/<int:id>', methods=['POST'])
 def delete_city(id):
@@ -1555,11 +1599,112 @@ def delete_neighborhood(id):
     flash('تم حذف الحي بنجاح')
     return redirect(url_for('admin.locations'))
 
+@bp.route('/api/neighborhood/<int:id>/boundary')
+def get_neighborhood_boundary(id):
+    neighborhood = Neighborhood.query.get_or_404(id)
+    if neighborhood.boundary_coords:
+        import json
+        try:
+            boundary = json.loads(neighborhood.boundary_coords)
+            return jsonify({'boundary': boundary})
+        except json.JSONDecodeError:
+            pass
+    return jsonify({'boundary': None})
+
 # --- Subscription Package Management ---
 @bp.route('/packages')
 def packages():
+    from sqlalchemy import func
+    from app.models import Subscription
+    
     packages = SubscriptionPackage.query.all()
-    return render_template('admin/packages.html', packages=packages)
+    cities = City.query.filter_by(is_active=True).all()
+    
+    packages_data = []
+    total_subscriptions = 0
+    total_sales_revenue = 0
+    
+    for package in packages:
+        subs_count = Subscription.query.filter_by(package_id=package.id).count()
+        # Estimate revenue since actual paid amount not stored
+        rev = subs_count * (package.price or 0.0)
+        
+        packages_data.append({
+            'package': package,
+            'subs_count': subs_count,
+            'revenue': rev
+        })
+        total_subscriptions += subs_count
+        total_sales_revenue += rev
+        
+    cities_json = [{'id': c.id, 'name_ar': c.name_ar} for c in cities]
+    
+    return render_template('admin/packages.html', 
+                         packages=packages_data,
+                         cities=cities,
+                         cities_json=cities_json,
+                         total_subscriptions=total_subscriptions,
+                         total_sales_revenue=total_sales_revenue)
+
+# --- City-Based Pricing: Packages ---
+@bp.route('/api/city-package-prices/<int:package_id>')
+def get_city_package_prices(package_id):
+    """Get all city prices for a subscription package"""
+    from app.models import CityPackagePrice
+    prices = CityPackagePrice.query.filter_by(package_id=package_id).all()
+    return jsonify([{
+        'id': p.id,
+        'city_id': p.city_id,
+        'city_name': City.query.get(p.city_id).name_ar if City.query.get(p.city_id) else '',
+        'price': p.price,
+        'is_active': p.is_active
+    } for p in prices])
+
+@bp.route('/packages/assign-city', methods=['POST'])
+def assign_package_to_city():
+    """Assign a package to a city with a specific price"""
+    from app.models import CityPackagePrice
+    package_id = request.form.get('package_id', type=int)
+    city_id = request.form.get('city_id', type=int)
+    price = request.form.get('price', type=float)
+    
+    if not all([package_id, city_id, price is not None]):
+        flash('بيانات غير مكتملة', 'error')
+        return redirect(url_for('admin.packages'))
+    
+    existing = CityPackagePrice.query.filter_by(city_id=city_id, package_id=package_id).first()
+    if existing:
+        flash('الباقة مسندة لهذه المدينة بالفعل', 'error')
+        return redirect(url_for('admin.packages'))
+    
+    cpp = CityPackagePrice(city_id=city_id, package_id=package_id, price=price, is_active=True)
+    db.session.add(cpp)
+    db.session.commit()
+    flash('تم إسناد الباقة للمدينة بنجاح', 'success')
+    return redirect(url_for('admin.packages'))
+
+@bp.route('/packages/update-city-price', methods=['POST'])
+def update_package_city_price():
+    """Update city price for a package"""
+    from app.models import CityPackagePrice
+    price_id = request.form.get('price_id', type=int)
+    new_price = request.form.get('price', type=float)
+    
+    cpp = CityPackagePrice.query.get_or_404(price_id)
+    cpp.price = new_price
+    db.session.commit()
+    flash('تم تحديث السعر بنجاح', 'success')
+    return redirect(url_for('admin.packages'))
+
+@bp.route('/packages/remove-city-price/<int:price_id>', methods=['POST'])
+def remove_package_city_price(price_id):
+    """Remove a city price assignment for a package"""
+    from app.models import CityPackagePrice
+    cpp = CityPackagePrice.query.get_or_404(price_id)
+    db.session.delete(cpp)
+    db.session.commit()
+    flash('تم إزالة الباقة من المدينة', 'success')
+    return redirect(url_for('admin.packages'))
 
 @bp.route('/packages/add', methods=['GET', 'POST'])
 def add_package():
@@ -2846,6 +2991,7 @@ def settings():
         settings.terms_content = form.terms_content.data
         settings.booking_days_limit = form.booking_days_limit.data
         settings.subscription_days_limit = form.subscription_days_limit.data
+        settings.referral_target_count = form.referral_target_count.data
         
         if form.logo.data:
             import os
@@ -2883,6 +3029,7 @@ def settings():
         form.terms_content.data = settings.terms_content
         form.booking_days_limit.data = settings.booking_days_limit
         form.subscription_days_limit.data = settings.subscription_days_limit
+        form.referral_target_count.data = settings.referral_target_count or 10
 
     return render_template('admin/settings.html', form=form, settings=settings)
 
@@ -3258,8 +3405,7 @@ def employee_tracking():
 
 @bp.route('/api/employee-locations')
 def get_employee_locations():
-    """API endpoint to get all active employee locations"""
-    from app.models import EmployeeLocation, Booking
+    """API endpoint to get all active employee locations with enhanced data"""
     from datetime import datetime, timedelta
     
     locations = EmployeeLocation.query.filter_by(is_tracking=True).all()
@@ -3268,6 +3414,16 @@ def get_employee_locations():
     for loc in locations:
         # Check if location was updated in the last 10 minutes
         is_recent = loc.updated_at > datetime.utcnow() - timedelta(minutes=10)
+        seconds_since_update = (datetime.utcnow() - loc.updated_at).total_seconds()
+        
+        # Count active bookings today
+        from app.utils.timezone import get_saudi_date
+        today = get_saudi_date()
+        active_bookings_count = Booking.query.filter(
+            Booking.employee_id == loc.employee_id,
+            Booking.date == today,
+            Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress'])
+        ).count()
         
         # Check for active booking
         active_booking = Booking.query.filter(
@@ -3287,19 +3443,307 @@ def get_employee_locations():
                     'in_progress': 'جاري العمل'
                 }.get(active_booking.status, active_booking.status)
             }
+        
+        # Get employee neighborhoods
+        employee = loc.employee
+        neighborhood_name = ''
+        if employee and employee.neighborhoods:
+            neighborhood_name = ', '.join([n.name_ar for n in employee.neighborhoods[:3]])
             
         # Convert time to Saudi Time (UTC+3)
         saudi_time = loc.updated_at + timedelta(hours=3)
         
         result.append({
             'employee_id': loc.employee_id,
-            'employee_name': loc.employee.username if loc.employee else 'Unknown',
+            'employee_name': employee.username if employee else 'Unknown',
+            'name': employee.username if employee else 'Unknown',
+            'phone': employee.phone if employee else '',
             'latitude': loc.latitude,
             'longitude': loc.longitude,
+            'lat': loc.latitude,
+            'lng': loc.longitude,
             'accuracy': loc.accuracy,
             'updated_at': saudi_time.strftime('%I:%M:%S %p'),
+            'seconds_since_update': seconds_since_update,
             'is_recent': is_recent,
+            'neighborhood_name': neighborhood_name,
+            'active_bookings_count': active_bookings_count,
             'booking': booking_info
         })
     
     return jsonify(result)
+
+
+# --- City-Based Pricing: Services ---
+@bp.route('/api/city-service-prices/<int:service_id>')
+def get_city_service_prices(service_id):
+    """Get all city prices for a service"""
+    prices = CityServicePrice.query.filter_by(service_id=service_id).all()
+    return jsonify([{
+        'id': p.id,
+        'city_id': p.city_id,
+        'city_name': City.query.get(p.city_id).name_ar if City.query.get(p.city_id) else '',
+        'price': p.price,
+        'is_active': p.is_active
+    } for p in prices])
+
+
+@bp.route('/services/assign-city', methods=['POST'])
+def assign_service_to_city():
+    """Assign a service to a city with a specific price"""
+    service_id = request.form.get('service_id', type=int)
+    city_id = request.form.get('city_id', type=int)
+    price = request.form.get('price', type=float)
+    
+    if not all([service_id, city_id, price is not None]):
+        flash('بيانات غير مكتملة', 'error')
+        return redirect(url_for('admin.services'))
+    
+    # Check if already exists
+    existing = CityServicePrice.query.filter_by(city_id=city_id, service_id=service_id).first()
+    if existing:
+        flash('الخدمة مسندة لهذه المدينة بالفعل', 'error')
+        return redirect(url_for('admin.services'))
+    
+    csp = CityServicePrice(city_id=city_id, service_id=service_id, price=price, is_active=True)
+    db.session.add(csp)
+    db.session.commit()
+    flash('تم إسناد الخدمة للمدينة بنجاح', 'success')
+    return redirect(url_for('admin.services'))
+
+
+@bp.route('/services/update-city-price', methods=['POST'])
+def update_service_city_price():
+    """Update city price for a service"""
+    price_id = request.form.get('price_id', type=int)
+    new_price = request.form.get('price', type=float)
+    
+    csp = CityServicePrice.query.get_or_404(price_id)
+    csp.price = new_price
+    db.session.commit()
+    flash('تم تحديث السعر بنجاح', 'success')
+    return redirect(url_for('admin.services'))
+
+
+@bp.route('/services/remove-city-price/<int:price_id>', methods=['POST'])
+def remove_service_city_price(price_id):
+    """Remove a city price assignment for a service"""
+    csp = CityServicePrice.query.get_or_404(price_id)
+    db.session.delete(csp)
+    db.session.commit()
+    flash('تم إزالة الخدمة من المدينة', 'success')
+    return redirect(url_for('admin.services'))
+
+
+@bp.route('/services/duplicate/<int:id>', methods=['POST'])
+def duplicate_service(id):
+    """Duplicate a service"""
+    service = Service.query.get_or_404(id)
+    new_service = Service(
+        name_ar=service.name_ar + ' - نسخة',
+        name_en=service.name_en + ' - Copy',
+        price=service.price,
+        duration=service.duration,
+        description=service.description,
+        includes_free_wash=service.includes_free_wash,
+        is_active=service.is_active
+    )
+    db.session.add(new_service)
+    db.session.commit()
+    flash(f'تم نسخ الخدمة بنجاح (#{new_service.id}). يمكنك الآن إسنادها لمدينة.', 'success')
+    return jsonify({'status': 'ok', 'new_service_id': new_service.id})
+
+
+# --- City-Based Pricing: Products ---
+@bp.route('/api/city-product-prices/<int:product_id>')
+def get_city_product_prices(product_id):
+    """Get all city prices for a product"""
+    prices = CityProductPrice.query.filter_by(product_id=product_id).all()
+    return jsonify([{
+        'id': p.id,
+        'city_id': p.city_id,
+        'city_name': City.query.get(p.city_id).name_ar if City.query.get(p.city_id) else '',
+        'price': p.price,
+        'is_active': p.is_active
+    } for p in prices])
+
+
+@bp.route('/products/assign-city', methods=['POST'])
+def assign_product_to_city():
+    """Assign a product to a city with a specific price"""
+    product_id = request.form.get('product_id', type=int)
+    city_id = request.form.get('city_id', type=int)
+    price = request.form.get('price', type=float)
+    
+    if not all([product_id, city_id, price is not None]):
+        flash('بيانات غير مكتملة', 'error')
+        return redirect(url_for('admin.products'))
+    
+    existing = CityProductPrice.query.filter_by(city_id=city_id, product_id=product_id).first()
+    if existing:
+        flash('المنتج مسند لهذه المدينة بالفعل', 'error')
+        return redirect(url_for('admin.products'))
+    
+    cpp = CityProductPrice(city_id=city_id, product_id=product_id, price=price, is_active=True)
+    db.session.add(cpp)
+    db.session.commit()
+    flash('تم إسناد المنتج للمدينة بنجاح', 'success')
+    return redirect(url_for('admin.products'))
+
+
+@bp.route('/products/update-city-price', methods=['POST'])
+def update_product_city_price():
+    """Update city price for a product"""
+    price_id = request.form.get('price_id', type=int)
+    new_price = request.form.get('price', type=float)
+    
+    cpp = CityProductPrice.query.get_or_404(price_id)
+    cpp.price = new_price
+    db.session.commit()
+    flash('تم تحديث السعر بنجاح', 'success')
+    return redirect(url_for('admin.products'))
+
+
+@bp.route('/products/remove-city-price/<int:price_id>', methods=['POST'])
+def remove_product_city_price(price_id):
+    """Remove a city price assignment for a product"""
+    cpp = CityProductPrice.query.get_or_404(price_id)
+    db.session.delete(cpp)
+    db.session.commit()
+    flash('تم إزالة المنتج من المدينة', 'success')
+    return redirect(url_for('admin.products'))
+
+
+@bp.route('/products/duplicate/<int:id>', methods=['POST'])
+def duplicate_product(id):
+    """Duplicate a product"""
+    product = Product.query.get_or_404(id)
+    new_product = Product(
+        name_ar=product.name_ar + ' - نسخة',
+        name_en=product.name_en + ' - Copy',
+        price=product.price,
+        image_url=product.image_url,
+        stock_quantity=0,
+        is_active=product.is_active
+    )
+    db.session.add(new_product)
+    db.session.commit()
+    flash(f'تم نسخ المنتج بنجاح (#{new_product.id}). يمكنك الآن إسناده لمدينة.', 'success')
+    return jsonify({'status': 'ok', 'new_product_id': new_product.id})
+
+
+# ============== Referral Tracking ==============
+
+@bp.route('/referrals')
+def referral_tracking():
+    """Admin referral tracking page"""
+    from app.models import ReferralRecord, User
+    
+    all_records = ReferralRecord.query.order_by(ReferralRecord.created_at.desc()).all()
+    total_referrals = len(all_records)
+    completed_washes = sum(1 for r in all_records if r.first_wash_completed)
+    pending_washes = total_referrals - completed_washes
+    conversion_rate = round(completed_washes / total_referrals * 100, 1) if total_referrals > 0 else 0
+    
+    # Top referrers - users with most referrals
+    from sqlalchemy import func
+    top_referrer_data = db.session.query(
+        ReferralRecord.referrer_id,
+        func.count(ReferralRecord.id).label('total'),
+        func.sum(db.case((ReferralRecord.first_wash_completed == True, 1), else_=0)).label('completed')
+    ).group_by(ReferralRecord.referrer_id).order_by(func.count(ReferralRecord.id).desc()).limit(20).all()
+    
+    top_referrers = []
+    for referrer_id, total, completed in top_referrer_data:
+        user = User.query.get(referrer_id)
+        if user:
+            top_referrers.append({
+                'user': user,
+                'total': total,
+                'completed': completed or 0
+            })
+    
+    return render_template('admin/referrals.html',
+                         all_records=all_records,
+                         total_referrals=total_referrals,
+                         completed_washes=completed_washes,
+                         pending_washes=pending_washes,
+                         conversion_rate=conversion_rate,
+                         top_referrers=top_referrers)
+
+
+# ============== Influencer Codes Management ==============
+
+@bp.route('/influencer-codes')
+def influencer_codes():
+    """Admin influencer codes management page"""
+    from app.models import DiscountCode
+    codes = DiscountCode.query.filter_by(is_influencer=True).order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.valid_from.desc()).all()
+    total_usage = sum(c.used_count for c in codes)
+    return render_template('admin/influencer_codes.html',
+                         codes=codes,
+                         total_usage=total_usage)
+
+
+@bp.route('/influencer-codes/add', methods=['POST'])
+def add_influencer_code():
+    """Add a new influencer code"""
+    from app.models import DiscountCode
+    from datetime import datetime
+    
+    code_value = request.form.get('code', '').strip().upper()
+    name = request.form.get('name', '').strip()
+    discount = request.form.get('discount', type=float)
+    
+    if not code_value or not name or discount is None:
+        flash('يرجى تعبئة جميع الحقول', 'error')
+        return redirect(url_for('admin.influencer_codes'))
+    
+    existing = DiscountCode.query.filter_by(code=code_value).first()
+    if existing:
+        flash('هذا الكود موجود بالفعل', 'error')
+        return redirect(url_for('admin.influencer_codes'))
+    
+    new_code = DiscountCode(
+        code=code_value,
+        discount_type='percentage',
+        value=discount,
+        valid_until=datetime(2099, 12, 31),  # effectively no expiry
+        is_influencer=True,
+        influencer_name=name
+    )
+    db.session.add(new_code)
+    db.session.commit()
+    flash(f'تم إضافة كود المؤثر "{code_value}" بنجاح', 'success')
+    return redirect(url_for('admin.influencer_codes'))
+
+
+@bp.route('/influencer-codes/<int:id>/toggle', methods=['POST'])
+def toggle_influencer_code(id):
+    """Toggle influencer code active/inactive"""
+    from app.models import DiscountCode
+    code = DiscountCode.query.get_or_404(id)
+    if not code.is_influencer:
+        return redirect(url_for('admin.influencer_codes'))
+        
+    code.is_active = not code.is_active
+    db.session.commit()
+    status = 'مفعّل' if code.is_active else 'معطّل'
+    flash(f'تم تحديث حالة الكود "{code.code}" إلى {status}', 'success')
+    return redirect(url_for('admin.influencer_codes'))
+
+
+@bp.route('/influencer-codes/<int:id>/delete', methods=['POST'])
+def delete_influencer_code(id):
+    """Delete an influencer code"""
+    from app.models import DiscountCode
+    code = DiscountCode.query.get_or_404(id)
+    if not code.is_influencer:
+        return redirect(url_for('admin.influencer_codes'))
+        
+    code_name = code.code
+    db.session.delete(code)
+    db.session.commit()
+    flash(f'تم حذف كود المؤثر "{code_name}" بنجاح', 'success')
+    return redirect(url_for('admin.influencer_codes'))
+

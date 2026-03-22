@@ -1,5 +1,8 @@
 {% extends "admin/base.html" %}
 
+{% block title %}الخدمات{% endblock %}
+{% block header %}إدارة الخدمات{% endblock %}
+
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold text-white">إدارة الخدمات</h2>
@@ -15,9 +18,10 @@
             <tr>
                 <th class="p-4">الاسم (عربي)</th>
                 <th class="p-4">الاسم (إنجليزي)</th>
-                <th class="p-4">السعر</th>
+                <th class="p-4">السعر الأساسي</th>
                 <th class="p-4">المدة (دقيقة)</th>
                 <th class="p-4">غسلة مجانية</th>
+                <th class="p-4">أسعار المدن</th>
                 <th class="p-4">عدد الحجوزات</th>
                 <th class="p-4">الإيرادات</th>
                 <th class="p-4">الحالة</th>
@@ -39,6 +43,13 @@
                     {% endif %}
                 </td>
                 <td class="p-4">
+                    <div class="space-y-1" id="cityPrices_{{ item.service.id }}">
+                        <button onclick="loadServiceCityPrices({{ item.service.id }})" class="text-accent hover:text-blue-300 text-xs">
+                            <i class="fas fa-city ml-1"></i>عرض أسعار المدن
+                        </button>
+                    </div>
+                </td>
+                <td class="p-4">
                     {% if item.service.is_active %}
                     <span class="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs border border-green-600/30">مفعل</span>
                     {% else %}
@@ -47,27 +58,172 @@
                 </td>
                 <td class="p-4">{{ item.completed_bookings_count }}</td>
                 <td class="p-4">{{ item.total_revenue }} ريال</td>
-                <td class="p-4 flex gap-2">
-                    <a href="{{ url_for('admin.edit_service', id=item.service.id) }}"
-                        class="text-blue-400 hover:text-blue-300">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                    <form action="{{ url_for('admin.delete_service', id=item.service.id) }}" method="post"
-                        style="display:inline;">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <button type="submit" class="text-red-400 hover:text-red-300"
-                            onclick="return confirm('هل أنت متأكد من الحذف؟')">
-                            <i class="fas fa-trash"></i>
+                <td class="p-4">
+                    <div class="flex gap-2 items-center">
+                        <button onclick="openAssignCityModal({{ item.service.id }}, '{{ item.service.name_ar }}')"
+                            class="text-green-400 hover:text-green-300" title="إسناد لمدينة">
+                            <i class="fas fa-map-marker-alt"></i>
                         </button>
-                    </form>
+                        <button onclick="duplicateService({{ item.service.id }})"
+                            class="text-purple-400 hover:text-purple-300" title="نسخ">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <a href="{{ url_for('admin.edit_service', id=item.service.id) }}"
+                            class="text-blue-400 hover:text-blue-300">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('admin.delete_service', id=item.service.id) }}" method="post"
+                            style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="text-red-400 hover:text-red-300"
+                                onclick="return confirm('هل أنت متأكد من الحذف؟')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
                 </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="5" class="p-4 text-center text-gray-500">لا يوجد خدمات حالياً.</td>
+                <td colspan="10" class="p-4 text-center text-gray-500">لا يوجد خدمات حالياً.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<!-- Assign Service to City Modal -->
+<div id="assignCityModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-map-marker-alt ml-2"></i>إسناد خدمة لمدينة</h3>
+            <button onclick="closeAssignCityModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <p class="text-accent mb-4" id="assignServiceName"></p>
+        <form action="{{ url_for('admin.assign_service_to_city') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="service_id" id="assignServiceId">
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">المدينة</label>
+                <select name="city_id" required class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">السعر في هذه المدينة</label>
+                <input type="number" name="price" step="0.01" required min="0"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeAssignCityModal()"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
+                <button type="submit"
+                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- City Prices Detail Modal -->
+<div id="cityPricesModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-city ml-2"></i>أسعار المدن</h3>
+            <button onclick="closeCityPricesModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <div id="cityPricesContent" class="space-y-3">
+            <p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button onclick="closeCityPricesModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openAssignCityModal(serviceId, serviceName) {
+        document.getElementById('assignServiceId').value = serviceId;
+        document.getElementById('assignServiceName').textContent = serviceName;
+        document.getElementById('assignCityModal').classList.remove('hidden');
+        document.getElementById('assignCityModal').classList.add('flex');
+    }
+    function closeAssignCityModal() {
+        document.getElementById('assignCityModal').classList.add('hidden');
+        document.getElementById('assignCityModal').classList.remove('flex');
+    }
+
+    async function loadServiceCityPrices(serviceId) {
+        const modal = document.getElementById('cityPricesModal');
+        const content = document.getElementById('cityPricesContent');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        content.innerHTML = '<p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>';
+
+        try {
+            const resp = await fetch(`/admin/api/city-service-prices/${serviceId}`);
+            const data = await resp.json();
+            if (!data.length) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">لا توجد أسعار مدن مخصصة لهذه الخدمة</p>';
+                return;
+            }
+            let html = '';
+            data.forEach(p => {
+                html += `
+                <div class="bg-darkbg p-3 rounded-lg border border-gray-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-white font-semibold">${p.city_name}</p>
+                        <p class="text-accent font-bold">${p.price} ريال</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <form action="/admin/services/remove-city-price/${p.id}" method="POST" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-400 hover:text-red-300 text-sm" onclick="return confirm('إزالة هذا السعر؟')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>`;
+            });
+            content.innerHTML = html;
+        } catch (err) {
+            content.innerHTML = '<p class="text-red-400 text-center py-4">خطأ في تحميل البيانات</p>';
+        }
+    }
+
+    function closeCityPricesModal() {
+        document.getElementById('cityPricesModal').classList.add('hidden');
+        document.getElementById('cityPricesModal').classList.remove('flex');
+    }
+
+    async function duplicateService(serviceId) {
+        if (!confirm('هل تريد نسخ هذه الخدمة؟')) return;
+        try {
+            const formData = new FormData();
+            formData.append('csrf_token', '{{ csrf_token() }}');
+            const resp = await fetch(`/admin/services/duplicate/${serviceId}`, { method: 'POST', body: formData });
+            const data = await resp.json();
+            if (data.status === 'ok') {
+                location.reload();
+            }
+        } catch (err) {
+            alert('حدث خطأ أثناء النسخ');
+        }
+    }
+
+    // Close modals on outside click
+    ['assignCityModal', 'cityPricesModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+                this.classList.remove('flex');
+            }
+        });
+    });
+</script>
 {% endblock %}

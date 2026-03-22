@@ -46,6 +46,58 @@
 <form method="POST" class="bg-primary rounded-lg shadow-lg p-6">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="space-y-6">
+        <!-- Location Selection -->
+        <h3 class="text-xl font-bold text-accent mb-4 flex items-center">
+            <i class="fas fa-map-marker-alt ml-2"></i>
+            اختر الموقع
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2">المدينة</label>
+                <select id="city-select" name="city_id" required
+                        class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}" {% if subscription.neighborhood and city.id == subscription.neighborhood.city_id %}selected{% endif %}>{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2">الحي</label>
+                <select id="neighborhood-select" name="neighborhood_id" required
+                        class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
+                    <option value="">-- اختر الحي --</option>
+                    {% if subscription.neighborhood %}
+                    <option value="{{ subscription.neighborhood.id }}" selected>{{ subscription.neighborhood.name_ar }}</option>
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Map Location Picker -->
+        <div class="mt-6 border-b border-gray-700 pb-6">
+            <label class="block text-sm font-medium text-gray-300 mb-2">
+                <i class="fas fa-map ml-1"></i> حدد موقعك بدقة من الخريطة <span class="text-red-500">*</span>
+            </label>
+            <div class="flex gap-2 mb-3">
+                <button type="button" onclick="getMyLocation()" id="geoBtn"
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                    <i class="fas fa-crosshairs ml-1"></i> حدد موقعي تلقائياً
+                </button>
+            </div>
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+            <div id="locationMap" style="height: 300px; width: 100%; border-radius: 12px; z-index: 1;" class="border border-gray-700"></div>
+            <div id="coverageStatus" class="mt-3 hidden p-3 rounded-lg text-center font-bold">
+                <span id="coverageIcon"></span>
+                <span id="coverageText"></span>
+            </div>
+            <!-- Hidden inputs -->
+            <input type="hidden" name="location_lat" id="location_lat" value="">
+            <input type="hidden" name="location_lng" id="location_lng" value="">
+            <input type="hidden" name="detected_neighborhood_id" id="detected_neighborhood_id" value="{{ subscription.neighborhood_id or '' }}">
+        </div>
+
         <!-- Date Selection -->
         <div>
             <label class="block text-gray-300 text-sm font-bold mb-2" for="date">
@@ -81,14 +133,31 @@
     </div>
 </form>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    var locMap = null;
+    var locMarker = null;
+    var currentBoundaryGeoJSON = null;
+    var currentBoundaryLayer = null;
+
+    var customIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
     document.addEventListener('DOMContentLoaded', function () {
         var dateInput = document.getElementById('date');
         var timeSelect = document.getElementById('time');
         var timeLoading = document.getElementById('time-loading');
         var noTimes = document.getElementById('no-times');
         var submitBtn = document.getElementById('submit-btn');
-        var neighborhoodId = "{{ subscription.neighborhood_id if subscription.neighborhood_id else '' }}";
+        var citySelect = document.getElementById('city-select');
+        var neighborhoodSelect = document.getElementById('neighborhood-select');
         var serviceId = "{{ default_service.id if default_service else '' }}";
 
         // Set min date to today
@@ -98,66 +167,337 @@
         // Set max date based on subscription days limit
         var subscriptionDaysLimit = {{ site_settings.subscription_days_limit or 7 }};
 
-    if (subscriptionDaysLimit === 0) {
-        document.querySelector('form').innerHTML = '<div class="text-center p-6"><i class="fas fa-tools text-4xl text-yellow-500 mb-4"></i><h3 class="text-xl font-bold text-white">حجز الاشتراكات متوقف حالياً للصيانة</h3></div>';
-    } else {
-        var maxDate = new Date();
-        maxDate.setDate(maxDate.getDate() + subscriptionDaysLimit);
-        dateInput.max = maxDate.toISOString().split('T')[0];
+        if (subscriptionDaysLimit === 0) {
+            document.querySelector('form').innerHTML = '<div class="text-center p-6"><i class="fas fa-tools text-4xl text-yellow-500 mb-4"></i><h3 class="text-xl font-bold text-white">حجز الاشتراكات متوقف حالياً للصيانة</h3></div>';
+        } else {
+            var maxDate = new Date();
+            maxDate.setDate(maxDate.getDate() + subscriptionDaysLimit);
+            dateInput.max = maxDate.toISOString().split('T')[0];
+        }
+
+        async function fetchNeighborhoods(cityId) {
+            neighborhoodSelect.innerHTML = '<option value="">-- اختر الحي --</option>';
+            timeSelect.innerHTML = '<option value="">-- اختر التاريخ أولاً --</option>';
+            if (!cityId) return;
+
+            try {
+                const response = await fetch('/customer/api/neighborhoods/' + cityId);
+                const neighborhoods = await response.json();
+                neighborhoods.forEach(n => {
+                    const option = document.createElement('option');
+                    option.value = n.id;
+                    option.textContent = n.name; // Use correctly returned active name
+                    option.className = "bg-darkbg text-white";
+                    neighborhoodSelect.appendChild(option);
+                });
+            } catch (e) {
+                console.error('Error fetching neighborhoods:', e);
+            }
+        }
+
+        async function panMapToLocation(query, type) {
+            if (!locMap) return;
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(query)}&format=json&limit=1`;
+                const resp = await fetch(url, { headers: { 'User-Agent': 'SilverCleanApp/1.0' } });
+                const data = await resp.json();
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    const zoom = type === 'city' ? 12 : 15;
+                    locMap.flyTo([lat, lon], zoom);
+                    locMarker.setLatLng([lat, lon]);
+                    updateLocationFields(lat, lon);
+                }
+            } catch (e) {
+                console.error('Auto-pan failed', e);
+            }
+        }
+
+        async function fetchAndDisplayNeighborhoodBoundary(neighborhoodId) {
+            if (!locMap || !neighborhoodId) return;
+
+            try {
+                const response = await fetch(`/customer/api/neighborhood/${neighborhoodId}/boundary`);
+                const data = await response.json();
+
+                if (currentBoundaryLayer) {
+                    locMap.removeLayer(currentBoundaryLayer);
+                }
+
+                if (data.boundary) {
+                    currentBoundaryGeoJSON = data.boundary;
+                    currentBoundaryLayer = L.geoJSON(currentBoundaryGeoJSON, {
+                        style: {
+                            color: '#3b82f6',
+                            weight: 2,
+                            opacity: 0.8,
+                            fillColor: '#3b82f6',
+                            fillOpacity: 0.1
+                        }
+                    }).addTo(locMap);
+
+                    const bounds = currentBoundaryLayer.getBounds();
+                    locMap.fitBounds(bounds, { padding: [20, 20] });
+
+                    // Default marker to center of neighborhood
+                    const center = bounds.getCenter();
+                    locMarker.setLatLng(center);
+                    updateLocationFields(center.lat, center.lng);
+                    validateLocation(center.lat, center.lng);
+                } else {
+                    currentBoundaryGeoJSON = null;
+                }
+            } catch (e) {
+                console.error('Failed to fetch boundary', e);
+            }
+        }
+
+        citySelect.addEventListener('change', async function () {
+            await fetchNeighborhoods(this.value);
+            const cityName = citySelect.options[citySelect.selectedIndex].text;
+            if (cityName && cityName !== '-- اختر المدينة --' && this.value) {
+                panMapToLocation(cityName, 'city');
+            }
+        });
+
+        neighborhoodSelect.addEventListener('change', function () {
+            const neighName = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
+            const cityName = citySelect.options[citySelect.selectedIndex].text;
+            if (neighName && neighName !== '-- اختر الحي --' && this.value) {
+                panMapToLocation(neighName + ' ' + cityName, 'neighborhood');
+                fetchAndDisplayNeighborhoodBoundary(this.value);
+            }
+            document.getElementById('detected_neighborhood_id').value = this.value;
+            loadAvailableTimes();
+        });
+
+        function loadAvailableTimes() {
+            var selectedDate = dateInput.value;
+            var neighborhoodId = neighborhoodSelect.value;
+            
+            if (!selectedDate || !neighborhoodId || !serviceId) {
+                timeLoading.classList.add('hidden');
+                noTimes.classList.remove('hidden');
+                noTimes.innerHTML = '<i class="fas fa-exclamation-triangle ml-2"></i>يرجى اختيار الحي والتاريخ بشكل صحيح';
+                return;
+            }
+
+            // Show loading
+            timeLoading.classList.remove('hidden');
+            noTimes.classList.add('hidden');
+            timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+            submitBtn.disabled = true;
+
+            fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId + '&type=subscription')
+                .then(function (response) { return response.json(); })
+                .then(function (times) {
+                    timeLoading.classList.add('hidden');
+                    timeSelect.innerHTML = '';
+
+                    if (times.length === 0) {
+                        noTimes.classList.remove('hidden');
+                        timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
+                        submitBtn.disabled = true;
+                    } else {
+                        var defaultOption = document.createElement('option');
+                        defaultOption.value = '';
+                        defaultOption.textContent = '-- اختر الوقت --';
+                        timeSelect.appendChild(defaultOption);
+
+                        times.forEach(function (time) {
+                            var option = document.createElement('option');
+                            option.value = time;
+                            option.textContent = time;
+                            option.className = "bg-darkbg text-white";
+                            timeSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(function (error) {
+                    timeLoading.classList.add('hidden');
+                    noTimes.classList.remove('hidden');
+                    noTimes.textContent = 'حدث خطأ في تحميل الأوقات';
+                    console.error('Error:', error);
+                });
+        }
+
+        dateInput.addEventListener('change', loadAvailableTimes);
+
+        timeSelect.addEventListener('change', function () {
+            // Also ensure valid location
+            submitBtn.disabled = !this.value || !document.getElementById('location_lat').value || !isWithinBoundary;
+        });
+
+        initLocationMap();
+        
+        // If a default neighborhood is set (e.g. from subscription default), boundary may be fetched
+        if (neighborhoodSelect.value) {
+            fetchAndDisplayNeighborhoodBoundary(neighborhoodSelect.value);
+            loadAvailableTimes(); // Try to load immediately if date is somehow set
+        }
+
+        // Form submission validation
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const lat = document.getElementById('location_lat').value;
+            const lng = document.getElementById('location_lng').value;
+            
+            if (!lat || !lng) {
+                e.preventDefault();
+                alert('الرجاء تحديد موقعك على الخريطة أولاً');
+                return;
+            }
+            
+            if (currentBoundaryGeoJSON && !checkPointInGeoJSON(lat, lng, currentBoundaryGeoJSON)) {
+                e.preventDefault();
+                alert('عذراً الموقع المحدد يقع خارج حدود الحي المختار! يرجى تحريك الدبوس إلى داخل المنطقة المظللة للاستمرار.');
+                return;
+            }
+        });
+    });
+
+    function initLocationMap() {
+        if (locMap) return;
+
+        locMap = L.map('locationMap').setView([24.7136, 46.6753], 13);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        }).addTo(locMap);
+
+        // Add street labels for satellite view clarity
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '',
+            opacity: 0.8
+        }).addTo(locMap);
+
+        locMarker = L.marker([24.7136, 46.6753], { icon: customIcon, draggable: true }).addTo(locMap);
+
+        locMarker.on('dragend', function (e) {
+            const pos = locMarker.getLatLng();
+            validateLocation(pos.lat, pos.lng);
+        });
+
+        locMap.on('click', function (e) {
+            locMarker.setLatLng(e.latlng);
+            validateLocation(e.latlng.lat, e.latlng.lng);
+        });
+        
+        setTimeout(() => locMap.invalidateSize(), 500);
     }
 
-    dateInput.addEventListener('change', function () {
-        var selectedDate = this.value;
-        if (!selectedDate) return;
+    function updateLocationFields(lat, lng) {
+        document.getElementById('location_lat').value = lat;
+        document.getElementById('location_lng').value = lng;
+        
+        // Final logic to enable submit button
+        const timeVal = document.getElementById('time').value;
+        document.getElementById('submit-btn').disabled = !timeVal || !lat || !isWithinBoundary;
+    }
 
-        if (neighborhoodId === null || serviceId === null) {
-            timeLoading.classList.add('hidden');
-            noTimes.classList.remove('hidden');
-            noTimes.innerHTML = '<i class="fas fa-exclamation-triangle ml-2"></i>بيانات الاشتراك غير مكتملة (الحي أو الخدمة غير محددة)';
+    function getMyLocation() {
+        const btn = document.getElementById('geoBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-1"></i> جاري التحديد...';
+        btn.disabled = true;
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    locMap.setView([lat, lng], 16);
+                    locMarker.setLatLng([lat, lng]);
+                    validateLocation(lat, lng);
+                    
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                },
+                function(error) {
+                    alert('تعذر تحديد موقعك. يرجى التأكد من تفعيل خدمات الموقع أو الضغط على الخريطة يدوياً.');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        } else {
+            alert('خاصية تحديد الموقع غير مدعومة في متصفحك.');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    function checkPointInGeoJSON(lat, lng, geojsonData) {
+        // Point in polygon ray-casting algorithm
+        const point = [lng, lat]; // GeoJSON uses [lng, lat]
+        let isInside = false;
+
+        function checkCoords(polygon) {
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i][0], yi = polygon[i][1];
+                const xj = polygon[j][0], yj = polygon[j][1];
+
+                const intersect = ((yi > point[1]) != (yj > point[1])) &&
+                    (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
+                if (intersect) isInside = !isInside;
+            }
+        }
+
+        if (geojsonData.type === 'FeatureCollection') {
+            geojsonData.features.forEach(feature => {
+                if (feature.geometry.type === 'Polygon') {
+                    feature.geometry.coordinates.forEach(checkCoords);
+                } else if (feature.geometry.type === 'MultiPolygon') {
+                    feature.geometry.coordinates.forEach(poly => poly.forEach(checkCoords));
+                }
+            });
+        } else if (geojsonData.type === 'Polygon') {
+            geojsonData.coordinates.forEach(checkCoords);
+        } else if (geojsonData.type === 'MultiPolygon') {
+            geojsonData.coordinates.forEach(poly => poly.forEach(checkCoords));
+        }
+        return isInside;
+    }
+
+    var isWithinBoundary = true; // Default to true if no boundary exists
+
+    function validateLocation(lat, lng) {
+        const statusDiv = document.getElementById('coverageStatus');
+        const iconSpan = document.getElementById('coverageIcon');
+        const textSpan = document.getElementById('coverageText');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        const nId = document.getElementById('neighborhood-select').value;
+        if (!nId) {
+            statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-yellow-900/30 text-yellow-400 border border-yellow-600/30';
+            iconSpan.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            textSpan.textContent = ' يرجى اختيار الحي أولاً حتى يتم التحقق من الموقع.';
+            statusDiv.classList.remove('hidden');
+            isWithinBoundary = false;
+            updateLocationFields(lat, lng);
             return;
         }
 
-        // Show loading
-        timeLoading.classList.remove('hidden');
-        noTimes.classList.add('hidden');
-        timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
-        submitBtn.disabled = true;
-
-        fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId + '&type=subscription')
-            .then(function (response) { return response.json(); })
-            .then(function (times) {
-                timeLoading.classList.add('hidden');
-                timeSelect.innerHTML = '';
-
-                if (times.length === 0) {
-                    noTimes.classList.remove('hidden');
-                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
-                    submitBtn.disabled = true;
-                } else {
-                    var defaultOption = document.createElement('option');
-                    defaultOption.value = '';
-                    defaultOption.textContent = '-- اختر الوقت --';
-                    timeSelect.appendChild(defaultOption);
-
-                    times.forEach(function (time) {
-                        var option = document.createElement('option');
-                        option.value = time;
-                        option.textContent = time;
-                        timeSelect.appendChild(option);
-                    });
-                }
-            })
-            .catch(function (error) {
-                timeLoading.classList.add('hidden');
-                noTimes.classList.remove('hidden');
-                noTimes.textContent = 'حدث خطأ في تحميل الأوقات';
-                console.error('Error:', error);
-            });
-    });
-
-    timeSelect.addEventListener('change', function () {
-        submitBtn.disabled = !this.value;
-    });
-    });
+        if (currentBoundaryGeoJSON) {
+            isWithinBoundary = checkPointInGeoJSON(lat, lng, currentBoundaryGeoJSON);
+            if (isWithinBoundary) {
+                statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-green-900/30 text-green-400 border border-green-600/30';
+                iconSpan.innerHTML = '<i class="fas fa-check-circle"></i>';
+                textSpan.textContent = ' الموقع دقيق ويقع ضمن حدود الحي المختار.';
+            } else {
+                statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-red-900/30 text-red-400 border border-red-600/30';
+                iconSpan.innerHTML = '<i class="fas fa-times-circle"></i>';
+                textSpan.textContent = ' عذراً، الموقع يقع خارج حدود الحي المختار!';
+            }
+            statusDiv.classList.remove('hidden');
+        } else {
+            isWithinBoundary = true;
+            statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-green-900/30 text-green-400 border border-green-600/30';
+            iconSpan.innerHTML = '<i class="fas fa-check-circle"></i>';
+            textSpan.textContent = ' تم تحديد الموقع.';
+            statusDiv.classList.remove('hidden');
+        }
+        updateLocationFields(lat, lng);
+    }
 </script>
 {% endblock %}

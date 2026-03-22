@@ -50,6 +50,21 @@
             <i class="fas fa-chevron-left text-gray-400"></i>
         </a>
 
+        <!-- Referral Program -->
+        <a href="{{ url_for('customer.referrals') }}"
+            class="flex items-center justify-between bg-primary p-4 rounded-xl hover:bg-gray-700 transition">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-emerald-600/20 rounded-full flex items-center justify-center">
+                    <i class="fas fa-user-plus text-emerald-400 text-xl"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-white">ادعُ أصدقاءك</p>
+                    <p class="text-sm text-gray-400">شارك الكود واحصل على غسلة مجانية</p>
+                </div>
+            </div>
+            <i class="fas fa-chevron-left text-gray-400"></i>
+        </a>
+
         <!-- Notifications -->
         <a href="{{ url_for('main.notifications') }}"
             class="flex items-center justify-between bg-primary p-4 rounded-xl hover:bg-gray-700 transition">

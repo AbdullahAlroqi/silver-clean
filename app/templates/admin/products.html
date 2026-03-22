@@ -75,6 +75,16 @@
                     class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-center py-2 rounded transition">
                     <i class="fas fa-boxes"></i> المخزون
                 </button>
+                <button onclick="openAssignCityModal({{ item.product.id }}, '{{ item.product.name_ar }}')"
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white text-center py-2 rounded transition">
+                    <i class="fas fa-map-marker-alt"></i> تسعير المدن
+                </button>
+            </div>
+            <div class="mt-2">
+                <button onclick="loadProductCityPrices({{ item.product.id }})" class="w-full text-accent hover:text-blue-300 text-xs text-center border border-accent/20 py-1 rounded">
+                    <i class="fas fa-city ml-1"></i>عرض أسعار المدن المخصصة
+                </button>
+            </div>
             </div>
             {% if current_user.role == 'admin' %}
             <div class="flex gap-2 mt-2">
@@ -170,6 +180,57 @@
                     class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Assign Product to City Modal -->
+<div id="assignCityModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-map-marker-alt ml-2"></i>إسناد منتج لمدينة</h3>
+            <button onclick="closeAssignCityModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <p class="text-accent mb-4" id="assignProductName"></p>
+        <form action="{{ url_for('admin.assign_product_to_city') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="product_id" id="assignProductId">
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">المدينة</label>
+                <select name="city_id" required class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">السعر في هذه المدينة</label>
+                <input type="number" name="price" step="0.01" required min="0"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeAssignCityModal()"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
+                <button type="submit"
+                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- City Prices Detail Modal -->
+<div id="cityPricesModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-city ml-2"></i>أسعار المدن للمنتج</h3>
+            <button onclick="closeCityPricesModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <div id="cityPricesContent" class="space-y-3">
+            <p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button onclick="closeCityPricesModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
+        </div>
     </div>
 </div>
 
@@ -279,11 +340,70 @@
     // Add event listener to neighborhood select to update stock input
     document.getElementById('stockNeighborhoodSelect').addEventListener('change', updateStockInputFromSelection);
 
-    // Close modal when clicking outside
-    document.getElementById('stockModal').addEventListener('click', function (e) {
-        if (e.target === this) {
-            closeStockModal();
+    // Assign City Modal Functions
+    function openAssignCityModal(productId, productName) {
+        document.getElementById('assignProductId').value = productId;
+        document.getElementById('assignProductName').textContent = productName;
+        document.getElementById('assignCityModal').classList.remove('hidden');
+        document.getElementById('assignCityModal').classList.add('flex');
+    }
+    function closeAssignCityModal() {
+        document.getElementById('assignCityModal').classList.add('hidden');
+        document.getElementById('assignCityModal').classList.remove('flex');
+    }
+
+    // City Prices Detail Functions
+    async function loadProductCityPrices(productId) {
+        const modal = document.getElementById('cityPricesModal');
+        const content = document.getElementById('cityPricesContent');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        content.innerHTML = '<p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>';
+
+        try {
+            const resp = await fetch(`/admin/api/city-product-prices/${productId}`);
+            const data = await resp.json();
+            if (!data.length) {
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">لا توجد أسعار مدن مخصصة لهذا المنتج</p>';
+                return;
+            }
+            let html = '';
+            data.forEach(p => {
+                html += `
+                <div class="bg-darkbg p-3 rounded-lg border border-gray-700 flex items-center justify-between">
+                    <div>
+                        <p class="text-white font-semibold">${p.city_name}</p>
+                        <p class="text-accent font-bold">${p.price} ريال</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <form action="/admin/products/remove-city-price/${p.id}" method="POST" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-400 hover:text-red-300 text-sm" onclick="return confirm('إزالة هذا السعر؟')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>`;
+            });
+            content.innerHTML = html;
+        } catch (err) {
+            content.innerHTML = '<p class="text-red-400 text-center py-4">خطأ في تحميل البيانات</p>';
         }
+    }
+
+    function closeCityPricesModal() {
+        document.getElementById('cityPricesModal').classList.add('hidden');
+        document.getElementById('cityPricesModal').classList.remove('flex');
+    }
+
+    // Close modals when clicking outside
+    ['stockModal', 'assignCityModal', 'cityPricesModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function (e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+                this.classList.remove('flex');
+            }
+        });
     });
 </script>
 {% endblock %}

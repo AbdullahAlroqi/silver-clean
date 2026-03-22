@@ -15,7 +15,7 @@ def convert_arabic_to_english_numerals(text):
     return text.translate(translation_table)
 
 @bp.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("20 per minute")
 def login():
     if current_user.is_authenticated:
         if current_user.role in ['admin', 'supervisor']:
@@ -60,12 +60,17 @@ def logout():
     return redirect(url_for('main.index'))
 
 @bp.route('/register', methods=['GET', 'POST'])
-@limiter.limit("3 per minute")
+@limiter.limit("10 per minute")
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))
     
     form = RegistrationForm()
+    
+    # Pre-fill referral code from URL parameter ?ref=SILVC****
+    if request.method == 'GET' and request.args.get('ref'):
+        form.referral_code.data = request.args.get('ref')
+    
     if form.validate_on_submit():
         # Convert Arabic numerals to English before processing
         phone = convert_arabic_to_english_numerals(form.phone.data.strip())
@@ -97,17 +102,50 @@ def register():
             flash('لا يمكن التسجيل بهذا الرقم أو البريد الإلكتروني. تم حظر الحساب المرتبط بهذه البيانات.', 'error')
             return render_template('auth/register.html', title='التسجيل', form=form)
         
-        # Create user with converted phone number
-        user = User(username=form.username.data, email=form.email.data, phone=phone, role='customer')
+        # Create user with converted phone number and auto-generated referral code
+        user = User(
+            username=form.username.data, 
+            email=form.email.data, 
+            phone=phone, 
+            role='customer',
+            referral_code=User.generate_referral_code()
+        )
         user.set_password(form.password.data)
         db.session.add(user)
+        db.session.flush()  # Get user.id before commit
+        
+        # Process referral code if provided
+        referral_input = form.referral_code.data.strip().upper() if form.referral_code.data else ''
+        if referral_input:
+            from app.models import ReferralRecord, DiscountCode
+            
+            # First check if it's an influencer code (which is a DiscountCode with is_influencer=True)
+            influencer = DiscountCode.query.filter_by(code=referral_input, is_influencer=True, is_active=True).first()
+            if influencer:
+                influencer.used_count += 1
+                user.referred_by = None  # Influencer codes don't link to a referring user
+                user.used_influencer_code_id = influencer.id  # Track for 1st wash loyalty point
+            else:
+                # Check if it's a valid user referral code
+                referrer = User.query.filter_by(referral_code=referral_input).first()
+                if referrer and referrer.id != user.id:
+                    user.referred_by = referrer.id
+                    # Create referral record
+                    name_prefix = form.username.data[:3].upper() if form.username.data else '???'
+                    record = ReferralRecord(
+                        referrer_id=referrer.id,
+                        referred_user_id=user.id,
+                        name_prefix=name_prefix
+                    )
+                    db.session.add(record)
+        
         db.session.commit()
         flash('تم التسجيل بنجاح! يمكنك الآن تسجيل الدخول.')
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', title='التسجيل', form=form)
 
 @bp.route('/reset_password_request', methods=['GET', 'POST'])
-@limiter.limit("3 per minute")
+@limiter.limit("10 per minute")
 def reset_password_request():
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))

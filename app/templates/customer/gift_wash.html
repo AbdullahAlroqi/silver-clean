@@ -152,7 +152,7 @@
             .then(data => {
                 neighborhoodSelect.innerHTML = '<option value="">-- اختر الحي --</option>';
                 data.forEach(n => {
-                    neighborhoodSelect.innerHTML += `<option value="${n.id}">${n.name}</option>`;
+                    neighborhoodSelect.innerHTML += `<option value="${n.id}" class="bg-darkbg text-white">${n.name}</option>`;
                 });
             })
             .catch(error => {

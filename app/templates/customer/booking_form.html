@@ -20,21 +20,21 @@
                 <div id="step1-indicator"
                     class="w-10 h-10 bg-accent rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     1</div>
-                <p class="text-xs text-gray-400">الموقع</p>
+                <p class="text-xs text-gray-400">الموقع والموعد</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line1"></div>
             <div class="flex-1 text-center">
                 <div id="step2-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     2</div>
-                <p class="text-xs text-gray-400">الخدمة</p>
+                <p class="text-xs text-gray-400">الخدمة والوقت</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line2"></div>
             <div class="flex-1 text-center">
                 <div id="step3-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     3</div>
-                <p class="text-xs text-gray-400">الموعد</p>
+                <p class="text-xs text-gray-400">منتجات</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line3"></div>
             <div class="flex-1 text-center">
@@ -54,9 +54,9 @@
             <div id="step1" class="step-content">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
                     <i class="fas fa-map-marker-alt ml-3"></i>
-                    اختر الموقع
+                    اختر الموقع والموعد
                 </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-2">المدينة</label>
                         {{ form.city_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
@@ -71,6 +71,40 @@
                         </select>
                     </div>
                 </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-calendar-alt ml-1 text-accent"></i> اختر التاريخ
+                    </label>
+                    {{ form.date(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
+                    focus:outline-none focus:ring-2 focus:ring-accent", type="date", id="date-input") }}
+                </div>
+
+                <!-- Map Location Picker -->
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-map ml-1"></i> الخطوة 2: حدد موقعك بدقة من الخريطة <span class="text-red-500">*</span> (إجباري للوصول إليك)
+                    </label>
+                    <div class="flex gap-2 mb-3">
+                        <button type="button" onclick="getMyLocation()" id="geoBtn"
+                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                            <i class="fas fa-crosshairs ml-1"></i> حدد موقعي تلقائياً
+                        </button>
+                    </div>
+                    <!-- Leaflet CSS -->
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <div id="locationMap" style="height: 300px; width: 100%; border-radius: 12px; z-index: 1;" class="border border-gray-700"></div>
+                    <!-- Coverage Status -->
+                    <div id="coverageStatus" class="mt-3 hidden p-3 rounded-lg text-center font-bold">
+                        <span id="coverageIcon"></span>
+                        <span id="coverageText"></span>
+                    </div>
+                    <!-- Hidden fields for lat/lng -->
+                    <input type="hidden" name="location_lat" id="location_lat" value="">
+                    <input type="hidden" name="location_lng" id="location_lng" value="">
+                    <input type="hidden" name="detected_neighborhood_id" id="detected_neighborhood_id" value="">
+                </div>
+
                 <div class="mt-6 flex justify-end">
                     <button type="button" onclick="nextStep(2)"
                         class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
@@ -83,19 +117,35 @@
             <div id="step2" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
                     <i class="fas fa-spray-can ml-3"></i>
-                    اختر الخدمة، السيارة وطريقة الدفع
+                    اختر الخدمة والوقت
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-2">الخدمة</label>
                         {{ form.service_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3
                         text-white focus:outline-none focus:ring-2 focus:ring-accent", id="service-select") }}
+                        <p class="text-gray-400 text-xs mt-2" id="service-duration-display">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            مدة الخدمة المتوقعة: 60 دقيقة
+                        </p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-2">المركبة</label>
                         {{ form.vehicle_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3
                         text-white focus:outline-none focus:ring-2 focus:ring-accent") }}
                     </div>
+                </div>
+
+                <!-- Time Selection (Moved here) -->
+                <div class="mt-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2 font-bold text-accent">
+                        <i class="fas fa-clock ml-1"></i> حدد الوقت المتاح
+                    </label>
+                    <select name="time" id="time-select"
+                        class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent font-bold"
+                        required>
+                        <option value="">اختر الوقت المتاح</option>
+                    </select>
                 </div>
 
                 <!-- Payment Method Section -->
@@ -184,31 +234,12 @@
                 </div>
             </div>
 
-            <!-- Step 3: Time & Products (Previously Step 4) -->
+            <!-- Step 3: Products (Renamed & Simplified) -->
             <div id="step3" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
-                    <i class="fas fa-clock ml-3"></i>
-                    اختر الموعد
+                    <i class="fas fa-shopping-cart ml-3 text-green-500"></i>
+                    منتجات إضافية
                 </h3>
-                <p class="text-gray-400 text-sm mb-4" id="service-duration-display">
-                    <i class="fas fa-info-circle mr-2"></i>
-                    مدة الخدمة: 60 دقيقة
-                </p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">التاريخ</label>
-                        {{ form.date(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
-                        focus:outline-none focus:ring-2 focus:ring-accent", type="date", id="date-input") }}
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">الوقت</label>
-                        <select name="time" id="time-select"
-                            class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent"
-                            required>
-                            <option value="">اختر الوقت المتاح</option>
-                        </select>
-                    </div>
-                </div>
 
                 <!-- Additional Products Section -->
                 <div class="mt-8 border-t border-gray-700 pt-6">
@@ -386,22 +417,38 @@
         if (currentStep === 1) {
             const city = document.getElementById('city-select').value;
             const neighborhood = document.getElementById('neighborhood-select').value;
+            const lat = document.getElementById('location_lat').value;
+            const lng = document.getElementById('location_lng').value;
+            const date = dateInput.value;
+            
             if (!city || !neighborhood) {
                 alert('الرجاء اختيار المدينة والحي');
                 return;
             }
+            if (!lat || !lng) {
+                alert('الرجاء تحديد موقعك بدقة على الخريطة للوصول إليك');
+                return;
+            }
+            if (currentBoundaryGeoJSON && !checkPointInGeoJSON(lat, lng, currentBoundaryGeoJSON)) {
+                alert('عذراً الموقع المحدد يقع خارج حدود الحي المختار! يرجى تحريك الدبوس إلى داخل المنطقة المظللة للاستمرار.');
+                return;
+            }
+            if (!date) {
+                alert('الرجاء اختيار التاريخ');
+                return;
+            }
+            
         } else if (currentStep === 2) {
             const service = document.getElementById('service-select').value;
             const vehicle = document.querySelector('[name="vehicle_id"]').value;
+            const time = document.getElementById('time-select').value;
+
             if (!service || !vehicle) {
                 alert('الرجاء اختيار الخدمة والسيارة');
                 return;
             }
-        } else if (currentStep === 3) {
-            const date = dateInput.value;
-            const time = document.getElementById('time-select').value;
-            if (!date || !time) {
-                alert('الرجاء اختيار التاريخ والوقت');
+            if (!time) {
+                alert('الرجاء اختيار الوقت المتاح');
                 return;
             }
         }
@@ -556,23 +603,65 @@
     const serviceDurations = {{ (service_durations or { }) | tojson | safe }};
     const userHasFreeWashes = {{ 'true' if current_user.free_washes > 0 else 'false' }};
 
-    if (citySelect) {
-        citySelect.addEventListener('change', function () {
-            const cityId = this.value;
-            neighborhoodSelect.innerHTML = '<option value="">اختر الحي</option>';
-            timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
-            if (!cityId) return;
+    async function fetchNeighborhoods(cityId) {
+        neighborhoodSelect.innerHTML = '<option value="">اختر الحي</option>';
+        timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+        if (!cityId) return;
 
-            fetch('/customer/api/neighborhoods/' + cityId)
-                .then(response => response.json())
-                .then(neighborhoods => {
-                    neighborhoods.forEach(n => {
-                        const option = document.createElement('option');
-                        option.value = n.id;
-                        option.textContent = n.name;
-                        neighborhoodSelect.appendChild(option);
-                    });
-                });
+        try {
+            const response = await fetch('/customer/api/neighborhoods/' + cityId);
+            const neighborhoods = await response.json();
+            neighborhoods.forEach(n => {
+                const option = document.createElement('option');
+                option.value = n.id;
+                option.textContent = n.name; // Fixed: API returns name (which contains name_ar)
+                option.className = "bg-darkbg text-white"; // Fix select option visibility
+                neighborhoodSelect.appendChild(option);
+            });
+        } catch (e) {
+            console.error('Error fetching neighborhoods:', e);
+        }
+    }
+
+    async function panMapToLocation(query, type) {
+        if (!locMap) return;
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(query)}&format=json&limit=1`;
+            const resp = await fetch(url, { headers: { 'User-Agent': 'SilverCleanApp/1.0' } });
+            const data = await resp.json();
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lon = parseFloat(data[0].lon);
+                const zoom = type === 'city' ? 12 : 15;
+                locMap.flyTo([lat, lon], zoom);
+                locMarker.setLatLng([lat, lon]);
+                updateLocationFields(lat, lon);
+            }
+        } catch (e) {
+            console.error('Auto-pan failed', e);
+        }
+    }
+
+    if (citySelect) {
+        citySelect.addEventListener('change', async function () {
+            await fetchNeighborhoods(this.value);
+            fetchPrices(); // Fetch city prices immediately
+            const cityName = citySelect.options[citySelect.selectedIndex].text;
+            if (cityName && cityName !== 'اختر المدينة' && this.value) {
+                panMapToLocation(cityName, 'city');
+            }
+        });
+    }
+
+    if (neighborhoodSelect) {
+        neighborhoodSelect.addEventListener('change', function () {
+            const neighName = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
+            const cityName = citySelect.options[citySelect.selectedIndex].text;
+            if (neighName && neighName !== 'اختر الحي' && this.value) {
+                panMapToLocation(neighName + ' ' + cityName, 'neighborhood');
+                fetchAndDisplayNeighborhoodBoundary(this.value);
+            }
+            document.getElementById('detected_neighborhood_id').value = this.value;
         });
     }
 
@@ -594,31 +683,52 @@
                         const option = document.createElement('option');
                         option.value = time;
                         option.textContent = time;
+                        option.className = "bg-darkbg text-white"; // Fix select option visibility
                         timeSelect.appendChild(option);
                     });
                 }
             });
 
         // Also fetch seasonal prices for the selected date
-        fetchPricesForDate(date);
+        fetchPrices();
     }
 
-    function fetchPricesForDate(date) {
-        if (!date) return;
+    function fetchPrices() {
+        const cityId = document.getElementById('city-select').value;
+        const date = document.getElementById('date-input') ? document.getElementById('date-input').value : null;
 
-        fetch('/customer/api/prices?date=' + date)
+        let url = '/customer/api/prices?';
+        const params = [];
+        if (cityId) params.push('city_id=' + cityId);
+        if (date) params.push('date=' + date);
+        url += params.join('&');
+
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 if (data.error) return;
 
-                // Update Service Price
-                const sId = serviceSelect.value;
-                if (sId && data.prices && data.prices.services && data.prices.services[sId] !== undefined) {
-                    servicePrice = data.prices.services[sId];
-                    // Also update the dropdown text dynamically to show new price
-                    const option = serviceSelect.options[serviceSelect.selectedIndex];
-                    const baseName = option.text.split('(')[0].trim();
-                    option.text = `${baseName} (${servicePrice} ريال)`;
+                // Update Service Prices in the dropdown
+                if (data.prices && data.prices.services) {
+                    for (let i = 0; i < serviceSelect.options.length; i++) {
+                        const option = serviceSelect.options[i];
+                        if (!option.value) continue;
+                        const sId = option.value;
+                        const newPrice = data.prices.services[sId];
+                        if (newPrice !== undefined) {
+                            let baseName = option.getAttribute('data-base-name');
+                            if (!baseName) {
+                                baseName = option.text.split('(')[0].trim();
+                                option.setAttribute('data-base-name', baseName);
+                            }
+                            option.text = `${baseName} (${newPrice} ريال)`;
+                            
+                            // Also update current active price if selected
+                            if (serviceSelect.value === sId) {
+                                servicePrice = newPrice;
+                            }
+                        }
+                    }
                 }
 
                 // Update Products Prices
@@ -722,7 +832,7 @@
             loadAvailableTimes();
             // Refetch price when service changes just in case date was already set
             if (dateInput.value) {
-                fetchPricesForDate(dateInput.value);
+                fetchPrices();
             }
         });
         serviceSelect.addEventListener('change', checkFreeWashEligibility);
@@ -825,6 +935,200 @@
             .catch(() => msgDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>حدث خطأ في التحقق</span>');
     }
 
+    /* --- Leaflet Map for Location Selection --- */
+    let locMap, locMarker;
+    
+    // Default to Riyadh
+    const defaultLat = 24.7136;
+    const defaultLng = 46.6753;
+
+    let currentBoundaryLayer = null;
+    let currentBoundaryGeoJSON = null;
+
+    function pointInPolygon(point, vs) {
+        var x = point[0], y = point[1];
+        var inside = false;
+        for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+            var xi = vs[i][0], yi = vs[i][1];
+            var xj = vs[j][0], yj = vs[j][1];
+            var intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    function checkPointInGeoJSON(lat, lng, geojsonData) {
+        // Point in polygon ray-casting algorithm
+        const point = [lng, lat]; // GeoJSON uses [lng, lat]
+        let isInside = false;
+
+        function checkCoords(polygon) {
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const xi = polygon[i][0], yi = polygon[i][1];
+                const xj = polygon[j][0], yj = polygon[j][1];
+
+                const intersect = ((yi > point[1]) != (yj > point[1])) &&
+                    (point[0] < (xj - xi) * (point[1] - yi) / (yj - yi) + xi);
+                if (intersect) isInside = !isInside;
+            }
+        }
+
+        if (geojsonData.type === 'FeatureCollection') {
+            geojsonData.features.forEach(feature => {
+                if (feature.geometry.type === 'Polygon') {
+                    feature.geometry.coordinates.forEach(checkCoords);
+                } else if (feature.geometry.type === 'MultiPolygon') {
+                    feature.geometry.coordinates.forEach(poly => poly.forEach(checkCoords));
+                }
+            });
+        } else if (geojsonData.type === 'Polygon') {
+            geojsonData.coordinates.forEach(checkCoords);
+        } else if (geojsonData.type === 'MultiPolygon') {
+            geojsonData.coordinates.forEach(poly => poly.forEach(checkCoords));
+        }
+        return isInside;
+    }
+
+    var isWithinBoundary = true; // Default to true if no boundary exists
+
+    async function fetchAndDisplayNeighborhoodBoundary(neighborhoodId) {
+        if (currentBoundaryLayer && locMap) {
+            locMap.removeLayer(currentBoundaryLayer);
+            currentBoundaryLayer = null;
+        }
+        currentBoundaryGeoJSON = null;
+        
+        if (!neighborhoodId || !locMap) return;
+        
+        try {
+            const resp = await fetch(`/customer/api/neighborhood/${neighborhoodId}/boundary`);
+            const data = await resp.json();
+            
+            if (data.boundary) {
+                currentBoundaryGeoJSON = data.boundary;
+                currentBoundaryLayer = L.geoJSON(data.boundary, {
+                    style: { color: '#3b82f6', weight: 2, fillOpacity: 0.1 }
+                }).addTo(locMap);
+            }
+        } catch (e) {
+            console.error("Failed to fetch boundary", e);
+        }
+    }
+
+    function initLocationMap() {
+        if (locMap) return;
+
+        locMap = L.map('locationMap').setView([defaultLat, defaultLng], 12);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        }).addTo(locMap);
+
+        const customIcon = L.divIcon({
+            html: '<div style="color:#e11d48; font-size:32px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);"><i class="fas fa-map-marker-alt"></i></div>',
+            iconSize: [32, 32], iconAnchor: [16, 32], className: ''
+        });
+
+        locMarker = L.marker([defaultLat, defaultLng], { icon: customIcon, draggable: true }).addTo(locMap);
+
+        locMarker.on('dragend', function (e) {
+            const pos = locMarker.getLatLng();
+            validateLocation(pos.lat, pos.lng);
+        });
+
+        locMap.on('click', function (e) {
+            locMarker.setLatLng(e.latlng);
+            validateLocation(e.latlng.lat, e.latlng.lng);
+        });
+        
+        // Ensure map renders correctly after tab switches
+        setTimeout(() => locMap.invalidateSize(), 500);
+    }
+
+    function updateLocationFields(lat, lng) {
+        document.getElementById('location_lat').value = lat;
+        document.getElementById('location_lng').value = lng;
+    }
+
+    function getMyLocation() {
+        const btn = document.getElementById('geoBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-1"></i> جاري التحديد...';
+        btn.disabled = true;
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    locMap.setView([lat, lng], 16);
+                    locMarker.setLatLng([lat, lng]);
+                    validateLocation(lat, lng);
+                    
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                },
+                function(error) {
+                    alert('تعذر تحديد موقعك. يرجى التأكد من تفعيل خدمات الموقع أو الضغط على الخريطة يدوياً.');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        } else {
+            alert('خاصية تحديد الموقع غير مدعومة في متصفحك.');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    function validateLocation(lat, lng) {
+        const statusDiv = document.getElementById('coverageStatus');
+        const iconSpan = document.getElementById('coverageIcon');
+        const textSpan = document.getElementById('coverageText');
+        
+        const nId = document.getElementById('neighborhood-select').value;
+        if (!nId) {
+            statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-yellow-900/30 text-yellow-400 border border-yellow-600/30';
+            iconSpan.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            textSpan.textContent = ' يرجى اختيار الحي أولاً حتى يتم التحقق من الموقع.';
+            statusDiv.classList.remove('hidden');
+            isWithinBoundary = false;
+            updateLocationFields(lat, lng);
+            return;
+        }
+
+        if (currentBoundaryGeoJSON) {
+            isWithinBoundary = checkPointInGeoJSON(lat, lng, currentBoundaryGeoJSON);
+            if (isWithinBoundary) {
+                statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-green-900/30 text-green-400 border border-green-600/30';
+                iconSpan.innerHTML = '<i class="fas fa-check-circle"></i>';
+                textSpan.textContent = ' الموقع دقيق ويقع ضمن حدود الحي المختار.';
+            } else {
+                statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-red-900/30 text-red-400 border border-red-600/30';
+                iconSpan.innerHTML = '<i class="fas fa-times-circle"></i>';
+                textSpan.textContent = ' عذراً، الموقع يقع خارج حدود الحي المختار!';
+            }
+            statusDiv.classList.remove('hidden');
+        } else {
+            isWithinBoundary = true;
+            statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-green-900/30 text-green-400 border border-green-600/30';
+            iconSpan.innerHTML = '<i class="fas fa-check-circle"></i>';
+            textSpan.textContent = ' تم تحديد الموقع.';
+            statusDiv.classList.remove('hidden');
+        }
+        updateLocationFields(lat, lng);
+    }
+
+    // Initialize map on first click of city drop-down to be safe
+    document.getElementById('city-select').addEventListener('focus', initLocationMap);
+    
+    // Also initialize immediately
+    setTimeout(initLocationMap, 500);
+
+    // Call showStep using existing showStep logic
     showStep(1);
 </script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 {% endblock %}

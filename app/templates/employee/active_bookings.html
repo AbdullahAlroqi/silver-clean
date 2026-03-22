@@ -81,15 +81,26 @@
                 </div>
                 <div class="mt-2 flex items-center gap-2">
                     <span class="text-gray-400 text-sm">{{ _('Payment Method') }}:</span>
-                    <span class="font-bold text-white flex items-center gap-1">
-                        {% if booking.subscription_id %}
-                        <i class="fas fa-sync-alt text-purple-500"></i> اشتراك
-                        {% elif booking.payment_method == 'card' %}
-                        <i class="fas fa-credit-card text-blue-500"></i> {{ _('Card') }}
-                        {% else %}
-                        <i class="fas fa-money-bill-wave text-green-500"></i> {{ _('Cash') }}
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-white flex items-center gap-1">
+                            {% if booking.subscription_id %}
+                            <i class="fas fa-sync-alt text-purple-500"></i> اشتراك
+                            {% elif booking.payment_method == 'card' %}
+                            <i class="fas fa-credit-card text-blue-500"></i> {{ _('Card') }}
+                            {% else %}
+                            <i class="fas fa-money-bill-wave text-green-500"></i> {{ _('Cash') }}
+                            {% endif %}
+                        </span>
+                        
+                        {% if not booking.subscription_id %}
+                        <form action="{{ url_for('employee.toggle_payment', id=booking.id) }}" method="post" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded border border-gray-600 transition">
+                                <i class="fas fa-exchange-alt ml-1"></i> تغيير
+                            </button>
+                        </form>
                         {% endif %}
-                    </span>
+                    </div>
                 </div>
             </div>
             <div class="col-span-2">
@@ -286,6 +297,19 @@
                     <i class="fab fa-whatsapp text-xl"></i>
                     <span>{{ _('Contact via WhatsApp') }}</span>
                 </a>
+
+                {% if booking.location_lat and booking.location_lng %}
+                <a href="https://www.google.com/maps/dir/?api=1&destination={{ booking.location_lat }},{{ booking.location_lng }}" target="_blank"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                    <i class="fas fa-map-marked-alt text-xl"></i>
+                    <span>الذهاب للموقع (خرائط جوجل)</span>
+                </a>
+                {% else %}
+                <div class="w-full bg-gray-700 text-gray-400 font-bold py-3 px-4 rounded-lg text-center cursor-not-allowed flex items-center justify-center gap-2">
+                    <i class="fas fa-map-marked-alt text-xl"></i>
+                    <span>موقع العميل غير متوفر بالخريطة</span>
+                </div>
+                {% endif %}
 
                 {% if booking.status == 'assigned' %}
                 <form action="{{ url_for('employee.update_status', id=booking.id, status='en_route') }}" method="post">

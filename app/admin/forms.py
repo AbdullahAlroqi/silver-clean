@@ -34,6 +34,7 @@ class VehicleSizeForm(FlaskForm):
 class CityForm(FlaskForm):
     name_ar = StringField('الاسم (عربي)', validators=[DataRequired()])
     name_en = StringField('الاسم (إنجليزي)', validators=[DataRequired()])
+    osm_place_id = StringField('معرف الموقع في OSM (اختياري)', validators=[Optional()])
     is_active = BooleanField('مفعل')
     submit = SubmitField('حفظ')
 
@@ -41,6 +42,7 @@ class NeighborhoodForm(FlaskForm):
     city_id = SelectField('المدينة', coerce=int, validators=[DataRequired()])
     name_ar = StringField('الاسم (عربي)', validators=[DataRequired()])
     name_en = StringField('الاسم (إنجليزي)', validators=[DataRequired()])
+    osm_name = StringField('اسم الحي في OSM (اختياري)', validators=[Optional()])
     is_active = BooleanField('مفعل')
     submit = SubmitField('حفظ')
 
@@ -86,6 +88,7 @@ class SiteSettingsForm(FlaskForm):
     terms_content = TextAreaField('Terms and Conditions')
     booking_days_limit = IntegerField('عدد أيام الحجز (الخدمة)', validators=[InputRequired(), NumberRange(min=0)])
     subscription_days_limit = IntegerField('عدد أيام الحجز (الاشتراك)', validators=[InputRequired(), NumberRange(min=0)])
+    referral_target_count = IntegerField('عدد الإحالات للغسلة المجانية', validators=[InputRequired(), NumberRange(min=1)])
     submit = SubmitField('Save Settings')
 
 class NotificationForm(FlaskForm):

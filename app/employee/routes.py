@@ -194,6 +194,67 @@ def update_status(id, status):
                     booking.customer.points = current_points
                     flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
             
+            # --- Referral System: First Wash Tracking ---
+            # Check if this is the customer's first completed booking (for referral reward)
+            from app.models import ReferralRecord, SiteSettings, User, Notification
+            first_completed_count = Booking.query.filter_by(
+                customer_id=booking.customer_id, 
+                status='completed'
+            ).count()
+            
+            # If this is the first completed booking (count==1 means just this one)
+            if first_completed_count <= 1:
+                # 1. Influencer Code Signups -> 1 loyalty point for customer
+                if booking.customer.used_influencer_code_id:
+                    booking.customer.points = (booking.customer.points or 0) + 1
+                    # Check if they just hit 10 points after adding this bonus point
+                    if booking.customer.points >= 10:
+                        booking.customer.points = 0
+                        booking.customer.free_washes = (booking.customer.free_washes or 0) + 1
+                        db.session.add(Notification(
+                            user_id=booking.customer_id,
+                            title='🎉 حصلت على غسلة مجانية!',
+                            message='لقد جمعت 10 نقاط وحصلت على غسلة مجانية جديدة!',
+                            created_at=datetime.utcnow()
+                        ))
+                    else:
+                        db.session.add(Notification(
+                            user_id=booking.customer_id,
+                            title='🎁 نقطة إضافية',
+                            message='حصلت على نقطة إضافية لتسجيلك باستخدام كود مؤثر!',
+                            created_at=datetime.utcnow()
+                        ))
+
+                # 2. Friend Referral tracking log
+                referral_record = ReferralRecord.query.filter_by(
+                    referred_user_id=booking.customer_id,
+                    first_wash_completed=False
+                ).first()
+                
+                if referral_record:
+                    referral_record.first_wash_completed = True
+                    referral_record.completed_at = datetime.utcnow()
+                    
+                    # Check if referrer reached the target for a free wash reward
+                    site_settings = SiteSettings.get_settings()
+                    target = site_settings.referral_target_count or 10
+                    completed_referrals = ReferralRecord.query.filter_by(
+                        referrer_id=referral_record.referrer_id,
+                        first_wash_completed=True
+                    ).count()
+                    
+                    # Grant reward when reaching exact multiples of the target
+                    if completed_referrals > 0 and completed_referrals % target == 0:
+                        referrer = User.query.get(referral_record.referrer_id)
+                        if referrer:
+                            referrer.free_washes = (referrer.free_washes or 0) + 1
+                            db.session.add(Notification(
+                                user_id=referrer.id,
+                                title='🎉 حصلت على غسلة مجانية!',
+                                message=f'مبروك! أكمل {target} من أصدقاءك المحالين غسلتهم الأولى. تمت إضافة غسلة مجانية لحسابك!',
+                                created_at=datetime.utcnow()
+                            ))
+            
             # Deduct products from stock
             for booking_product in booking.products:
                 product = booking_product.product
@@ -267,6 +328,31 @@ def update_status(id, status):
             except Exception as e:
                 print(f"Error sending rating notification: {e}")
     
+    return redirect(request.referrer or url_for('employee.active_bookings'))
+
+@bp.route('/booking/<int:id>/toggle-payment', methods=['POST'])
+def toggle_payment(id):
+    """Toggle payment method between card and cash"""
+    booking = Booking.query.get_or_404(id)
+    
+    # Check if employee is authorized
+    if booking.employee_id != current_user.id:
+        flash('غير مصرح لك بتعديل هذا الحجز', 'error')
+        return redirect(url_for('employee.index'))
+    
+    # Check if it's a subscription (cannot change payment method)
+    if booking.subscription_id:
+        flash('لا يمكن تغيير وسيلة الدفع لحجوزات الاشتراكات', 'error')
+        return redirect(request.referrer or url_for('employee.active_bookings'))
+    
+    # Toggle logic
+    if booking.payment_method == 'card':
+        booking.payment_method = 'cash'
+    else:
+        booking.payment_method = 'card'
+        
+    db.session.commit()
+    flash('تم تغيير وسيلة الدفع بنجاح', 'success')
     return redirect(request.referrer or url_for('employee.active_bookings'))
 
 @bp.route('/subscriptions')

@@ -1,0 +1,147 @@
+{% extends "customer/base.html" %}
+
+{% block content %}
+<div class="space-y-4">
+    <!-- Status Banner -->
+    <div id="trackingBanner" class="p-4 rounded-xl text-center font-bold transition-all duration-300">
+        <i id="bannerIcon" class="fas fa-spinner fa-spin ml-2"></i>
+        <span id="bannerText">جاري تحميل موقع الموظف...</span>
+    </div>
+
+    <!-- Booking Info -->
+    <div class="bg-primary p-4 rounded-xl border border-gray-700">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm">حجز #{{ booking.id }}</p>
+                <p class="text-white font-bold">{{ booking.service.name_ar if booking.service else '-' }}</p>
+            </div>
+            <div class="text-left">
+                <p class="text-accent font-bold">{{ booking.employee.username if booking.employee else 'لم يتم التعيين' }}</p>
+                <p class="text-gray-400 text-xs">{{ booking.date }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map -->
+    <div class="bg-primary rounded-xl overflow-hidden border border-gray-700">
+        <div id="trackMap" style="height: 400px; width: 100%; z-index: 1;"></div>
+    </div>
+
+    <a href="{{ url_for('customer.my_bookings') }}" class="block text-center text-accent hover:text-blue-300 py-3">
+        <i class="fas fa-arrow-right ml-2"></i>العودة للحجوزات
+    </a>
+</div>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet Routing Machine -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+<style>
+    .leaflet-popup-content-wrapper { background: #303030; color: white; border-radius: 12px; }
+    .leaflet-popup-tip { background: #303030; }
+    .leaflet-routing-container { display: none !important; }
+    #trackMap .leaflet-control-zoom a { background-color: #303030 !important; color: white !important; border-color: #4b5563 !important; }
+</style>
+
+<script>
+    const bookingId = {{ booking.id }};
+    const map = L.map('trackMap').setView([24.7136, 46.6753], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap',
+        maxZoom: 19
+    }).addTo(map);
+
+    // Customer pin (blue)
+    const customerIcon = L.divIcon({
+        html: '<div style="background:#4DA8DA; width:16px; height:16px; border-radius:50%; border:3px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.5);"></div>',
+        iconSize: [16, 16], iconAnchor: [8, 8], className: ''
+    });
+
+    // Employee car pin
+    const carIcon = L.divIcon({
+        html: '<div style="font-size:28px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">🚗</div>',
+        iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+    });
+
+    let customerMarker = null;
+    let employeeMarker = null;
+    let routeControl = null;
+
+    async function updateTracking() {
+        try {
+            const resp = await fetch(`/customer/booking/${bookingId}/employee-location`);
+            const data = await resp.json();
+            const banner = document.getElementById('trackingBanner');
+            const icon = document.getElementById('bannerIcon');
+            const text = document.getElementById('bannerText');
+
+            if (data.status === 'tracking') {
+                // Place customer marker
+                if (data.customer_lat && data.customer_lng) {
+                    if (customerMarker) map.removeLayer(customerMarker);
+                    customerMarker = L.marker([data.customer_lat, data.customer_lng], { icon: customerIcon })
+                        .addTo(map).bindPopup('<b>موقعك</b>');
+                }
+
+                // Place/update employee marker
+                if (employeeMarker) map.removeLayer(employeeMarker);
+                employeeMarker = L.marker([data.latitude, data.longitude], { icon: carIcon })
+                    .addTo(map).bindPopup(`<b>${data.employee_name}</b>`);
+
+                // Draw route
+                if (data.customer_lat && data.customer_lng) {
+                    if (routeControl) map.removeControl(routeControl);
+                    routeControl = L.Routing.control({
+                        waypoints: [
+                            L.latLng(data.latitude, data.longitude),
+                            L.latLng(data.customer_lat, data.customer_lng)
+                        ],
+                        router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+                        lineOptions: { styles: [{ color: '#4DA8DA', weight: 4, opacity: 0.8 }] },
+                        addWaypoints: false, draggableWaypoints: false, fitSelectedRoutes: false,
+                        show: false, createMarker: () => null
+                    }).addTo(map);
+                }
+
+                // Fit map to both markers
+                if (data.customer_lat && data.customer_lng) {
+                    map.fitBounds([[data.latitude, data.longitude], [data.customer_lat, data.customer_lng]], { padding: [40, 40] });
+                } else {
+                    map.setView([data.latitude, data.longitude], 15);
+                }
+
+                // Banner
+                if (data.is_stale) {
+                    banner.className = 'p-4 rounded-xl text-center font-bold bg-yellow-900/40 border border-yellow-600/30 text-yellow-400';
+                    icon.className = 'fas fa-exclamation-triangle ml-2';
+                    text.textContent = '⚠️ الموظف في الطريق — التتبع مؤقتاً غير متاح';
+                } else {
+                    banner.className = 'p-4 rounded-xl text-center font-bold bg-green-900/30 border border-green-600/30 text-green-400';
+                    icon.className = 'fas fa-car ml-2';
+                    text.textContent = '🚗 الموظف في الطريق';
+                }
+            } else if (data.status === 'waiting') {
+                banner.className = 'p-4 rounded-xl text-center font-bold bg-gray-800 border border-gray-700 text-gray-400';
+                icon.className = 'fas fa-clock ml-2';
+                text.textContent = '⏳ في انتظار تحديث موقع الموظف...';
+            } else if (data.status === 'not_tracking') {
+                banner.className = 'p-4 rounded-xl text-center font-bold bg-gray-800 border border-gray-700 text-gray-400';
+                icon.className = 'fas fa-info-circle ml-2';
+                text.textContent = data.message;
+            }
+        } catch (err) {
+            console.error('Tracking error:', err);
+        }
+    }
+
+    // Initial load
+    updateTracking();
+    // Auto-refresh every 10 seconds
+    setInterval(updateTracking, 10000);
+</script>
+{% endblock %}

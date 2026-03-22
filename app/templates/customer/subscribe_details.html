@@ -10,7 +10,7 @@
 <div class="bg-purple-900 bg-opacity-30 border border-purple-600 rounded-lg p-6 mb-6">
     <div class="flex justify-between items-center mb-3">
         <h3 class="text-xl font-bold text-white">{{ package.name_ar }}</h3>
-        <span class="text-2xl font-bold text-purple-300">{{ package.price }} ريال</span>
+        <span id="package_price_display" class="text-2xl font-bold text-purple-300">{{ package.price }} ريال</span>
     </div>
     <div class="grid grid-cols-2 gap-4 text-sm">
         <div class="text-gray-300">
@@ -149,15 +149,25 @@
     // Dynamic neighborhood loading
     document.getElementById('city_select').addEventListener('change', function () {
         const cityId = this.value;
+        const packageId = {{ package.id }};
         const neighborhoodSelect = document.getElementById('neighborhood_select');
+        const priceDisplay = document.getElementById('package_price_display');
 
         neighborhoodSelect.innerHTML = '<option value="">جاري التحميل...</option>';
 
         if (!cityId) {
             neighborhoodSelect.innerHTML = '<option value="">-- اختر المدينة أولاً --</option>';
+            priceDisplay.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; 
+            // Fallback to default price
+            fetch(`/customer/api/package-price/${packageId}/0`)
+                .then(response => response.json())
+                .then(data => {
+                     priceDisplay.textContent = data.price + ' ريال';
+                }).catch(() => { priceDisplay.textContent = '{{ package.price }} ريال'; });
             return;
         }
 
+        // Fetch neighborhoods
         fetch(`/customer/api/neighborhoods/${cityId}`)
             .then(response => response.json())
             .then(neighborhoods => {
@@ -166,8 +176,19 @@
                     const option = document.createElement('option');
                     option.value = n.id;
                     option.textContent = n.name;
+                    option.className = "bg-darkbg text-white";
                     neighborhoodSelect.appendChild(option);
                 });
+            });
+
+        // Fetch dynamic price
+        priceDisplay.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        fetch(`/customer/api/package-price/${packageId}/${cityId}`)
+            .then(response => response.json())
+            .then(data => {
+                priceDisplay.textContent = data.price + ' ريال';
+            }).catch(() => {
+                priceDisplay.textContent = '{{ package.price }} ريال';
             });
     });
 

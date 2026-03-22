@@ -1,0 +1,133 @@
+{% extends "customer/base.html" %}
+
+{% block content %}
+<div class="py-4">
+    <div class="flex items-center gap-3 mb-6">
+        <a href="{{ url_for('customer.more') }}" class="w-10 h-10 bg-darkbg border border-gray-700 rounded-xl flex items-center justify-center text-white hover:bg-gray-700 transition">
+            <i class="fas fa-chevron-right"></i>
+        </a>
+        <h2 class="text-2xl font-bold text-white">ادعُ أصدقاءك</h2>
+    </div>
+
+    <!-- Referral Content Container -->
+    <div class="bg-gradient-to-r from-emerald-600/30 to-teal-600/20 border border-emerald-500/30 rounded-2xl p-4">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-user-plus text-emerald-400 text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-white font-bold text-lg">شارك واكسب</h3>
+                <p class="text-gray-400 text-xs">شارك الكود واحصل على غسلة مجانية</p>
+            </div>
+        </div>
+
+        <!-- Referral Code Box -->
+        <div class="bg-darkbg/60 rounded-xl p-3 mb-4">
+            <p class="text-gray-400 text-xs mb-1">كود الإحالة الخاص بك</p>
+            <div class="flex items-center justify-between gap-2">
+                <span class="text-2xl font-bold text-emerald-400 tracking-widest" id="referralCode">{{ current_user.referral_code }}</span>
+                <div class="flex gap-2">
+                    <button onclick="copyReferralCode()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm transition" title="نسخ الكود">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                    <button onclick="shareReferralLink()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm transition" title="مشاركة">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="copyFeedback" class="text-emerald-400 text-xs mt-1 hidden">تم النسخ ✓</div>
+        </div>
+
+        <!-- Progress Bar -->
+        {% set progress_pct = (current_cycle_completed / referral_target * 100) if referral_target > 0 else 0 %}
+        <div class="mb-4">
+            <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-400">التقدم</span>
+                <span class="text-white font-bold">{{ current_cycle_completed }} / {{ referral_target }}</span>
+            </div>
+            <div class="h-3 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500" style="width: {{ [progress_pct, 100]|min }}%"></div>
+            </div>
+            
+            {% set earned_rewards = referral_completed // referral_target %}
+            {% if earned_rewards > 0 %}
+            <p class="text-emerald-400 font-bold text-sm mt-2 text-center">
+                🎉 لقد كسبت {{ earned_rewards }} غسلة مجانية من دعواتك!
+            </p>
+            {% endif %}
+            
+            <p class="text-gray-400 text-xs mt-1 text-center">
+                {{ referral_target - current_cycle_completed }} إحالة متبقية للغسلة المجانية القادمة
+            </p>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-3 gap-2 mb-4">
+            <div class="bg-darkbg/40 rounded-lg p-2 text-center">
+                <p class="text-white font-bold text-lg">{{ referral_records|length }}</p>
+                <p class="text-gray-400 text-xs">إجمالي الدعوات</p>
+            </div>
+            <div class="bg-darkbg/40 rounded-lg p-2 text-center">
+                <p class="text-emerald-400 font-bold text-lg">{{ referral_completed }}</p>
+                <p class="text-gray-400 text-xs">أكملوا الغسلة</p>
+            </div>
+            <div class="bg-darkbg/40 rounded-lg p-2 text-center">
+                <p class="text-yellow-400 font-bold text-lg">{{ referral_records|length - referral_completed }}</p>
+                <p class="text-gray-400 text-xs">في الانتظار</p>
+            </div>
+        </div>
+
+        <!-- Referral List (All) -->
+        {% if referral_records %}
+        <div class="space-y-2">
+            <p class="text-gray-400 text-xs font-bold mt-6 mb-2">جميع الدعوات</p>
+            {% for record in referral_records %}
+            <div class="flex items-center justify-between bg-darkbg/40 rounded-lg px-3 py-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center">
+                        <span class="text-white text-xs font-bold">{{ record.name_prefix }}</span>
+                    </div>
+                    <span class="text-gray-300 text-sm">{{ record.name_prefix }}***</span>
+                </div>
+                {% if record.first_wash_completed %}
+                <span class="text-emerald-400 text-sm font-bold">✅ مكتمل</span>
+                {% else %}
+                <span class="text-yellow-400 text-sm">⏳ بالانتظار</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-6">
+            <i class="fas fa-users text-gray-600 text-4xl mb-3"></i>
+            <p class="text-gray-400">لم تقم بدعوة أي صديق بعد</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function copyReferralCode() {
+        const code = document.getElementById('referralCode').textContent.trim();
+        navigator.clipboard.writeText(code).then(() => {
+            const feedback = document.getElementById('copyFeedback');
+            feedback.classList.remove('hidden');
+            setTimeout(() => feedback.classList.add('hidden'), 2000);
+        });
+    }
+
+    function shareReferralLink() {
+        const code = document.getElementById('referralCode').textContent.trim();
+        const shareUrl = window.location.origin + '/auth/register?ref=' + code;
+        const shareText = 'سجّل في Silver Clean باستخدام كود الإحالة الخاص بي: ' + code + '\n' + shareUrl;
+        
+        if (navigator.share) {
+            navigator.share({ title: 'Silver Clean', text: shareText, url: shareUrl });
+        } else {
+            window.open('https://wa.me/?text=' + encodeURIComponent(shareText), '_blank');
+        }
+    }
+</script>
+{% endblock %}

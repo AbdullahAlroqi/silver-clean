@@ -1,78 +1,102 @@
 {% extends "admin/base.html" %}
 
+{% block title %}المواقع{% endblock %}
+{% block header %}إدارة المواقع{% endblock %}
+
 {% block content %}
-<div class="flex justify-between items-center mb-6">
-    <h2 class="text-2xl font-bold text-white">إدارة المدن والأحياء</h2>
-    <a href="{{ url_for('admin.add_city') }}"
-        class="bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
-        <i class="fas fa-plus ml-2"></i> إضافة مدينة
-    </a>
-</div>
-
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet Draw CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<style>
+    .leaflet-popup-content-wrapper { background: #1a1a2e; color: white; border-radius: 12px; border: 1px solid #4b5563; }
+    .leaflet-popup-tip { background: #1a1a2e; }
+    .leaflet-control-zoom a, .leaflet-draw-toolbar a { background-color: #1a1a2e !important; color: white !important; border-color: #4b5563 !important; }
+    .leaflet-control-zoom a:hover, .leaflet-draw-toolbar a:hover { background-color: #2d2d4e !important; }
+    .leaflet-draw-tooltip { background: #1a1a2e; color: white; border: 1px solid #4b5563; }
+    .leaflet-draw-tooltip:before { border-right-color: #4b5563; }
+</style>
 <div class="space-y-6">
-    {% for stat in city_stats %}
-    <div class="bg-primary rounded-lg shadow-lg overflow-hidden">
-        <div class="bg-gray-800 p-4 flex justify-between items-center">
-            <div class="flex items-center">
-                <h3 class="text-xl font-bold text-white ml-4">{{ stat.city.name_ar }} <span
-                        class="text-sm text-gray-400">({{ stat.city.name_en }})</span></h3>
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold text-white">المدن والأحياء</h2>
+        <button onclick="openAddCityModal()" class="bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
+            <i class="fas fa-plus ml-2"></i>إضافة مدينة
+        </button>
+    </div>
 
-                <!-- Stats Badges -->
-                <div class="flex gap-2">
-                    <span class="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs" title="عدد الأحياء">
-                        <i class="fas fa-map-signs ml-1"></i> {{ stat.neighborhood_count }}
-                    </span>
-                    <span class="bg-blue-900 text-blue-200 px-2 py-1 rounded text-xs" title="عدد الحجوزات">
-                        <i class="fas fa-calendar-check ml-1"></i> {{ stat.booking_count }}
-                    </span>
-                    <span class="bg-green-900 text-green-200 px-2 py-1 rounded text-xs" title="الإيرادات">
-                        <i class="fas fa-money-bill-wave ml-1"></i> {{ "%.2f"|format(stat.revenue) }} ريال
-                    </span>
+    {% for item in city_stats %}
+    <div class="bg-primary rounded-xl border border-gray-700 overflow-hidden">
+        <!-- City Header -->
+        <div class="p-4 flex items-center justify-between border-b border-gray-700">
+            <div class="flex items-center gap-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white">{{ item.city.name_ar }}</h3>
+                    <p class="text-gray-400 text-sm">{{ item.city.name_en }}{% if item.city.osm_place_id %} <span class="text-xs text-accent">(OSM: {{ item.city.osm_place_id }})</span>{% endif %}</p>
                 </div>
+                {% if item.city.is_active %}
+                <span class="px-2 py-1 bg-green-600/20 text-green-400 rounded text-xs border border-green-600/30">مفعل</span>
+                {% else %}
+                <span class="px-2 py-1 bg-red-600/20 text-red-400 rounded text-xs border border-red-600/30">معطل</span>
+                {% endif %}
             </div>
-
-            <div class="flex gap-2">
-                <a href="{{ url_for('admin.reports', city_id=stat.city.id) }}"
-                    class="text-sm bg-purple-600 hover:bg-purple-500 text-white py-1 px-3 rounded transition">
-                    <i class="fas fa-chart-bar"></i> التقارير
-                </a>
-                <a href="{{ url_for('admin.add_neighborhood', city_id=stat.city.id) }}"
-                    class="text-sm bg-green-600 hover:bg-green-500 text-white py-1 px-3 rounded transition">
-                    <i class="fas fa-plus"></i> إضافة حي
-                </a>
-                <a href="{{ url_for('admin.edit_city', id=stat.city.id) }}"
-                    class="text-blue-400 hover:text-blue-300 px-2" title="تعديل">
+            <div class="flex items-center gap-3">
+                <div class="text-center mx-3">
+                    <p class="text-xs text-gray-400">الأحياء</p>
+                    <p class="text-lg font-bold text-accent">{{ item.neighborhood_count }}</p>
+                </div>
+                <div class="text-center mx-3">
+                    <p class="text-xs text-gray-400">الحجوزات</p>
+                    <p class="text-lg font-bold text-white">{{ item.booking_count }}</p>
+                </div>
+                <div class="text-center mx-3">
+                    <p class="text-xs text-gray-400">الإيرادات</p>
+                    <p class="text-lg font-bold text-green-400">{{ "%.0f"|format(item.revenue) }} ر.س</p>
+                </div>
+                <button onclick="openAddNeighborhoodModal({{ item.city.id }}, '{{ item.city.name_en }}')"
+                    class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm transition">
+                    <i class="fas fa-plus ml-1"></i>إضافة حي
+                </button>
+                <button onclick="refreshOSMNeighborhoods({{ item.city.id }}, '{{ item.city.name_en }}')"
+                    class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-sm transition" title="تحديث من OSM">
+                    <i class="fas fa-sync-alt ml-1"></i>OSM
+                </button>
+                <a href="{{ url_for('admin.edit_city', id=item.city.id) }}" class="text-blue-400 hover:text-blue-300 p-2">
                     <i class="fas fa-edit"></i>
                 </a>
-                <form action="{{ url_for('admin.delete_city', id=stat.city.id) }}" method="post"
-                    style="display:inline;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="text-red-400 hover:text-red-300 px-2" title="حذف"
-                        onclick="return confirm('هل أنت متأكد من حذف المدينة {{ stat.city.name_ar }}؟')">
+                <form action="{{ url_for('admin.delete_city', id=item.city.id) }}" method="post" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit" class="text-red-400 hover:text-red-300 p-2" onclick="return confirm('هل أنت متأكد من الحذف؟')">
                         <i class="fas fa-trash"></i>
                     </button>
                 </form>
             </div>
         </div>
+
+        <!-- Neighborhoods -->
         <div class="p-4">
-            {% if stat.city.neighborhoods.count() > 0 %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {% for neighborhood in stat.city.neighborhoods %}
-                <div class="bg-darkbg p-3 rounded border border-gray-700 flex justify-between items-center">
+            {% if item.city.neighborhoods.all() %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {% for n in item.city.neighborhoods %}
+                <div class="bg-darkbg rounded-lg p-3 border border-gray-700 flex items-center justify-between hover:border-accent transition">
                     <div>
-                        <p class="text-white">{{ neighborhood.name_ar }}</p>
-                        <p class="text-xs text-gray-400">{{ neighborhood.name_en }}</p>
+                        <p class="text-white font-semibold">{{ n.name_ar }}</p>
+                        <p class="text-gray-400 text-xs">{{ n.name_en }}</p>
+                        {% if n.osm_name %}
+                        <p class="text-purple-400 text-xs mt-1"><i class="fas fa-map-pin ml-1"></i>{{ n.osm_name }}</p>
+                        {% endif %}
                     </div>
-                    <div class="flex gap-2">
-                        <a href="{{ url_for('admin.edit_neighborhood', id=neighborhood.id) }}"
-                            class="text-blue-400 hover:text-blue-300" title="تعديل">
+                    <div class="flex items-center gap-2">
+                        {% if n.is_active %}
+                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                        {% else %}
+                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                        {% endif %}
+                        <a href="{{ url_for('admin.edit_neighborhood', id=n.id) }}" class="text-blue-400 hover:text-blue-300 text-sm">
                             <i class="fas fa-edit"></i>
                         </a>
-                        <form action="{{ url_for('admin.delete_neighborhood', id=neighborhood.id) }}" method="post"
-                            style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="text-red-400 hover:text-red-300" title="حذف"
-                                onclick="return confirm('هل أنت متأكد من حذف الحي {{ neighborhood.name_ar }}؟')">
+                        <form action="{{ url_for('admin.delete_neighborhood', id=n.id) }}" method="post" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="text-red-400 hover:text-red-300 text-sm" onclick="return confirm('حذف هذا الحي؟')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </form>
@@ -81,14 +105,540 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="text-gray-500">لا يوجد أحياء مضافة لهذه المدينة.</p>
+            <p class="text-gray-500 text-center py-4">لا توجد أحياء. اضغط "إضافة حي" أو "OSM" لجلب الأحياء.</p>
             {% endif %}
         </div>
     </div>
     {% else %}
-    <div class="text-center text-gray-500 py-8">
-        لا يوجد مدن مضافة حالياً.
+    <div class="bg-primary rounded-xl p-12 text-center border border-gray-700">
+        <i class="fas fa-map-marker-alt text-6xl text-gray-600 mb-4"></i>
+        <p class="text-gray-400">لا توجد مدن. اضغط "إضافة مدينة" للبدء.</p>
     </div>
     {% endfor %}
 </div>
+
+<!-- Add City Modal (OSM) -->
+<div id="addCityModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-white"><i class="fas fa-city ml-2"></i>إضافة مدينة</h3>
+            <button onclick="closeAddCityModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-400 mb-2 text-sm">البحث عن مدينة في خريطة الشارع المفتوح (OSM)</label>
+            <div class="relative">
+                <input type="text" id="osmCitySearch" placeholder="ابحث عن مدينة في السعودية..."
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg py-2 pr-4 pl-10 focus:outline-none focus:border-accent">
+                <button onclick="searchOSMCities()" class="absolute left-2 top-2 text-accent hover:text-white">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <div id="osmCitySpinner" class="hidden mt-2 text-center">
+                <i class="fas fa-spinner fa-spin text-accent text-xl"></i>
+                <p class="text-gray-400 text-sm mt-1">جاري البحث...</p>
+            </div>
+        </div>
+
+        <div id="osmCityResults" class="max-h-48 overflow-y-auto mb-4 space-y-2"></div>
+
+        <!-- City Map Preview -->
+        <div id="cityMapWrapper" class="hidden mb-4">
+            <label class="block text-gray-400 mb-2 text-sm"><i class="fas fa-map-marked-alt ml-1"></i>موقع المدينة على الخريطة</label>
+            <div class="map-container">
+                <div id="cityMap" style="height: 220px; width: 100%;"></div>
+            </div>
+        </div>
+
+        <hr class="border-gray-700 my-4">
+        <p class="text-gray-400 text-sm mb-3">أو أدخل يدوياً:</p>
+
+        <form id="addCityForm" action="{{ url_for('admin.add_city') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="osm_place_id" id="selectedOsmPlaceId" value="">
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                    <label class="block text-gray-400 mb-1 text-sm">الاسم بالعربية</label>
+                    <input type="text" name="name_ar" id="cityNameAr" required
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                </div>
+                <div>
+                    <label class="block text-gray-400 mb-1 text-sm">الاسم بالإنجليزية</label>
+                    <input type="text" name="name_en" id="cityNameEn" required
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeAddCityModal()"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
+                <button type="submit"
+                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ المدينة</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Neighborhood Modal (OSM) -->
+<div id="addNeighborhoodModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-white"><i class="fas fa-map-pin ml-2"></i>إضافة حي</h3>
+            <button onclick="closeAddNeighborhoodModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-gray-400 mb-2 text-sm">البحث في أحياء <span id="neighborhoodCityLabel" class="text-accent"></span></label>
+            <div class="relative">
+                <input type="text" id="osmNeighborhoodSearch" placeholder="ابحث عن حي..."
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded-lg py-2 pr-4 pl-10 focus:outline-none focus:border-accent">
+                <button onclick="searchOSMNeighborhoods()" class="absolute left-2 top-2 text-accent hover:text-white">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <div id="osmNeighborhoodSpinner" class="hidden mt-2 text-center">
+                <i class="fas fa-spinner fa-spin text-accent text-xl"></i>
+                <p class="text-gray-400 text-sm mt-1">جاري البحث...</p>
+            </div>
+        </div>
+
+        <div id="osmNeighborhoodResults" class="max-h-48 overflow-y-auto mb-4 space-y-2"></div>
+
+        <!-- Neighborhood Map Preview -->
+        <div id="neighborhoodMapWrapper" class="hidden mb-4">
+            <label class="block text-gray-400 mb-2 text-sm"><i class="fas fa-map-marked-alt ml-1"></i>موقع الحي على الخريطة</label>
+            <div class="map-container">
+                <div id="neighborhoodMap" style="height: 220px; width: 100%;"></div>
+            </div>
+        </div>
+
+        <hr class="border-gray-700 my-4">
+        <p class="text-gray-400 text-sm mb-3">أو أدخل يدوياً:</p>
+
+        <form id="addNeighborhoodForm" action="" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="osm_name" id="selectedOsmName" value="">
+            <input type="hidden" name="boundary_coords" id="neighborhoodBoundaryCoords" value="">
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                    <label class="block text-gray-400 mb-1 text-sm">الاسم بالعربية</label>
+                    <input type="text" name="name_ar" id="neighborhoodNameAr" required
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                </div>
+                <div>
+                    <label class="block text-gray-400 mb-1 text-sm">الاسم بالإنجليزية</label>
+                    <input type="text" name="name_en" id="neighborhoodNameEn" required
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeAddNeighborhoodModal()"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
+                <button type="submit"
+                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ الحي</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- OSM Refresh Results Modal -->
+<div id="osmRefreshModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-lg border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-white"><i class="fas fa-sync-alt ml-2"></i>أحياء من OSM</h3>
+            <button onclick="closeOsmRefreshModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+        </div>
+        <div id="osmRefreshSpinner" class="text-center py-6">
+            <i class="fas fa-spinner fa-spin text-accent text-3xl"></i>
+            <p class="text-gray-400 mt-2">جاري جلب الأحياء من خريطة الشارع المفتوح...</p>
+        </div>
+        <div id="osmRefreshResults" class="max-h-96 overflow-y-auto space-y-2"></div>
+        <div class="flex justify-end mt-4">
+            <button onclick="closeOsmRefreshModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet Draw JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+    let currentCityId = null;
+    let currentCityNameEn = '';
+    const NOMINATIM_DELAY = 1100;
+    const SAT_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    const SAT_ATTR = '&copy; Esri, Maxar, Earthstar Geographics';
+    const BOUNDARY_STYLE = { color: '#00e5ff', weight: 3, fillColor: '#00e5ff', fillOpacity: 0.15 };
+
+    // --- Map instances ---
+    let cityMap = null;
+    let cityLayers = [];
+    
+    let neighborhoodMap = null;
+    let neighborhoodDrawnItems = new L.FeatureGroup();
+    let neighborhoodDrawControl = null;
+
+    // Build boundary from boundingbox [south, north, west, east]
+    function bboxToLatLngs(bb) {
+        const s = parseFloat(bb[0]), n = parseFloat(bb[1]), w = parseFloat(bb[2]), e = parseFloat(bb[3]);
+        return [[s, w], [n, w], [n, e], [s, e]];
+    }
+
+    function clearLayers(map, layers) {
+        layers.forEach(l => map.removeLayer(l));
+        layers.length = 0;
+    }
+
+    function initCityMap() {
+        if (cityMap) return;
+        cityMap = L.map('cityMap', { zoomControl: true }).setView([24.7136, 46.6753], 6);
+        L.tileLayer(SAT_TILES, { attribution: SAT_ATTR, maxZoom: 18 }).addTo(cityMap);
+    }
+
+    function showCityOnMap(lat, lon, name, geojson, bbox) {
+        const wrapper = document.getElementById('cityMapWrapper');
+        wrapper.classList.remove('hidden');
+        initCityMap();
+        setTimeout(() => {
+            cityMap.invalidateSize();
+            clearLayers(cityMap, cityLayers);
+            if (geojson) {
+                const gl = L.geoJSON(geojson, { style: BOUNDARY_STYLE }).addTo(cityMap).bindPopup(`<b>${name}</b>`);
+                cityLayers.push(gl);
+                cityMap.fitBounds(gl.getBounds(), { padding: [20, 20] });
+            } else if (bbox) {
+                const rect = L.polygon(bboxToLatLngs(bbox), BOUNDARY_STYLE).addTo(cityMap).bindPopup(`<b>${name}</b>`);
+                const mk = L.marker([lat, lon]).addTo(cityMap).bindPopup(`<b>${name}</b>`).openPopup();
+                cityLayers.push(rect, mk);
+                cityMap.fitBounds(rect.getBounds(), { padding: [20, 20] });
+            } else {
+                const mk = L.marker([lat, lon]).addTo(cityMap).bindPopup(`<b>${name}</b>`).openPopup();
+                cityLayers.push(mk);
+                cityMap.setView([lat, lon], 12);
+            }
+        }, 150);
+    }
+
+    function initNeighborhoodMap() {
+        if (neighborhoodMap) return;
+        neighborhoodMap = L.map('neighborhoodMap', { zoomControl: true }).setView([24.7136, 46.6753], 6);
+        L.tileLayer(SAT_TILES, { attribution: SAT_ATTR, maxZoom: 18 }).addTo(neighborhoodMap);
+        neighborhoodMap.addLayer(neighborhoodDrawnItems);
+        
+        neighborhoodDrawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: neighborhoodDrawnItems,
+                remove: true
+            },
+            draw: {
+                polygon: {
+                    shapeOptions: BOUNDARY_STYLE,
+                    allowIntersection: false,
+                    drawError: { color: '#e1e100', message: '<strong>خطأ:</strong> لا يمكن للمضلع أن يتقاطع مع نفسه!' }
+                },
+                polyline: false,
+                rectangle: { shapeOptions: BOUNDARY_STYLE },
+                circle: false,
+                marker: false,
+                circlemarker: false
+            }
+        });
+        neighborhoodMap.addControl(neighborhoodDrawControl);
+
+        neighborhoodMap.on(L.Draw.Event.CREATED, function (event) {
+            neighborhoodDrawnItems.clearLayers();
+            neighborhoodDrawnItems.addLayer(event.layer);
+            updateNeighborhoodBoundaryInput();
+        });
+
+        neighborhoodMap.on(L.Draw.Event.EDITED, function (event) {
+            updateNeighborhoodBoundaryInput();
+        });
+
+        neighborhoodMap.on(L.Draw.Event.DELETED, function (event) {
+            updateNeighborhoodBoundaryInput();
+        });
+    }
+
+    function updateNeighborhoodBoundaryInput() {
+        const data = neighborhoodDrawnItems.toGeoJSON();
+        if (data.features.length > 0) {
+            document.getElementById('neighborhoodBoundaryCoords').value = JSON.stringify(data.features[0].geometry);
+        } else {
+            document.getElementById('neighborhoodBoundaryCoords').value = '';
+        }
+    }
+
+    function showNeighborhoodOnMap(lat, lon, name, geojson, bbox) {
+        const wrapper = document.getElementById('neighborhoodMapWrapper');
+        wrapper.classList.remove('hidden');
+        initNeighborhoodMap();
+        setTimeout(() => {
+            neighborhoodMap.invalidateSize();
+            neighborhoodDrawnItems.clearLayers();
+            
+            if (geojson) {
+                const gl = L.geoJSON(geojson, { style: BOUNDARY_STYLE });
+                gl.eachLayer(layer => {
+                    neighborhoodDrawnItems.addLayer(layer);
+                    layer.bindPopup(`<b>${name}</b>`);
+                });
+                neighborhoodMap.fitBounds(gl.getBounds(), { padding: [20, 20] });
+            } else if (bbox) {
+                const rect = L.polygon(bboxToLatLngs(bbox), BOUNDARY_STYLE);
+                rect.bindPopup(`<b>${name}</b>`);
+                neighborhoodDrawnItems.addLayer(rect);
+                neighborhoodMap.fitBounds(rect.getBounds(), { padding: [20, 20] });
+            } else {
+                if (lat && lon) {
+                    neighborhoodMap.setView([lat, lon], 14);
+                }
+            }
+            updateNeighborhoodBoundaryInput();
+        }, 150);
+    }
+
+    // --- Add City ---
+    function openAddCityModal() {
+        document.getElementById('addCityModal').classList.remove('hidden');
+        document.getElementById('addCityModal').classList.add('flex');
+        document.getElementById('osmCitySearch').value = '';
+        document.getElementById('osmCityResults').innerHTML = '';
+        document.getElementById('selectedOsmPlaceId').value = '';
+        document.getElementById('cityNameAr').value = '';
+        document.getElementById('cityNameEn').value = '';
+        document.getElementById('cityMapWrapper').classList.add('hidden');
+    }
+    function closeAddCityModal() {
+        document.getElementById('addCityModal').classList.add('hidden');
+        document.getElementById('addCityModal').classList.remove('flex');
+    }
+
+    // Store OSM results with lat/lon and geojson
+    let osmCityData = [];
+
+    async function searchOSMCities() {
+        const q = document.getElementById('osmCitySearch').value.trim();
+        if (!q) return;
+        const spinner = document.getElementById('osmCitySpinner');
+        const results = document.getElementById('osmCityResults');
+        spinner.classList.remove('hidden');
+        results.innerHTML = '';
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(q)}&format=json&accept-language=ar&addressdetails=1&polygon_geojson=1&limit=10`, {
+                headers: { 'User-Agent': 'SilverCleanApp/1.0' }
+            });
+            const data = await resp.json();
+            osmCityData = data;
+            if (!data.length) {
+                results.innerHTML = '<p class="text-gray-500 text-sm text-center py-2">لا توجد نتائج</p>';
+            } else {
+                data.forEach((item, idx) => {
+                    const nameAr = item.address?.city || item.address?.town || item.name || item.display_name.split(',')[0];
+                    const nameEn = item.name || nameAr;
+                    results.innerHTML += `
+                        <div class="bg-darkbg p-3 rounded-lg border border-gray-700 cursor-pointer hover:border-accent transition" 
+                             onclick="selectOSMCity('${nameAr}', '${nameEn}', '${item.place_id}', ${idx})">
+                            <p class="text-white font-semibold">${item.display_name}</p>
+                            <p class="text-gray-400 text-xs mt-1">Place ID: ${item.place_id} | ${item.type}</p>
+                        </div>`;
+                });
+            }
+        } catch (err) {
+            results.innerHTML = '<p class="text-red-400 text-sm text-center py-2">خطأ في الاتصال بخدمة OSM</p>';
+        }
+        spinner.classList.add('hidden');
+    }
+
+    function selectOSMCity(nameAr, nameEn, placeId, idx) {
+        document.getElementById('cityNameAr').value = nameAr;
+        document.getElementById('cityNameEn').value = nameEn;
+        document.getElementById('selectedOsmPlaceId').value = placeId;
+        document.getElementById('osmCityResults').innerHTML = `
+            <div class="bg-green-900/30 p-3 rounded-lg border border-green-600/30">
+                <p class="text-green-400"><i class="fas fa-check-circle ml-1"></i>تم اختيار: ${nameAr} (${nameEn})</p>
+            </div>`;
+        // Show map with boundary
+        if (osmCityData[idx]) {
+            const item = osmCityData[idx];
+            const geojson = (item.geojson && item.geojson.type !== 'Point') ? item.geojson : null;
+            showCityOnMap(parseFloat(item.lat), parseFloat(item.lon), nameAr, geojson, item.boundingbox);
+        }
+    }
+
+    // --- Add Neighborhood ---
+    function openAddNeighborhoodModal(cityId, cityNameEn) {
+        currentCityId = cityId;
+        currentCityNameEn = cityNameEn;
+        document.getElementById('addNeighborhoodForm').action = `/admin/locations/neighborhood/add/${cityId}`;
+        document.getElementById('neighborhoodCityLabel').textContent = cityNameEn;
+        document.getElementById('addNeighborhoodModal').classList.remove('hidden');
+        document.getElementById('addNeighborhoodModal').classList.add('flex');
+        document.getElementById('osmNeighborhoodSearch').value = '';
+        document.getElementById('osmNeighborhoodResults').innerHTML = '';
+        document.getElementById('selectedOsmName').value = '';
+        document.getElementById('neighborhoodNameAr').value = '';
+        document.getElementById('neighborhoodNameEn').value = '';
+        document.getElementById('neighborhoodBoundaryCoords').value = '';
+        document.getElementById('neighborhoodMapWrapper').classList.add('hidden');
+        if (neighborhoodDrawnItems) neighborhoodDrawnItems.clearLayers();
+    }
+    function closeAddNeighborhoodModal() {
+        document.getElementById('addNeighborhoodModal').classList.add('hidden');
+        document.getElementById('addNeighborhoodModal').classList.remove('flex');
+    }
+
+    let osmNeighborhoodData = [];
+
+    async function searchOSMNeighborhoods() {
+        const q = document.getElementById('osmNeighborhoodSearch').value.trim();
+        const cityName = currentCityNameEn;
+        const spinner = document.getElementById('osmNeighborhoodSpinner');
+        const results = document.getElementById('osmNeighborhoodResults');
+        spinner.classList.remove('hidden');
+        results.innerHTML = '';
+        try {
+            let url;
+            if (q) {
+                url = `https://nominatim.openstreetmap.org/search?countrycodes=sa&q=${encodeURIComponent(q + ' ' + cityName)}&format=json&accept-language=ar&addressdetails=1&polygon_geojson=1&limit=15`;
+            } else {
+                url = `https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(cityName)}&countrycodes=sa&featuretype=suburb&format=json&accept-language=ar&addressdetails=1&polygon_geojson=1&limit=20`;
+            }
+            const resp = await fetch(url, { headers: { 'User-Agent': 'SilverCleanApp/1.0' } });
+            const data = await resp.json();
+            osmNeighborhoodData = data;
+            if (!data.length) {
+                results.innerHTML = '<p class="text-gray-500 text-sm text-center py-2">لا توجد نتائج. جرب البحث بكلمة أخرى.</p>';
+            } else {
+                data.forEach((item, idx) => {
+                    const nameAr = item.address?.suburb || item.address?.neighbourhood || item.name || item.display_name.split(',')[0];
+                    const nameEn = item.name || nameAr;
+                    const osmName = item.display_name;
+                    results.innerHTML += `
+                        <div class="bg-darkbg p-3 rounded-lg border border-gray-700 cursor-pointer hover:border-accent transition"
+                             onclick="selectOSMNeighborhood('${nameAr.replace(/'/g, "\\'")}', '${nameEn.replace(/'/g, "\\'")}', '${osmName.replace(/'/g, "\\'")}', ${idx})">
+                            <p class="text-white">${nameAr}</p>
+                            <p class="text-gray-400 text-xs mt-1">${osmName}</p>
+                        </div>`;
+                });
+            }
+        } catch (err) {
+            results.innerHTML = '<p class="text-red-400 text-sm text-center py-2">خطأ في الاتصال بخدمة OSM</p>';
+        }
+        spinner.classList.add('hidden');
+    }
+
+    function selectOSMNeighborhood(nameAr, nameEn, osmName, idx) {
+        document.getElementById('neighborhoodNameAr').value = nameAr;
+        document.getElementById('neighborhoodNameEn').value = nameEn;
+        document.getElementById('selectedOsmName').value = osmName;
+        document.getElementById('osmNeighborhoodResults').innerHTML = `
+            <div class="bg-green-900/30 p-3 rounded-lg border border-green-600/30">
+                <p class="text-green-400"><i class="fas fa-check-circle ml-1"></i>تم اختيار: ${nameAr}</p>
+                <p class="text-gray-400 text-xs mt-1">${osmName}</p>
+            </div>`;
+        // Show map with boundary
+        if (osmNeighborhoodData[idx]) {
+            const item = osmNeighborhoodData[idx];
+            const geojson = (item.geojson && item.geojson.type !== 'Point') ? item.geojson : null;
+            showNeighborhoodOnMap(parseFloat(item.lat), parseFloat(item.lon), nameAr, geojson, item.boundingbox);
+        }
+    }
+
+    // --- Refresh From OSM ---
+    async function refreshOSMNeighborhoods(cityId, cityNameEn) {
+        const modal = document.getElementById('osmRefreshModal');
+        const spinner = document.getElementById('osmRefreshSpinner');
+        const results = document.getElementById('osmRefreshResults');
+        currentCityId = cityId;
+        currentCityNameEn = cityNameEn;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        spinner.classList.remove('hidden');
+        results.innerHTML = '';
+
+        try {
+            const resp = await fetch(`https://nominatim.openstreetmap.org/search?city=${encodeURIComponent(cityNameEn)}&countrycodes=sa&featuretype=suburb&format=json&accept-language=ar&addressdetails=1&limit=50`, {
+                headers: { 'User-Agent': 'SilverCleanApp/1.0' }
+            });
+            const data = await resp.json();
+            spinner.classList.add('hidden');
+
+            if (!data.length) {
+                results.innerHTML = '<p class="text-gray-500 text-center py-4">لم يتم العثور على أحياء من OSM</p>';
+                return;
+            }
+
+            results.innerHTML = '<p class="text-gray-400 text-sm mb-3">اضغط على حي لإضافته:</p>';
+            data.forEach(item => {
+                const nameAr = item.address?.suburb || item.address?.neighbourhood || item.name || item.display_name.split(',')[0];
+                const nameEn = item.name || nameAr;
+                const osmName = item.display_name;
+                results.innerHTML += `
+                    <div class="bg-darkbg p-3 rounded-lg border border-gray-700 cursor-pointer hover:border-green-500 transition flex items-center justify-between osmRefreshItem"
+                         data-name-ar="${nameAr}" data-name-en="${nameEn}" data-osm-name="${osmName}">
+                        <div>
+                            <p class="text-white">${nameAr}</p>
+                            <p class="text-gray-400 text-xs">${osmName}</p>
+                        </div>
+                        <button onclick="addOSMNeighborhood(this, ${cityId}, '${nameAr.replace(/'/g, "\\'")}', '${nameEn.replace(/'/g, "\\'")}', '${osmName.replace(/'/g, "\\'")}')"
+                            class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm transition shrink-0">
+                            <i class="fas fa-plus ml-1"></i>إضافة
+                        </button>
+                    </div>`;
+            });
+        } catch (err) {
+            spinner.classList.add('hidden');
+            results.innerHTML = '<p class="text-red-400 text-center py-4">خطأ في الاتصال بخدمة OSM</p>';
+        }
+    }
+
+    async function addOSMNeighborhood(btn, cityId, nameAr, nameEn, osmName) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        try {
+            const formData = new FormData();
+            formData.append('csrf_token', '{{ csrf_token() }}');
+            formData.append('name_ar', nameAr);
+            formData.append('name_en', nameEn);
+            formData.append('osm_name', osmName);
+
+            const resp = await fetch(`/admin/locations/neighborhood/add/${cityId}`, { method: 'POST', body: formData });
+            if (resp.redirected || resp.ok) {
+                btn.parentElement.classList.add('border-green-500', 'bg-green-900/20');
+                btn.innerHTML = '<i class="fas fa-check text-green-400"></i>';
+                btn.classList.remove('bg-green-600');
+                btn.classList.add('bg-green-900');
+            } else {
+                btn.innerHTML = '<i class="fas fa-times text-red-400"></i>';
+            }
+        } catch (err) {
+            btn.innerHTML = '<i class="fas fa-times text-red-400"></i>';
+        }
+    }
+
+    function closeOsmRefreshModal() {
+        document.getElementById('osmRefreshModal').classList.add('hidden');
+        document.getElementById('osmRefreshModal').classList.remove('flex');
+        location.reload();
+    }
+
+    // Close modals on outside click
+    ['addCityModal', 'addNeighborhoodModal', 'osmRefreshModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.add('hidden');
+                this.classList.remove('flex');
+            }
+        });
+    });
+
+    // OSM city search on Enter key
+    document.getElementById('osmCitySearch').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); searchOSMCities(); }});
+    document.getElementById('osmNeighborhoodSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); searchOSMNeighborhoods(); }});
+</script>
 {% endblock %}

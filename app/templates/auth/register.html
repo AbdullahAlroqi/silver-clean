@@ -57,6 +57,16 @@
                 {% endfor %}
             </div>
 
+            <div>
+                <label for="referral_code" class="block text-sm font-medium text-gray-300 mb-1">كود الإحالة (اختياري)</label>
+                {{ form.referral_code(class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 text-white
+                focus:outline-none focus:border-accent", placeholder="مثال: SILVC4821") }}
+                <small class="text-gray-500">أدخل كود صديقك إن وجد</small>
+                {% for error in form.referral_code.errors %}
+                <span class="text-red-500 text-xs">{{ error }}</span>
+                {% endfor %}
+            </div>
+
             <div class="pt-4">
                 {{ form.submit(class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md
                 shadow-sm text-sm font-medium text-white bg-accent hover:bg-blue-600 focus:outline-none focus:ring-2

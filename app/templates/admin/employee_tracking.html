@@ -183,6 +183,9 @@
                  </span>` :
                 `<span class="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded border border-green-500/30 mr-2">متاح</span>`;
 
+            const neighborhoodInfo = emp.neighborhoods_ar ? `<span class="text-xs text-accent"><i class="fas fa-map-marker-alt"></i> ${emp.neighborhoods_ar}</span>` : '';
+            const activeCountInfo = emp.active_bookings_count > 0 ? `<span class="text-xs text-orange-400"><i class="fas fa-list"></i> ${emp.active_bookings_count} حجوزات نشطة</span>` : '';
+
             htmlContent += `
                 <div class="bg-darkbg p-3 rounded-lg flex items-center gap-3 border border-gray-700 hover:border-accent transition cursor-pointer" 
                      onclick="focusEmployee(${emp.latitude}, ${emp.longitude})">
@@ -192,8 +195,13 @@
                             <p class="font-bold text-white truncate">${emp.employee_name}</p>
                             ${bookingBadge}
                         </div>
-                        <p class="text-xs text-gray-400 truncate">
-                            <i class="far fa-clock ml-1"></i> ${emp.updated_at || '-'}
+                        <div class="flex flex-col gap-1 mb-1">
+                            ${neighborhoodInfo}
+                            ${activeCountInfo}
+                        </div>
+                        <p class="text-xs text-gray-400 truncate flex justify-between">
+                            <span><i class="far fa-clock ml-1"></i> ${emp.updated_at || '-'}</span>
+                            <span class="dir-ltr">${emp.phone || ''}</span>
                         </p>
                     </div>
                 </div>
@@ -235,10 +243,15 @@
                 `<p class="text-green-400 text-xs mt-1">✅ متاح للعمل</p>`;
 
             marker.bindPopup(`
-                <div class="text-center p-1 min-w-[150px]">
+                <div class="text-center p-2 min-w-[200px]">
                     <p class="font-bold text-lg mb-1">${emp.employee_name}</p>
-                    <p class="text-gray-400 text-sm dir-ltr font-mono">${emp.updated_at}</p>
-                    ${accuracyText}
+                    <p class="text-accent text-sm dir-ltr mb-1"><i class="fas fa-phone fa-flip-horizontal mr-1"></i> ${emp.phone || 'غير مسجل'}</p>
+                    ${emp.neighborhoods_ar ? `<p class="text-gray-300 text-xs mb-2"><i class="fas fa-map-marker-alt text-red-400"></i> ${emp.neighborhoods_ar}</p>` : ''}
+                    ${emp.active_bookings_count > 0 ? `<p class="text-orange-400 text-xs mb-2 font-bold"><i class="fas fa-list"></i> ${emp.active_bookings_count} حجوزات نشطة</p>` : ''}
+                    <div class="bg-gray-800 p-2 rounded-lg mt-2 mb-2">
+                        <p class="text-gray-400 text-xs dir-ltr font-mono mb-1"><i class="far fa-clock mr-1"></i> ${emp.updated_at}</p>
+                        ${accuracyText}
+                    </div>
                     ${bookingPopup}
                 </div>
             `);

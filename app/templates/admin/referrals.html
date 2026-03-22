@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+
+{% block title %}تتبع الإحالات{% endblock %}
+{% block header %}تتبع الإحالات{% endblock %}
+
+{% block content %}
+<!-- Overview Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-primary rounded-xl p-4 border border-gray-700">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-blue-600/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-users text-blue-400 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-white">{{ total_referrals }}</p>
+                <p class="text-gray-400 text-sm">إجمالي الإحالات</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-primary rounded-xl p-4 border border-gray-700">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-emerald-600/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-check-circle text-emerald-400 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-emerald-400">{{ completed_washes }}</p>
+                <p class="text-gray-400 text-sm">أكملوا الغسلة الأولى</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-primary rounded-xl p-4 border border-gray-700">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-yellow-600/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-hourglass-half text-yellow-400 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-yellow-400">{{ pending_washes }}</p>
+                <p class="text-gray-400 text-sm">في الانتظار</p>
+            </div>
+        </div>
+    </div>
+    <div class="bg-primary rounded-xl p-4 border border-gray-700">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-purple-600/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-percentage text-purple-400 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-purple-400">{{ conversion_rate }}%</p>
+                <p class="text-gray-400 text-sm">نسبة التحويل</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Referrers -->
+<div class="bg-primary rounded-xl p-6 border border-gray-700 mb-6">
+    <h3 class="text-xl font-bold text-white mb-4">
+        <i class="fas fa-trophy text-yellow-400 ml-2"></i>
+        أفضل المُحيلين
+    </h3>
+    {% if top_referrers %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-right">
+            <thead>
+                <tr class="text-gray-400 text-sm border-b border-gray-700">
+                    <th class="py-3 px-4">#</th>
+                    <th class="py-3 px-4">المستخدم</th>
+                    <th class="py-3 px-4">الهاتف</th>
+                    <th class="py-3 px-4">كود الإحالة</th>
+                    <th class="py-3 px-4">إجمالي الإحالات</th>
+                    <th class="py-3 px-4">أكملوا الغسلة</th>
+                    <th class="py-3 px-4">نسبة التحويل</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in top_referrers %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-3 px-4">
+                        {% if loop.index <= 3 %}
+                        <span class="text-yellow-400 font-bold">{{ loop.index }}</span>
+                        {% else %}
+                        {{ loop.index }}
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 font-bold text-white">{{ item.user.username }}</td>
+                    <td class="py-3 px-4 text-gray-300">{{ item.user.phone }}</td>
+                    <td class="py-3 px-4">
+                        <span class="bg-emerald-600/20 text-emerald-400 px-2 py-1 rounded font-mono text-sm">{{ item.user.referral_code }}</span>
+                    </td>
+                    <td class="py-3 px-4 text-white font-bold">{{ item.total }}</td>
+                    <td class="py-3 px-4 text-emerald-400 font-bold">{{ item.completed }}</td>
+                    <td class="py-3 px-4">
+                        {% set rate = (item.completed / item.total * 100) if item.total > 0 else 0 %}
+                        <span class="{% if rate >= 50 %}text-emerald-400{% elif rate >= 25 %}text-yellow-400{% else %}text-red-400{% endif %}">
+                            {{ rate|round(0)|int }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-400 text-center py-8">لا توجد إحالات بعد</p>
+    {% endif %}
+</div>
+
+<!-- All Referral Records -->
+<div class="bg-primary rounded-xl p-6 border border-gray-700">
+    <h3 class="text-xl font-bold text-white mb-4">
+        <i class="fas fa-list text-blue-400 ml-2"></i>
+        جميع الإحالات
+    </h3>
+    {% if all_records %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-right">
+            <thead>
+                <tr class="text-gray-400 text-sm border-b border-gray-700">
+                    <th class="py-3 px-4">المُحيل</th>
+                    <th class="py-3 px-4">المُحال</th>
+                    <th class="py-3 px-4">تاريخ الإحالة</th>
+                    <th class="py-3 px-4">الغسلة الأولى</th>
+                    <th class="py-3 px-4">تاريخ الإكمال</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in all_records %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-3 px-4 text-white">{{ record.referrer.username }}</td>
+                    <td class="py-3 px-4 text-gray-300">{{ record.referred_user.username }}</td>
+                    <td class="py-3 px-4 text-gray-400 text-sm">
+                        {{ record.created_at.strftime('%Y-%m-%d') if record.created_at else '-' }}
+                    </td>
+                    <td class="py-3 px-4">
+                        {% if record.first_wash_completed %}
+                        <span class="bg-emerald-600/20 text-emerald-400 px-2 py-1 rounded text-sm">✅ مكتمل</span>
+                        {% else %}
+                        <span class="bg-yellow-600/20 text-yellow-400 px-2 py-1 rounded text-sm">⏳ بالانتظار</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-gray-400 text-sm">
+                        {{ record.completed_at.strftime('%Y-%m-%d') if record.completed_at else '-' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-400 text-center py-8">لا توجد سجلات إحالة</p>
+    {% endif %}
+</div>
+{% endblock %}
