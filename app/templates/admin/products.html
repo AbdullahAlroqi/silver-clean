@@ -68,34 +68,34 @@
 
             <div class="flex gap-2">
                 <a href="{{ url_for('admin.product_stats', id=item.product.id) }}"
-                    class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-center py-2 rounded transition">
+                    class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-center py-2 px-1 rounded transition text-sm">
                     <i class="fas fa-chart-bar"></i> إحصائيات
                 </a>
                 <button onclick="openStockModal('{{ item.product.id }}', '{{ item.product.stock_quantity }}')"
-                    class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-center py-2 rounded transition">
+                    class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-center py-2 px-1 rounded transition text-sm">
                     <i class="fas fa-boxes"></i> المخزون
                 </button>
                 <button onclick="openAssignCityModal({{ item.product.id }}, '{{ item.product.name_ar }}')"
-                    class="flex-1 bg-green-600 hover:bg-green-700 text-white text-center py-2 rounded transition">
+                    class="flex-1 bg-green-600 hover:bg-green-700 text-white text-center py-2 px-1 rounded transition text-sm">
                     <i class="fas fa-map-marker-alt"></i> تسعير المدن
                 </button>
             </div>
             <div class="mt-2">
                 <button onclick="loadProductCityPrices({{ item.product.id }})" class="w-full text-accent hover:text-blue-300 text-xs text-center border border-accent/20 py-1 rounded">
-                    <i class="fas fa-city ml-1"></i>عرض أسعار المدن المخصصة
+                    <i class="fas fa-city ml-1"></i> الأسعار المخصصة
                 </button>
             </div>
-            </div>
+
             {% if current_user.role == 'admin' %}
-            <div class="flex gap-2 mt-2">
+            <div class="flex gap-2 mt-2 pt-2 border-t border-gray-700">
                 <a href="{{ url_for('admin.edit_product', id=item.product.id) }}"
-                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-center py-2 rounded transition">
+                    class="flex-1 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white text-center py-2 rounded transition text-sm border border-blue-600/30">
                     <i class="fas fa-edit"></i> تعديل
                 </a>
                 <form action="{{ url_for('admin.delete_product', id=item.product.id) }}" method="post" class="flex-1">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                     <button type="submit"
-                        class="w-full bg-red-600 hover:bg-red-700 text-white text-center py-2 rounded transition"
+                        class="w-full bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-center py-2 rounded transition text-sm border border-red-600/30"
                         onclick="return confirm('هل أنت متأكد من حذف هذا المنتج؟')">
                         <i class="fas fa-trash"></i> حذف
                     </button>
