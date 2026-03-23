@@ -2499,6 +2499,8 @@ def get_booking_products_api(id):
             'price': current_price,
             'original_price': item.product.price
         })
+    
+    return jsonify(products)
         
 @bp.route('/api/customer-vehicles/<int:customer_id>')
 def get_customer_vehicles(customer_id):
