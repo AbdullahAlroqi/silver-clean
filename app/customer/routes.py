@@ -1485,9 +1485,32 @@ def book_subscription_wash(subscription_id):
         return redirect(url_for('customer.subscriptions'))
     
     settings = SiteSettings.get_settings()
-    from app.models import City
+    from app.models import City, Booking
     cities = City.query.filter_by(is_active=True).all()
-    return render_template('customer/book_subscription_wash.html', subscription=subscription, default_service=default_service, site_settings=settings, cities=cities)
+    
+    # Determine default city and neighborhood
+    default_city_id = None
+    default_neighborhood_id = None
+    
+    if subscription.neighborhood:
+        default_city_id = subscription.neighborhood.city_id
+        default_neighborhood_id = subscription.neighborhood.id
+    else:
+        # Fallback to last successful booking's neighborhood
+        last_booking = current_user.bookings.filter(Booking.neighborhood_id.isnot(None)).order_by(Booking.id.desc()).first()
+        if last_booking and last_booking.neighborhood:
+            default_city_id = last_booking.neighborhood.city_id
+            default_neighborhood_id = last_booking.neighborhood.id
+        elif cities:
+            default_city_id = cities[0].id
+            
+    return render_template('customer/book_subscription_wash.html', 
+                           subscription=subscription, 
+                           default_service=default_service, 
+                           site_settings=settings, 
+                           cities=cities,
+                           default_city_id=default_city_id,
+                           default_neighborhood_id=default_neighborhood_id)
 
 @bp.route('/loyalty')
 def loyalty():

@@ -59,7 +59,7 @@
                         class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
                     <option value="">-- اختر المدينة --</option>
                     {% for city in cities %}
-                    <option value="{{ city.id }}" {% if subscription.neighborhood and city.id == subscription.neighborhood.city_id %}selected{% endif %}>{{ city.name_ar }}</option>
+                    <option value="{{ city.id }}" {% if city.id == default_city_id %}selected{% endif %}>{{ city.name_ar }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -69,7 +69,7 @@
                         class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
                     <option value="">-- اختر الحي --</option>
                     {% if subscription.neighborhood %}
-                    <option value="{{ subscription.neighborhood.id }}" selected>{{ subscription.neighborhood.name_ar }}</option>
+                    <option value="{{ subscription.neighborhood.id }}" selected data-lat="{{ subscription.neighborhood.latitude or '' }}" data-lng="{{ subscription.neighborhood.longitude or '' }}">{{ subscription.neighborhood.name_ar }}</option>
                     {% endif %}
                 </select>
             </div>
@@ -356,10 +356,21 @@
 
         initLocationMap();
         
-        // If a default neighborhood is set (e.g. from subscription default), boundary may be fetched
-        if (neighborhoodSelect.value) {
-            fetchAndDisplayNeighborhoodBoundary(neighborhoodSelect.value);
-            loadAvailableTimes(); // Try to load immediately if date is somehow set
+        const defaultCityId = "{{ default_city_id or '' }}";
+        const defaultNeighborhoodId = "{{ default_neighborhood_id or '' }}";
+
+        if (defaultCityId) {
+            // Fetch neighborhoods and then set the default one
+            fetchNeighborhoods(defaultCityId).then(() => {
+                if (defaultNeighborhoodId) {
+                    neighborhoodSelect.value = defaultNeighborhoodId;
+                    if (neighborhoodSelect.value) {
+                        fetchAndDisplayNeighborhoodBoundary(neighborhoodSelect.value);
+                    }
+                }
+            });
+            // Try to load immediately if date is somehow set
+            loadAvailableTimes();
         }
 
         // Form submission validation
