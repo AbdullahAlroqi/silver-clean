@@ -87,6 +87,12 @@
                     </td>
                     <td class="py-3 px-4">
                         <div class="flex gap-2">
+                            <a href="{{ url_for('admin.discount_code_stats', id=code.id) }}" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition" title="الإحصائيات">
+                                <i class="fas fa-chart-bar"></i>
+                            </a>
+                            <a href="{{ url_for('admin.edit_influencer_code', id=code.id) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
                             <form method="POST" action="{{ url_for('admin.toggle_influencer_code', id=code.id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="{% if code.is_active %}bg-yellow-600 hover:bg-yellow-700{% else %}bg-emerald-600 hover:bg-emerald-700{% endif %} text-white px-3 py-1 rounded text-sm transition" title="{{ 'تعطيل' if code.is_active else 'تفعيل' }}">

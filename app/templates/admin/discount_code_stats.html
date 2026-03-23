@@ -3,7 +3,7 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <h2 class="text-2xl font-bold text-white">إحصائيات كود الخصم: <span class="text-accent">{{ code.code }}</span></h2>
-    <a href="{{ url_for('admin.discount_codes') }}" class="text-gray-400 hover:text-white">
+    <a href="{{ url_for('admin.influencer_codes') if code.is_influencer else url_for('admin.discount_codes') }}" class="text-gray-400 hover:text-white">
         <i class="fas fa-arrow-right ml-2"></i>عودة
     </a>
 </div>

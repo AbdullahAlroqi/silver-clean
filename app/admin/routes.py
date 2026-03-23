@@ -3227,7 +3227,7 @@ def send_notification():
 # --- Discount Code Management ---
 @bp.route('/discount_codes')
 def discount_codes():
-    codes = DiscountCode.query.order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.id.desc()).all()
+    codes = DiscountCode.query.filter(or_(DiscountCode.is_influencer == False, DiscountCode.is_influencer == None)).order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.id.desc()).all()
     return render_template('admin/discount_codes.html', discount_codes=codes)
 
 @bp.route('/discount_codes/add', methods=['GET', 'POST'])
@@ -3890,6 +3890,44 @@ def toggle_influencer_code(id):
     status = 'مفعّل' if code.is_active else 'معطّل'
     flash(f'تم تحديث حالة الكود "{code.code}" إلى {status}', 'success')
     return redirect(url_for('admin.influencer_codes'))
+
+
+@bp.route('/influencer-codes/edit/<int:id>', methods=['GET', 'POST'])
+def edit_influencer_code(id):
+    """Edit an influencer code"""
+    code = DiscountCode.query.get_or_404(id)
+    
+    if not code.is_influencer:
+        return redirect(url_for('admin.influencer_codes'))
+        
+    if request.method == 'POST':
+        code.code = request.form.get('code', '').strip().upper()
+        code.influencer_name = request.form.get('influencer_name', '').strip()
+        code.value = float(request.form.get('value'))
+        
+        # Valid until
+        valid_until_str = request.form.get('valid_until')
+        if valid_until_str:
+            code.valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d')
+            
+        usage_limit = request.form.get('usage_limit')
+        code.usage_limit = int(usage_limit) if usage_limit else None
+        
+        max_uses_per_customer = request.form.get('max_uses_per_customer')
+        code.max_uses_per_customer = int(max_uses_per_customer) if max_uses_per_customer else 1
+        
+        code.is_active = 'is_active' in request.form
+        
+        try:
+            db.session.commit()
+            flash('تم تحديث بيانات كود المؤثر بنجاح', 'success')
+            return redirect(url_for('admin.influencer_codes'))
+        except Exception as e:
+            db.session.rollback()
+            flash('حدث خطأ أثناء التحديث', 'error')
+            
+    return render_template('admin/edit_influencer_code.html', code=code)
+
 
 
 @bp.route('/influencer-codes/<int:id>/delete', methods=['POST'])

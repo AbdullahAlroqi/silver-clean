@@ -252,6 +252,23 @@
                 </td>
                 <td class="p-4">
                     <div class="flex gap-2">
+                        <button class="text-teal-400 hover:text-teal-300" title="التفاصيل"
+                            onclick="showBookingDetailsModal(this)"
+                            data-id="{{ booking.id }}"
+                            data-date="{{ booking.date }}"
+                            data-time="{{ booking.time.strftime('%H:%M') if booking.time else '' }}"
+                            data-status="{{ booking.status }}"
+                            data-payment="{{ 'بطاقة / شبكة' if booking.payment_method == 'card' else 'كاش' }}"
+                            data-total="{{ booking.total_price }}"
+                            data-discount-code="{{ booking.discount_code.code if booking.discount_code else '' }}"
+                            data-discount-val="{{ booking.discount_code.value if booking.discount_code else '' }}"
+                            data-discount-type="{{ booking.discount_code.discount_type if booking.discount_code else '' }}"
+                            data-is-influencer="{{ 'true' if booking.discount_code and booking.discount_code.is_influencer else 'false' }}"
+                            data-influencer-name="{{ booking.discount_code.influencer_name if booking.discount_code and booking.discount_code.is_influencer else '' }}"
+                            data-sub="{{ 'true' if booking.subscription_id else 'false' }}"
+                            data-free="{{ 'true' if booking.used_free_wash else 'false' }}">
+                            <i class="fas fa-eye"></i>
+                        </button>
                         <button
                             class="text-yellow-400 hover:text-yellow-300 edit-booking-btn"
                             title="تعديل"
@@ -636,6 +653,66 @@
     </div>
 </div>
 
+<!-- Booking Details Modal -->
+<div id="bookingDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg max-w-md w-full mx-4 relative">
+        <button onclick="closeBookingDetailsModal()" class="absolute top-4 left-4 text-gray-400 hover:text-white">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+        <h3 class="text-xl font-bold mb-4 border-b border-gray-700 pb-2">تفاصيل الحجز #<span id="bdId"></span></h3>
+        
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between bg-gray-800 p-2 rounded">
+                <span class="text-gray-400">التاريخ والوقت:</span>
+                <span id="bdDateTime" class="font-bold text-white"></span>
+            </div>
+            
+            <div class="flex justify-between bg-gray-800 p-2 rounded">
+                <span class="text-gray-400">الحالة:</span>
+                <span id="bdStatus" class="font-bold px-2 rounded"></span>
+            </div>
+            
+            <div class="flex justify-between bg-gray-800 p-2 rounded">
+                <span class="text-gray-400">طريقة الدفع:</span>
+                <span id="bdPayment" class="font-bold text-white"></span>
+            </div>
+
+            <div id="bdSubscriptionRow" class="hidden flex justify-between bg-purple-900/40 p-2 rounded border border-purple-500/30">
+                <span class="text-purple-300">نوع الطلب:</span>
+                <span class="font-bold text-purple-400">اشتراك</span>
+            </div>
+            
+            <div id="bdFreeWashRow" class="hidden flex justify-between bg-blue-900/40 p-2 rounded border border-blue-500/30">
+                <span class="text-blue-300">نوع الطلب:</span>
+                <span class="font-bold text-blue-400">غسلة مجانية</span>
+            </div>
+
+            <div id="bdDiscountRow" class="hidden border-t border-gray-700 pt-3 mt-3">
+                <h4 class="text-accent font-bold mb-2 text-xs uppercase tracking-wider">الخصم المطبق</h4>
+                <div class="bg-green-900/20 p-3 rounded border border-green-500/20 space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">كود الخصم:</span>
+                        <span id="bdDiscountCode" class="font-mono font-bold text-green-400 bg-green-900/40 px-2 rounded"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">قيمة الخصم:</span>
+                        <span id="bdDiscountValue" class="font-bold text-green-400"></span>
+                    </div>
+                    <div id="bdInfluencerRow" class="hidden flex justify-between border-t border-green-800/50 pt-2 mt-2">
+                        <span class="text-sm text-gray-400">كود مؤثر باسم:</span>
+                        <span id="bdInfluencerName" class="font-bold text-emerald-400"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between bg-darkbg p-3 rounded border border-gray-600 mt-4 text-lg">
+                <span class="text-gray-300 font-bold">الإجمالي النهائي:</span>
+                <span id="bdTotal" class="font-bold text-accent"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     function showCreateBooking() {
         document.getElementById('createBookingModal').classList.remove('hidden');
@@ -643,6 +720,50 @@
 
     function closeCreateBooking() {
         document.getElementById('createBookingModal').classList.add('hidden');
+    }
+
+    function showBookingDetailsModal(btn) {
+        document.getElementById('bdId').textContent = btn.dataset.id;
+        document.getElementById('bdDateTime').textContent = btn.dataset.date + ' ' + (btn.dataset.time || '');
+        
+        const statusSpan = document.getElementById('bdStatus');
+        statusSpan.textContent = btn.dataset.status;
+        statusSpan.className = 'font-bold px-2 rounded text-xs text-white ';
+        if (btn.dataset.status === 'completed') statusSpan.classList.add('bg-green-600');
+        else if (btn.dataset.status === 'cancelled') statusSpan.classList.add('bg-red-600');
+        else if (btn.dataset.status === 'pending') statusSpan.classList.add('bg-yellow-600');
+        else statusSpan.classList.add('bg-blue-600');
+
+        document.getElementById('bdPayment').textContent = btn.dataset.payment;
+        document.getElementById('bdTotal').textContent = parseFloat(btn.dataset.total).toFixed(2) + ' ريال';
+
+        document.getElementById('bdSubscriptionRow').classList.toggle('hidden', btn.dataset.sub !== 'true');
+        document.getElementById('bdFreeWashRow').classList.toggle('hidden', btn.dataset.free !== 'true');
+
+        const code = btn.dataset.discountCode;
+        if (code) {
+            document.getElementById('bdDiscountRow').classList.remove('hidden');
+            document.getElementById('bdDiscountCode').textContent = code;
+            
+            const val = btn.dataset.discountVal;
+            const type = btn.dataset.discountType;
+            document.getElementById('bdDiscountValue').textContent = type === 'percentage' ? val + '%' : parseFloat(val).toFixed(2) + ' ريال';
+            
+            if (btn.dataset.isInfluencer === 'true') {
+                document.getElementById('bdInfluencerRow').classList.remove('hidden');
+                document.getElementById('bdInfluencerName').textContent = btn.dataset.influencerName;
+            } else {
+                document.getElementById('bdInfluencerRow').classList.add('hidden');
+            }
+        } else {
+            document.getElementById('bdDiscountRow').classList.add('hidden');
+        }
+
+        document.getElementById('bookingDetailsModal').classList.remove('hidden');
+    }
+
+    function closeBookingDetailsModal() {
+        document.getElementById('bookingDetailsModal').classList.add('hidden');
     }
 
     function showReassignModal(bookingId, currentEmployeeId, date, time, neighborhoodId, serviceId) {
