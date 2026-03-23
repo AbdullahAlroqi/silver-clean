@@ -21,7 +21,7 @@
                 <i class="fas fa-hashtag text-purple-400 text-xl"></i>
             </div>
             <div>
-                <p class="text-3xl font-bold text-white">{{ codes|length }}</p>
+                <p class="text-3xl font-bold text-white">{{ total_codes }}</p>
                 <p class="text-gray-400 text-sm">إجمالي الأكواد</p>
             </div>
         </div>
@@ -152,4 +152,6 @@
         </form>
     </div>
 </div>
+
+{% include "admin/_pagination.html" %}
 {% endblock %}

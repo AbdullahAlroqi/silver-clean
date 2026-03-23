@@ -1,0 +1,35 @@
+{% if pagination and pagination.pages > 1 %}
+<div class="mt-4 flex flex-col md:flex-row justify-between items-center bg-gray-800 p-3 rounded-lg border border-gray-700 gap-4">
+    <div class="text-sm text-gray-400">
+        عرض <span class="font-bold text-white">{{ pagination.first_item if pagination.first_item else 0 }}</span>
+        إلى <span class="font-bold text-white">{{ pagination.last_item if pagination.last_item else 0 }}</span>
+        من أصل <span class="font-bold text-white">{{ pagination.total }}</span> سجل
+    </div>
+    
+    {% set request_args = request.args.to_dict() %}
+    {% set _ = request_args.pop('_pjax', None) %}
+    {% set _ = request_args.pop('page', None) %}
+    
+    <div class="flex gap-1 flex-wrap justify-center">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for(request.endpoint, page=pagination.prev_num, **request_args) }}" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white transition">السابق</a>
+        {% endif %}
+
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+                {% if p == pagination.page %}
+                <span class="px-3 py-1 bg-accent shadow-lg shadow-accent/20 rounded text-sm text-white font-bold">{{ p }}</span>
+                {% else %}
+                <a href="{{ url_for(request.endpoint, page=p, **request_args) }}" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white transition">{{ p }}</a>
+                {% endif %}
+            {% else %}
+                <span class="px-3 py-1 text-gray-500">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+        <a href="{{ url_for(request.endpoint, page=pagination.next_num, **request_args) }}" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white transition">التالي</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

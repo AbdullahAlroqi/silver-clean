@@ -463,37 +463,19 @@ def stats():
     total_services_revenue = 0
     
     for booking in completed_booking_list:
-        # Calculate service price after discount/free wash
-        service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0)
-        discount_amount = 0
+        # Use the stored total_price which already has discounts and multi-vehicle logic applied
+        total_earnings += (booking.total_price or 0)
         
-        # Check if subscription or free wash -> Service is 0
-        if booking.subscription_id or booking.used_free_wash:
-            service_price = 0
-        # Check if discount code was applied
-        elif booking.discount_code:
-            if booking.discount_code.discount_type == 'percentage':
-                discount_amount = (service_price + (booking.vehicle_size_price or 0)) * (booking.discount_code.value / 100)
-            else:
-                discount_amount = booking.discount_code.value
-        
-        # Calculate final service price (including vehicle size price)
-        final_service_price = max(0, service_price - discount_amount + (booking.vehicle_size_price or 0))
-        if booking.subscription_id or booking.used_free_wash:
-             final_service_price = 0 # Double check to ensure 0
-             
-        total_services_revenue += final_service_price
-        
-        # Calculate products total
+        # We still need to calculate product revenue for the breakdowns
         products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in booking.products])
+        total_products_revenue += products_total
         
-        # Add to total earnings
-        total_earnings += final_service_price + products_total
+        # Service revenue is total - products
+        total_services_revenue += ((booking.total_price or 0) - products_total)
         
-        # Update product stats
+        # Update product count
         for bp in booking.products:
             total_products_sold += bp.quantity
-            total_products_revenue += ((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity)
 
     # Monthly data calculation remains the same...
     from sqlalchemy import func, extract

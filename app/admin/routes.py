@@ -265,9 +265,9 @@ def employees():
                 User.email.ilike(f"%{search_query}%")
             )
         )
-
-    employees = query.order_by(User.id.desc()).all()
-
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(User.id.desc()).paginate(page=page, per_page=50, error_out=False)
+    employees = pagination.items
     # Counters for tabs
     all_count = User.query.filter(User.role.in_(['employee', 'supervisor'])).count()
     employee_count = User.query.filter_by(role='employee').count()
@@ -280,6 +280,7 @@ def employees():
         all_count=all_count,
         employee_count=employee_count,
         supervisor_count=supervisor_count,
+        pagination=pagination,
     )
 
 @bp.route('/employees/add', methods=['GET', 'POST'])
@@ -748,7 +749,9 @@ def customers():
             )
         )
         
-    customers = query.order_by(User.id.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(User.id.desc()).paginate(page=page, per_page=50, error_out=False)
+    customers = pagination.items
     
     # Calculate stats for each customer
     for customer in customers:
@@ -759,7 +762,7 @@ def customers():
         last_booking = Booking.query.filter_by(customer_id=customer.id).order_by(Booking.created_at.desc()).first()
         customer.last_purchase_date = last_booking.created_at if last_booking else None
         
-    return render_template('admin/customers.html', customers=customers)
+    return render_template('admin/customers.html', customers=customers, pagination=pagination)
 
 @bp.route('/customers/<int:id>/reset-password', methods=['POST'])
 def reset_customer_password(id):
@@ -875,8 +878,10 @@ def unban_customer(id):
 @bp.route('/banned-customers')
 def banned_customers():
     """View all banned customers"""
-    banned = User.query.filter_by(is_banned=True).order_by(User.id.desc()).all()
-    return render_template('admin/banned_customers.html', customers=banned)
+    page = request.args.get('page', 1, type=int)
+    pagination = User.query.filter_by(is_banned=True).order_by(User.id.desc()).paginate(page=page, per_page=50, error_out=False)
+    banned = pagination.items
+    return render_template('admin/banned_customers.html', customers=banned, pagination=pagination)
 
 @bp.route('/customers/<int:id>/stats')
 def customer_stats(id):
@@ -999,10 +1004,12 @@ def ratings():
         except ValueError:
             pass
             
-    ratings = query.all()
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(Booking.rating_date.desc() if hasattr(Booking, 'rating_date') else Booking.id.desc()).paginate(page=page, per_page=50, error_out=False)
+    ratings = pagination.items
     employees = User.query.filter_by(role='employee').all()
     
-    return render_template('admin/ratings.html', ratings=ratings, employees=employees)
+    return render_template('admin/ratings.html', ratings=ratings, employees=employees, pagination=pagination)
 
 @bp.route('/customers/export')
 def export_customers():
@@ -1102,7 +1109,9 @@ def export_customers():
 # --- Service Management ---
 @bp.route('/services')
 def services():
-    services_list = Service.query.all()
+    page = request.args.get('page', 1, type=int)
+    pagination = Service.query.order_by(Service.id.asc()).paginate(page=page, per_page=50, error_out=False)
+    services_list = pagination.items
     services_data = []
     
     for service in services_list:
@@ -1120,7 +1129,7 @@ def services():
         
     cities = City.query.filter_by(is_active=True).all()
     vehicle_sizes = VehicleSize.query.filter_by(is_active=True).all()
-    return render_template('admin/services.html', services=services_data, cities=cities, vehicle_sizes=vehicle_sizes)
+    return render_template('admin/services.html', services=services_data, cities=cities, vehicle_sizes=vehicle_sizes, pagination=pagination)
 
 @bp.route('/services/add', methods=['GET', 'POST'])
 def add_service():
@@ -1214,9 +1223,19 @@ def delete_vehicle_size(id):
 @bp.route('/products')
 def products():
     from app.models import ProductStock
-    all_products = Product.query.all()
+    page = request.args.get('page', 1, type=int)
+    pagination = Product.query.order_by(Product.id.asc()).paginate(page=page, per_page=50, error_out=False)
+    all_products = pagination.items
     products_data = []
-    total_sales_revenue = 0
+    
+    # Calculate global total revenue across ALL products
+    total_sales_revenue = db.session.query(
+        func.sum(
+            BookingProduct.quantity * func.coalesce(BookingProduct.unit_price, Product.price)
+        )
+    ).join(Booking, BookingProduct.booking_id == Booking.id)\
+     .join(Product, BookingProduct.product_id == Product.id)\
+     .filter(Booking.status == 'completed').scalar() or 0
     
     for product in all_products:
         # Get total quantity sold (only for completed bookings)
@@ -1239,7 +1258,8 @@ def products():
             Booking.status == 'completed'
         ).scalar() or 0
         
-        total_sales_revenue += revenue
+        # total_sales_revenue is now calculated globally above the loop
+
         
         products_data.append({
             'product': product,
@@ -1280,7 +1300,7 @@ def products():
         } for c in cities])
     
     return render_template('admin/products.html', products=products_data, 
-                           total_sales_revenue=total_sales_revenue, cities=cities, cities_json=cities_json)
+                           total_sales_revenue=total_sales_revenue, cities=cities, cities_json=cities_json, pagination=pagination)
 
 @bp.route('/products/update_stock/<int:product_id>', methods=['POST'])
 def update_stock(product_id):
@@ -1798,7 +1818,9 @@ def subscriptions():
             (User.phone.contains(search_query))
         )
     
-    subscriptions_result = subscriptions_query.order_by(Subscription.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = subscriptions_query.order_by(Subscription.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
+    subscriptions_result = pagination.items
     
     # Get counts for tabs
     pending_count = Subscription.query.filter_by(status='pending').count()
@@ -1841,7 +1863,8 @@ def subscriptions():
                           cities_json=cities_json,
                           employees=employees,
                           customers=customers,
-                          packages=packages)
+                          packages=packages,
+                          pagination=pagination)
 
 @bp.route('/subscriptions/create', methods=['POST'])
 def create_subscription():
@@ -2063,11 +2086,17 @@ def bookings():
                 User.username.ilike(f'%{search_query}%')
             )
     
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
     # Order by date and time
     if sort_dir == 'asc':
-        bookings_list = query.order_by(Booking.date.asc(), Booking.time.asc()).all()
+        pagination = query.order_by(Booking.date.asc(), Booking.time.asc()).paginate(page=page, per_page=per_page, error_out=False)
     else:
-        bookings_list = query.order_by(Booking.date.desc(), Booking.time.desc()).all()
+        pagination = query.order_by(Booking.date.desc(), Booking.time.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    bookings_list = pagination.items
     
     # Filter cities and neighborhoods for supervisor
     if current_user.role == 'supervisor':
@@ -2135,7 +2164,8 @@ def bookings():
                            from_date=from_date_filter, to_date=to_date_filter, sort_dir=sort_dir,
                            customers=customers, services=services, cities=cities, cities_json=cities_json, 
                            vehicle_sizes_json=vehicle_sizes_json, today=today,
-                           current_count=current_count, completed_count=completed_count, cancelled_count=cancelled_count)
+                           current_count=current_count, completed_count=completed_count, cancelled_count=cancelled_count,
+                           pagination=pagination)
 
 @bp.route('/bookings/create', methods=['POST'])
 def create_booking():
@@ -3227,15 +3257,18 @@ def send_notification():
 # --- Discount Code Management ---
 @bp.route('/discount_codes')
 def discount_codes():
-    codes = DiscountCode.query.filter(or_(DiscountCode.is_influencer == False, DiscountCode.is_influencer == None)).order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.id.desc()).all()
-    return render_template('admin/discount_codes.html', discount_codes=codes)
+    page = request.args.get('page', 1, type=int)
+    query = DiscountCode.query.filter(or_(DiscountCode.is_influencer == False, DiscountCode.is_influencer == None))
+    pagination = query.order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.id.desc()).paginate(page=page, per_page=50, error_out=False)
+    codes = pagination.items
+    return render_template('admin/discount_codes.html', discount_codes=codes, pagination=pagination)
 
 @bp.route('/discount_codes/add', methods=['GET', 'POST'])
 def add_discount_code():
     if request.method == 'POST':
         code = request.form.get('code')
-        discount_type = request.form.get('discount_type')
-        value = float(request.form.get('value'))
+        discount_type = request.form.get('discount_type', 'percentage').lower()
+        value = float(request.form.get('value', 0))
         valid_until_str = request.form.get('valid_until')
         usage_limit = request.form.get('usage_limit')
         max_uses_per_customer = request.form.get('max_uses_per_customer')
@@ -3268,8 +3301,9 @@ def edit_discount_code(id):
     
     if request.method == 'POST':
         code.code = request.form.get('code')
-        code.discount_type = request.form.get('discount_type')
-        code.value = float(request.form.get('value'))
+        discount_type = request.form.get('discount_type', 'percentage').lower()
+        code.discount_type = discount_type
+        code.value = float(request.form.get('value', 0))
         valid_until_str = request.form.get('valid_until')
         code.valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d')
         
@@ -3310,8 +3344,10 @@ def discount_code_stats(id):
 # --- Admin Management ---
 @bp.route('/admins')
 def admins():
-    admins = User.query.filter_by(role='admin').all()
-    return render_template('admin/admins.html', admins=admins)
+    page = request.args.get('page', 1, type=int)
+    pagination = User.query.filter_by(role='admin').paginate(page=page, per_page=50, error_out=False)
+    admins_list = pagination.items
+    return render_template('admin/admins.html', admins=admins_list, pagination=pagination)
 
 @bp.route('/admins/add', methods=['GET', 'POST'])
 def add_admin():
@@ -3392,15 +3428,21 @@ def gift_orders():
         else:
             base_query = base_query.filter_by(id=-1)  # Empty result
     
-    pending_orders = base_query.filter_by(status='pending').order_by(GiftOrder.created_at.desc()).all()
-    accepted_orders = base_query.filter_by(status='accepted').order_by(GiftOrder.created_at.desc()).all()
-    rejected_orders = base_query.filter_by(status='rejected').order_by(GiftOrder.created_at.desc()).all()
+    page = request.args.get('page', 1, type=int)
+    pagination = base_query.filter_by(status=status_filter).order_by(GiftOrder.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
+    orders = pagination.items
+    
+    pending_count = base_query.filter_by(status='pending').count()
+    accepted_count = base_query.filter_by(status='accepted').count()
+    rejected_count = base_query.filter_by(status='rejected').count()
     
     return render_template('admin/gift_orders.html',
-                         pending_orders=pending_orders,
-                         accepted_orders=accepted_orders,
-                         rejected_orders=rejected_orders,
-                         status_filter=status_filter)
+                         orders=orders,
+                         pending_count=pending_count,
+                         accepted_count=accepted_count,
+                         rejected_count=rejected_count,
+                         status_filter=status_filter,
+                         pagination=pagination)
 
 
 @bp.route('/gift-orders/<int:id>/accept', methods=['POST'])
@@ -3433,8 +3475,10 @@ def reject_gift_order(id):
 @bp.route('/announcements')
 def announcements():
     """List all announcements"""
-    announcements_list = Announcement.query.order_by(Announcement.order.asc(), Announcement.created_at.desc()).all()
-    return render_template('admin/announcements.html', announcements=announcements_list)
+    page = request.args.get('page', 1, type=int)
+    pagination = Announcement.query.order_by(Announcement.order.asc(), Announcement.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
+    announcements_list = pagination.items
+    return render_template('admin/announcements.html', announcements=announcements_list, pagination=pagination)
 
 
 @bp.route('/announcements/add', methods=['GET', 'POST'])
@@ -3798,9 +3842,12 @@ def referral_tracking():
     """Admin referral tracking page"""
     from app.models import ReferralRecord, User
     
-    all_records = ReferralRecord.query.order_by(ReferralRecord.created_at.desc()).all()
-    total_referrals = len(all_records)
-    completed_washes = sum(1 for r in all_records if r.first_wash_completed)
+    page = request.args.get('page', 1, type=int)
+    pagination = ReferralRecord.query.order_by(ReferralRecord.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
+    all_records = pagination.items
+    
+    total_referrals = pagination.total
+    completed_washes = ReferralRecord.query.filter_by(first_wash_completed=True).count()
     pending_washes = total_referrals - completed_washes
     conversion_rate = round(completed_washes / total_referrals * 100, 1) if total_referrals > 0 else 0
     
@@ -3828,7 +3875,8 @@ def referral_tracking():
                          completed_washes=completed_washes,
                          pending_washes=pending_washes,
                          conversion_rate=conversion_rate,
-                         top_referrers=top_referrers)
+                         top_referrers=top_referrers,
+                         pagination=pagination)
 
 
 # ============== Influencer Codes Management ==============
@@ -3837,11 +3885,18 @@ def referral_tracking():
 def influencer_codes():
     """Admin influencer codes management page"""
     from app.models import DiscountCode
-    codes = DiscountCode.query.filter_by(is_influencer=True).order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.valid_from.desc()).all()
-    total_usage = sum(c.used_count for c in codes)
+    page = request.args.get('page', 1, type=int)
+    query = DiscountCode.query.filter_by(is_influencer=True)
+    pagination = query.order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.valid_from.desc()).paginate(page=page, per_page=50, error_out=False)
+    codes = pagination.items
+    # Calculate total usage across ALL influencer codes
+    total_usage = db.session.query(func.sum(DiscountCode.used_count)).filter_by(is_influencer=True).scalar() or 0
+    total_codes = pagination.total
     return render_template('admin/influencer_codes.html',
+                         total_usage=total_usage,
+                         total_codes=total_codes,
                          codes=codes,
-                         total_usage=total_usage)
+                         pagination=pagination)
 
 
 @bp.route('/influencer-codes/add', methods=['POST'])
@@ -3903,7 +3958,8 @@ def edit_influencer_code(id):
     if request.method == 'POST':
         code.code = request.form.get('code', '').strip().upper()
         code.influencer_name = request.form.get('influencer_name', '').strip()
-        code.value = float(request.form.get('value'))
+        code.value = float(request.form.get('value', 0))
+        code.discount_type = request.form.get('discount_type', 'percentage').lower()
         
         # Valid until
         valid_until_str = request.form.get('valid_until')

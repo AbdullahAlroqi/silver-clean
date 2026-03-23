@@ -413,7 +413,6 @@ def book():
                 return redirect(url_for('customer.book'))
             
             discount_code = None
-            discount_amount = 0
             
             # Handle discount code
             if discount_code_str:
@@ -734,7 +733,7 @@ def book():
             # Apply discounts on top of the calculated totals
             if discount_code:
                 discount_value = 0
-                if discount_code.discount_type == 'percentage':
+                if discount_code.discount_type and discount_code.discount_type.lower() == 'percentage':
                     # Apply percentage to the sum of services only? Usually standard.
                     discount_value = ((total_items_price or 0) * (discount_code.value or 0)) / 100
                 else:

@@ -27,8 +27,17 @@
                 </div>
 
                 <div>
-                    <label class="block text-gray-300 mb-2">نسبة الخصم (%)</label>
-                    <input type="number" name="value" value="{{ code.value }}" step="0.01" min="1" max="100" required
+                    <label class="block text-gray-300 mb-2">نوع الخصم</label>
+                    <select name="discount_type" required
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
+                        <option value="percentage" {% if code.discount_type == 'percentage' %}selected{% endif %}>نسبة مئوية (%)</option>
+                        <option value="fixed" {% if code.discount_type == 'fixed' %}selected{% endif %}>مبلغ ثابت (ريال)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 mb-2">القيمة</label>
+                    <input type="number" name="value" value="{{ code.value }}" step="0.01" min="0.01" required
                         class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
                 </div>
 
