@@ -18,54 +18,70 @@
             <div class="flex justify-between items-start mb-4">
                 <div class="flex-1">
                     <h3 class="text-xl font-bold text-white mb-2">
-                        <i class="fas fa-spray-can text-accent mr-2"></i>
-                        {{ booking.service.name_ar }}
+                        <i class="fas fa-receipt text-accent mr-2"></i>
+                        طلب رقم #{{ booking.id }}
+                        {% if booking.is_multi_vehicle %}
+                        <span class="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full mr-2">طلب متعدد المركبات</span>
+                        {% endif %}
                     </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-gray-300">
-                        <div>
-                            <i class="fas fa-calendar text-accent mr-2"></i>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div class="text-gray-300">
+                            <i class="fas fa-calendar-alt text-accent mr-2 w-5"></i>
                             <strong>التاريخ:</strong> {{ booking.date.strftime('%Y-%m-%d') }}
                         </div>
-                        <div>
-                            <i class="fas fa-clock text-accent mr-2"></i>
+                        <div class="text-gray-300">
+                            <i class="fas fa-clock text-accent mr-2 w-5"></i>
                             <strong>الوقت:</strong> {{ booking.time.strftime('%H:%M') }}
                         </div>
-                        <div>
-                            <i class="fas fa-car text-accent mr-2"></i>
-                            <strong>السيارة:</strong> {{ booking.vehicle.brand }} - {{ booking.vehicle.plate_number }}
-                        </div>
                         {% if booking.employee %}
-                        <div>
-                            <i class="fas fa-user text-accent mr-2"></i>
+                        <div class="text-gray-300">
+                            <i class="fas fa-user-tie text-accent mr-2 w-5"></i>
                             <strong>الموظف:</strong> {{ booking.employee.username }}
                         </div>
                         {% endif %}
                         {% if booking.neighborhood %}
-                        <div>
-                            <i class="fas fa-map-marker-alt text-accent mr-2"></i>
-                            <strong>العنوان:</strong> {{ booking.neighborhood.city.name_ar }} - {{
-                            booking.neighborhood.name_ar }}
+                        <div class="text-gray-300">
+                            <i class="fas fa-map-marker-alt text-accent mr-2 w-5"></i>
+                            <strong>العنوان:</strong> {{ booking.neighborhood.city.name_ar }} - {{ booking.neighborhood.name_ar }}
                         </div>
                         {% endif %}
-                        <div>
-                            <i class="fas fa-tag text-accent mr-2"></i>
-                            <strong>نوع الطلب:</strong>
-                            {% if booking.subscription_id %}
-                            <span class="text-blue-400">حجز اشتراك</span>
-                            {% elif booking.used_free_wash %}
-                            <span class="text-green-400">غسلة مجانية</span>
+                    </div>
+
+                    <!-- Booking Items (Vehicles & Services) -->
+                    <div class="space-y-4 mb-4">
+                        <p class="text-sm font-bold text-accent border-b border-gray-700 pb-1">
+                            <i class="fas fa-car mr-1"></i> المركبات والخدمات المختارة:
+                        </p>
+                        <div class="grid grid-cols-1 gap-3">
+                            {% for item in booking.items %}
+                            <div class="bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
+                                <div>
+                                    <div class="font-bold text-white">{{ item.vehicle.brand }} - {{ item.vehicle.plate_number }}</div>
+                                    <div class="text-sm text-gray-400">{{ item.service.name_ar }}</div>
+                                </div>
+                                <div class="text-accent font-bold">{{ item.total_item_price }} ريال</div>
+                            </div>
                             {% else %}
-                            <span>حجز عادي</span>
-                            {% endif %}
+                            {# Fallback for legacy bookings #}
+                            <div class="bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
+                                <div>
+                                    <div class="font-bold text-white">{{ booking.vehicle.brand }} - {{ booking.vehicle.plate_number }}</div>
+                                    <div class="text-sm text-gray-400">{{ booking.service.name_ar }}</div>
+                                </div>
+                                <div class="text-accent font-bold">
+                                    {{ booking.custom_service_price if booking.custom_service_price is not none else booking.service.price }} ريال
+                                </div>
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
 
                     <!-- Discount/Free Wash Info -->
                     {% if booking.used_free_wash or booking.discount_code %}
-                    <div
-                        class="mt-4 p-3 bg-gradient-to-r from-blue-900/30 to-blue-800/20 border border-blue-500 rounded-lg">
+                    <div class="mb-4 p-3 bg-gradient-to-r from-blue-900/30 to-blue-800/20 border border-blue-500 rounded-lg">
                         {% if booking.used_free_wash %}
-                        <div class="flex items-center gap-2 text-green-400 mb-2">
+                        <div class="flex items-center gap-2 text-green-400 mb-1">
                             <i class="fas fa-gift"></i>
                             <span class="font-bold">تم استخدام غسلة مجانية 🎁</span>
                         </div>
@@ -75,71 +91,57 @@
                             <i class="fas fa-ticket-alt"></i>
                             <span class="font-bold">كود خصم: {{ booking.discount_code.code }}</span>
                             <span class="text-green-400">
-                                ({% if booking.discount_code.discount_type == 'percentage' %}{{
-                                booking.discount_code.value }}%{% else %}{{ booking.discount_code.value }} ر.س{% endif
-                                %})
+                                ({% if booking.discount_code.discount_type == 'percentage' %}{{ booking.discount_code.value }}%{% else %}{{ booking.discount_code.value }} ر.س{% endif %})
                             </span>
                         </div>
                         {% endif %}
                     </div>
                     {% endif %}
 
-                    <!-- Price Breakdown -->
-                    <div class="mt-4 p-4 bg-gray-800 rounded-lg">
-                        {% set products_total = namespace(value=0) %}
-                        {% for bp in booking.products %}
-                        {% set item_price = bp.unit_price if bp.unit_price is not none else bp.product.price %}
-                        {% set products_total.value = products_total.value + (item_price * bp.quantity) %}
-                        {% endfor %}
-
-                        {% set service_price = booking.custom_service_price if booking.custom_service_price is not none
-                        else (booking.service.price if booking.service else 0) %}
-                        {% set service_price = service_price + (booking.vehicle_size_price or 0) %}
-                        {% set discount_amount = 0 %}
-
-                        {% if booking.used_free_wash %}
-                        {% set service_price = 0 %}
-                        {% elif booking.subscription_id %}
-                        {% set service_price = 0 %}
-                        {% elif booking.discount_code %}
-                        {% if booking.discount_code.discount_type == 'percentage' %}
-                        {% set discount_amount = (service_price * booking.discount_code.value / 100) %}
-                        {% else %}
-                        {% set discount_amount = booking.discount_code.value %}
-                        {% endif %}
-                        {% endif %}
-
-                        {% set grand_total = (service_price - discount_amount) + products_total.value %}
-
+                    <!-- Total Summary -->
+                    <div class="p-4 bg-gray-800 rounded-lg">
                         <div class="space-y-2 text-sm">
                             <div class="flex justify-between text-gray-300">
-                                <span><i class="fas fa-spray-can text-accent mr-2"></i>سعر الخدمة:</span>
+                                <span><i class="fas fa-spray-can text-accent mr-2"></i>إجمالي الخدمات:</span>
                                 <span class="font-bold">
                                     {% if booking.subscription_id %}
                                     <span class="text-blue-400">مشمول بالاشتراك</span>
-                                    {% elif booking.used_free_wash %}
+                                    {% elif booking.used_free_wash and not booking.is_multi_vehicle %}
                                     <span class="text-green-400">مجاناً</span>
                                     {% else %}
-                                    {{ service_price }} ريال
+                                    {% set total_items = namespace(val=0) %}
+                                    {% for itm in booking.items %}{% set total_items.val = total_items.val + itm.total_item_price %}{% endfor %}
+                                    {{ total_items.val if total_items.val > 0 else (booking.custom_service_price or booking.service.price) }} ريال
                                     {% endif %}
                                 </span>
                             </div>
-                            {% if discount_amount > 0 %}
-                            <div class="flex justify-between text-green-400">
-                                <span><i class="fas fa-tag mr-2"></i>الخصم:</span>
-                                <span class="font-bold">- {{ "%.1f"|format(discount_amount) }} ريال</span>
-                            </div>
-                            {% endif %}
+
+                            {% set products_total = namespace(value=0) %}
+                            {% for bp in booking.products %}
+                            {% set item_price = bp.unit_price if bp.unit_price is not none else bp.product.price %}
+                            {% set products_total.value = products_total.value + (item_price * bp.quantity) %}
+                            {% endfor %}
+
                             {% if products_total.value > 0 %}
                             <div class="flex justify-between text-gray-300">
-                                <span><i class="fas fa-shopping-cart mr-2"></i>المنتجات:</span>
+                                <span><i class="fas fa-shopping-cart mr-2"></i>إجمالي المنتجات:</span>
                                 <span class="font-bold">{{ products_total.value }} ريال</span>
                             </div>
                             {% endif %}
-                            <div
-                                class="flex justify-between text-accent font-bold text-lg border-t border-gray-700 pt-2 mt-2">
-                                <span>الإجمالي:</span>
-                                <span>{{ "%.1f"|format(grand_total) }} ريال</span>
+                            
+                            {% if booking.discount_code or booking.used_free_wash %}
+                            <div class="flex justify-between text-green-400 border-t border-gray-700 pt-2">
+                                <span><i class="fas fa-tag mr-2"></i>إجمالي التوفير:</span>
+                                {% set total_raw = 0 %}
+                                {% for itm in booking.items %}{% set total_raw = total_raw + itm.total_item_price %}{% endfor %}
+                                {% if total_raw == 0 %}{% set total_raw = (booking.custom_service_price or booking.service.price) %}{% endif %}
+                                <span class="font-bold">- {{ "%.1f"|format((total_raw + products_total.value) - booking.total_price) }} ريال</span>
+                            </div>
+                            {% endif %}
+
+                            <div class="flex justify-between text-accent font-bold text-lg border-t border-gray-700 pt-2 mt-2">
+                                <span>المبلغ الإجمالي للاستحقاق:</span>
+                                <span>{{ "%.1f"|format(booking.total_price) }} ريال</span>
                             </div>
                         </div>
                     </div>

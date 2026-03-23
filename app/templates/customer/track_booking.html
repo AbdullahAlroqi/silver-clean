@@ -13,7 +13,16 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-gray-400 text-sm">حجز #{{ booking.id }}</p>
-                <p class="text-white font-bold">{{ booking.service.name_ar if booking.service else '-' }}</p>
+                <div class="text-white font-bold">
+                    {% if booking.is_multi_vehicle %}
+                        <div class="text-xs text-accent">متعدد المركبات</div>
+                        {% for item in booking.items %}
+                            <div class="text-[10px] leading-tight">• {{ item.service.name_ar }}</div>
+                        {% endfor %}
+                    {% else %}
+                        {{ booking.service.name_ar if booking.service else '-' }}
+                    {% endif %}
+                </div>
             </div>
             <div class="text-left">
                 <p class="text-accent font-bold">{{ booking.employee.username if booking.employee else 'لم يتم التعيين' }}</p>
@@ -49,10 +58,10 @@
 
 <script>
     const bookingId = {{ booking.id }};
-    const map = L.map('trackMap').setView([24.7136, 46.6753], 13);
+    const map = L.map('trackMap', { attributionControl: false }).setView([24.7136, 46.6753], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
+        attribution: '',
         maxZoom: 19
     }).addTo(map);
 

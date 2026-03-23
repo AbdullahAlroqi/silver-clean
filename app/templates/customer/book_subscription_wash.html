@@ -186,7 +186,9 @@
                 neighborhoods.forEach(n => {
                     const option = document.createElement('option');
                     option.value = n.id;
-                    option.textContent = n.name; // Use correctly returned active name
+                    option.textContent = n.name;
+                    if (n.lat) option.setAttribute('data-lat', n.lat);
+                    if (n.lng) option.setAttribute('data-lng', n.lng);
                     option.className = "bg-darkbg text-white";
                     neighborhoodSelect.appendChild(option);
                 });
@@ -264,8 +266,21 @@
         neighborhoodSelect.addEventListener('change', function () {
             const neighName = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
             const cityName = citySelect.options[citySelect.selectedIndex].text;
+            const opt = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
+            const lat = opt.getAttribute('data-lat');
+            const lng = opt.getAttribute('data-lng');
+
             if (neighName && neighName !== '-- اختر الحي --' && this.value) {
-                panMapToLocation(neighName + ' ' + cityName, 'neighborhood');
+                if (lat && lng) {
+                    const latNum = parseFloat(lat);
+                    const lngNum = parseFloat(lng);
+                    locMap.flyTo([latNum, lngNum], 15);
+                    locMarker.setLatLng([latNum, lngNum]);
+                    updateLocationFields(latNum, lngNum);
+                    validateLocation(latNum, lngNum);
+                } else {
+                    panMapToLocation(neighName + ' ' + cityName, 'neighborhood');
+                }
                 fetchAndDisplayNeighborhoodBoundary(this.value);
             }
             document.getElementById('detected_neighborhood_id').value = this.value;
@@ -289,11 +304,21 @@
             timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
             submitBtn.disabled = true;
 
-            fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId + '&type=subscription')
+            fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId + '&vehicle_ids[]=' + "{{ subscription.vehicle_id }}" + '&type=subscription')
                 .then(function (response) { return response.json(); })
-                .then(function (times) {
+                .then(function (data) {
                     timeLoading.classList.add('hidden');
                     timeSelect.innerHTML = '';
+
+                    if (data.error) {
+                        noTimes.classList.remove('hidden');
+                        noTimes.innerHTML = `<i class="fas fa-exclamation-circle ml-2"></i>${data.error}`;
+                        timeSelect.innerHTML = `<option value="">${data.error}</option>`;
+                        submitBtn.disabled = true;
+                        return;
+                    }
+
+                    const times = Array.isArray(data) ? data : (data.available_times || []);
 
                     if (times.length === 0) {
                         noTimes.classList.remove('hidden');
@@ -359,9 +384,9 @@
     function initLocationMap() {
         if (locMap) return;
 
-        locMap = L.map('locationMap').setView([24.7136, 46.6753], 13);
+        locMap = L.map('locationMap', { attributionControl: false }).setView([24.7136, 46.6753], 13);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: ''
         }).addTo(locMap);
 
         // Add street labels for satellite view clarity

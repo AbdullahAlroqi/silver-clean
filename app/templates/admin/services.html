@@ -16,16 +16,16 @@
     <table class="w-full text-right">
         <thead class="bg-gray-800 text-gray-300">
             <tr>
-                <th class="p-4">الاسم (عربي)</th>
-                <th class="p-4">الاسم (إنجليزي)</th>
-                <th class="p-4">السعر الأساسي</th>
-                <th class="p-4">المدة (دقيقة)</th>
-                <th class="p-4">غسلة مجانية</th>
-                <th class="p-4">أسعار المدن</th>
-                <th class="p-4">عدد الحجوزات</th>
-                <th class="p-4">الإيرادات</th>
-                <th class="p-4">الحالة</th>
-                <th class="p-4">الإجراءات</th>
+                <th class="p-4 text-xs">الاسم (عربي)</th>
+                <th class="p-4 text-xs">الاسم (إنجليزي)</th>
+                <th class="p-4 text-xs">السعر الأساسي</th>
+                <th class="p-4 text-xs">المدة (دقيقة)</th>
+                <th class="p-4 text-xs">غسلة مجانية</th>
+                <th class="p-4 text-xs">أسعار المدن والأحجام</th>
+                <th class="p-4 text-xs">الحالة</th>
+                <th class="p-4 text-xs">الحجوزات</th>
+                <th class="p-4 text-xs">الإيرادات</th>
+                <th class="p-4 text-xs">الإجراءات</th>
             </tr>
         </thead>
         <tbody class="text-gray-200">
@@ -43,9 +43,9 @@
                     {% endif %}
                 </td>
                 <td class="p-4">
-                    <div class="space-y-1" id="cityPrices_{{ item.service.id }}">
-                        <button onclick="loadServiceCityPrices({{ item.service.id }})" class="text-accent hover:text-blue-300 text-xs">
-                            <i class="fas fa-city ml-1"></i>عرض أسعار المدن
+                    <div class="space-y-1" id="citySizePrices_{{ item.service.id }}">
+                        <button onclick="loadServiceCitySizePrices({{ item.service.id }})" class="text-accent hover:text-blue-300 text-xs">
+                            <i class="fas fa-tags ml-1"></i>عرض الأسعار المخصصة
                         </button>
                     </div>
                 </td>
@@ -60,9 +60,9 @@
                 <td class="p-4">{{ item.total_revenue }} ريال</td>
                 <td class="p-4">
                     <div class="flex gap-2 items-center">
-                        <button onclick="openAssignCityModal({{ item.service.id }}, '{{ item.service.name_ar }}')"
-                            class="text-green-400 hover:text-green-300" title="إسناد لمدينة">
-                            <i class="fas fa-map-marker-alt"></i>
+                        <button onclick="openAssignCitySizeModal({{ item.service.id }}, '{{ item.service.name_ar }}')"
+                            class="text-green-400 hover:text-green-300" title="إسناد لمدينة وحجم">
+                            <i class="fas fa-plus-circle"></i>
                         </button>
                         <button onclick="duplicateService({{ item.service.id }})"
                             class="text-purple-400 hover:text-purple-300" title="نسخ">
@@ -92,17 +92,17 @@
     </table>
 </div>
 
-<!-- Assign Service to City Modal -->
-<div id="assignCityModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+<!-- Assign Service to City & Size Modal -->
+<div id="assignCitySizeModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
     <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-white"><i class="fas fa-map-marker-alt ml-2"></i>إسناد خدمة لمدينة</h3>
-            <button onclick="closeAssignCityModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-map-marker-alt ml-2"></i>إسناد سعر لمدينة وحجم سيارة</h3>
+            <button onclick="closeAssignCitySizeModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
         </div>
-        <p class="text-accent mb-4" id="assignServiceName"></p>
-        <form action="{{ url_for('admin.assign_service_to_city') }}" method="POST">
+        <p class="text-accent mb-4" id="assignCitySizeServiceName"></p>
+        <form action="{{ url_for('admin.assign_service_to_city_size') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="service_id" id="assignServiceId">
+            <input type="hidden" name="service_id" id="assignCitySizeServiceId">
             <div class="mb-4">
                 <label class="block text-gray-400 mb-2">المدينة</label>
                 <select name="city_id" required class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
@@ -113,12 +113,21 @@
                 </select>
             </div>
             <div class="mb-4">
-                <label class="block text-gray-400 mb-2">السعر في هذه المدينة</label>
-                <input type="number" name="price" step="0.01" required min="0"
+                <label class="block text-gray-400 mb-2">حجم السيارة</label>
+                <select name="vehicle_size_id" required class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+                    <option value="">-- اختر الحجم --</option>
+                    {% for size in vehicle_sizes %}
+                    <option value="{{ size.id }}">{{ size.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">السعر المخصص</label>
+                <input type="number" name="price" step="0.01" required min="0" placeholder="حدد السعر لهذا الحجم في هذه المدينة"
                     class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
             </div>
             <div class="flex justify-end gap-2">
-                <button type="button" onclick="closeAssignCityModal()"
+                <button type="button" onclick="closeAssignCitySizeModal()"
                     class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
                 <button type="submit"
                     class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ</button>
@@ -127,18 +136,18 @@
     </div>
 </div>
 
-<!-- City Prices Detail Modal -->
-<div id="cityPricesModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
+<!-- City & Size Prices Detail Modal -->
+<div id="citySizePricesModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
     <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
         <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-white"><i class="fas fa-city ml-2"></i>أسعار المدن</h3>
-            <button onclick="closeCityPricesModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+            <h3 class="text-lg font-bold text-white"><i class="fas fa-car ml-2"></i>أسعار الأحجام والمدن المخصصة</h3>
+            <button onclick="closeCitySizePricesModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
         </div>
-        <div id="cityPricesContent" class="space-y-3">
+        <div id="citySizePricesContent" class="space-y-3">
             <p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>
         </div>
         <div class="flex justify-end mt-4">
-            <button onclick="closeCityPricesModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
+            <button onclick="closeCitySizePricesModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
         </div>
     </div>
 </div>
@@ -147,20 +156,20 @@
 
 {% block scripts %}
 <script>
-    function openAssignCityModal(serviceId, serviceName) {
-        document.getElementById('assignServiceId').value = serviceId;
-        document.getElementById('assignServiceName').textContent = serviceName;
-        document.getElementById('assignCityModal').classList.remove('hidden');
-        document.getElementById('assignCityModal').classList.add('flex');
+    function openAssignCitySizeModal(serviceId, serviceName) {
+        document.getElementById('assignCitySizeServiceId').value = serviceId;
+        document.getElementById('assignCitySizeServiceName').textContent = serviceName;
+        document.getElementById('assignCitySizeModal').classList.remove('hidden');
+        document.getElementById('assignCitySizeModal').classList.add('flex');
     }
-    function closeAssignCityModal() {
-        document.getElementById('assignCityModal').classList.add('hidden');
-        document.getElementById('assignCityModal').classList.remove('flex');
+    function closeAssignCitySizeModal() {
+        document.getElementById('assignCitySizeModal').classList.add('hidden');
+        document.getElementById('assignCitySizeModal').classList.remove('flex');
     }
 
-    async function loadServiceCityPrices(serviceId) {
-        const modal = document.getElementById('cityPricesModal');
-        const content = document.getElementById('cityPricesContent');
+    async function loadServiceCitySizePrices(serviceId) {
+        const modal = document.getElementById('citySizePricesModal');
+        const content = document.getElementById('citySizePricesContent');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         content.innerHTML = '<p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>';
@@ -169,7 +178,7 @@
             const resp = await fetch(`/admin/api/city-service-prices/${serviceId}`);
             const data = await resp.json();
             if (!data.length) {
-                content.innerHTML = '<p class="text-gray-500 text-center py-4">لا توجد أسعار مدن مخصصة لهذه الخدمة</p>';
+                content.innerHTML = '<p class="text-gray-500 text-center py-4">لا توجد أسعار مخصصة لهذه الخدمة</p>';
                 return;
             }
             let html = '';
@@ -177,7 +186,7 @@
                 html += `
                 <div class="bg-darkbg p-3 rounded-lg border border-gray-700 flex items-center justify-between">
                     <div>
-                        <p class="text-white font-semibold">${p.city_name}</p>
+                        <p class="text-white font-semibold">${p.city_name} - ${p.size_name}</p>
                         <p class="text-accent font-bold">${p.price} ريال</p>
                     </div>
                     <div class="flex gap-2">
@@ -196,9 +205,9 @@
         }
     }
 
-    function closeCityPricesModal() {
-        document.getElementById('cityPricesModal').classList.add('hidden');
-        document.getElementById('cityPricesModal').classList.remove('flex');
+    function closeCitySizePricesModal() {
+        document.getElementById('citySizePricesModal').classList.add('hidden');
+        document.getElementById('citySizePricesModal').classList.remove('flex');
     }
 
     async function duplicateService(serviceId) {
@@ -217,13 +226,16 @@
     }
 
     // Close modals on outside click
-    ['assignCityModal', 'cityPricesModal'].forEach(id => {
-        document.getElementById(id).addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-            }
-        });
+    ['assignCitySizeModal', 'citySizePricesModal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.add('hidden');
+                    this.classList.remove('flex');
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

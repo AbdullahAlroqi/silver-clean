@@ -43,6 +43,8 @@ class NeighborhoodForm(FlaskForm):
     name_ar = StringField('الاسم (عربي)', validators=[DataRequired()])
     name_en = StringField('الاسم (إنجليزي)', validators=[DataRequired()])
     osm_name = StringField('اسم الحي في OSM (اختياري)', validators=[Optional()])
+    latitude = FloatField('خط العرض', validators=[Optional()])
+    longitude = FloatField('خط الطول', validators=[Optional()])
     is_active = BooleanField('مفعل')
     submit = SubmitField('حفظ')
 

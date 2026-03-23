@@ -27,14 +27,14 @@
                 <div id="step2-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     2</div>
-                <p class="text-xs text-gray-400">الخدمة والوقت</p>
+                <p class="text-xs text-gray-400">الخدمة والسيارات</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line2"></div>
             <div class="flex-1 text-center">
                 <div id="step3-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     3</div>
-                <p class="text-xs text-gray-400">منتجات</p>
+                <p class="text-xs text-gray-400">الوقت والمنتجات</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line3"></div>
             <div class="flex-1 text-center">
@@ -116,38 +116,46 @@
             <!-- Step 2: Service, Vehicle & Payment -->
             <div id="step2" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
-                    <i class="fas fa-spray-can ml-3"></i>
-                    اختر الخدمة والوقت
+                    <i class="fas fa-car ml-3"></i>
+                    أضف المركبات والخدمات
                 </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">الخدمة</label>
-                        {{ form.service_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3
-                        text-white focus:outline-none focus:ring-2 focus:ring-accent", id="service-select") }}
-                        <p class="text-gray-400 text-xs mt-2" id="service-duration-display">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            مدة الخدمة المتوقعة: 60 دقيقة
-                        </p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-300 mb-2">المركبة</label>
-                        {{ form.vehicle_id(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3
-                        text-white focus:outline-none focus:ring-2 focus:ring-accent") }}
+                <div id="vehicles-container" class="space-y-6">
+                    <!-- First Vehicle Row (Default) -->
+                    <div class="vehicle-row bg-darkbg p-6 rounded-xl border border-gray-700 relative" data-index="0">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">المركبة</label>
+                                <select name="vehicle_ids[]" required onchange="handleVehicleChange(this)"
+                                    class="w-full bg-primary border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent vehicle-select">
+                                    <option value="">اختر المركبة</option>
+                                    {% for vehicle in form.vehicle_id.choices %}
+                                        {% if vehicle[0] %}
+                                        <option value="{{ vehicle[0] }}">{{ vehicle[1] }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">الخدمة</label>
+                                <select name="service_ids[]" required onchange="handleServiceChange(this)"
+                                    class="w-full bg-primary border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent service-select" disabled>
+                                    <option value="">اختر المركبة أولاً</option>
+                                </select>
+                                <p class="text-gray-500 text-xs mt-2 service-duration-info hidden">
+                                    <i class="fas fa-clock mr-1"></i> مدة الخدمة: <span class="duration-val">0</span> دقيقة
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Time Selection (Moved here) -->
-                <div class="mt-6">
-                    <label class="block text-sm font-medium text-gray-300 mb-2 font-bold text-accent">
-                        <i class="fas fa-clock ml-1"></i> حدد الوقت المتاح
-                    </label>
-                    <select name="time" id="time-select"
-                        class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent font-bold"
-                        required>
-                        <option value="">اختر الوقت المتاح</option>
-                    </select>
+                <div class="mt-4">
+                    <button type="button" onclick="addVehicleRow()" 
+                        class="flex items-center gap-2 text-accent hover:text-blue-400 font-bold transition">
+                        <i class="fas fa-plus-circle"></i>
+                        إضافة سيارة أخرى لهذا الطلب
+                    </button>
                 </div>
-
                 <!-- Payment Method Section -->
                 <div class="mt-6 border-t border-gray-700 pt-6">
                     <h4 class="text-lg font-bold text-white mb-4">طريقة الدفع</h4>
@@ -238,8 +246,23 @@
             <div id="step3" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
                     <i class="fas fa-shopping-cart ml-3 text-green-500"></i>
-                    منتجات إضافية
+                    منتجات إضافية وأوقات متاحة
                 </h3>
+
+                <!-- Time Selection (Moved from Step 2) -->
+                <div class="mt-6 mb-8 p-6 bg-darkbg rounded-xl border border-blue-500/50">
+                    <label class="block text-sm font-medium text-gray-300 mb-4 font-bold text-accent text-lg">
+                        <i class="fas fa-clock ml-1"></i> حدد الوقت المتاح لهذا الحجز
+                    </label>
+                    <select name="time" id="time-select"
+                        class="w-full bg-primary border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent font-bold text-center text-lg"
+                        required>
+                        <option value="">جاري تحميل الأوقات المتاحة...</option>
+                    </select>
+                    <p class="text-gray-400 text-xs mt-3 text-center">
+                        <i class="fas fa-info-circle ml-1"></i> يتم عرض الأوقات التي تسمح بمدة العمل المطلوبة لجميع السيارات المختارة.
+                    </p>
+                </div>
 
                 <!-- Additional Products Section -->
                 <div class="mt-8 border-t border-gray-700 pt-6">
@@ -290,11 +313,12 @@
                     <div class="bg-darkbg p-4 rounded-lg">
                         <h4 class="font-bold text-white mb-3 flex items-center">
                             <i class="fas fa-spray-can ml-2 text-green-500"></i>
-                            معلومات الخدمة
+                            تفاصيل المركبات والخدمات
                         </h4>
-                        <div class="text-gray-300 space-y-2">
-                            <p><span class="text-gray-400">الخدمة:</span> <span id="review-service"></span></p>
-                            <p><span class="text-gray-400">السيارة:</span> <span id="review-vehicle"></span></p>
+                        <div id="review-vehicles-list" class="text-gray-300 space-y-4">
+                            <!-- Dynamic vehicle/service list will go here -->
+                        </div>
+                        <div class="text-gray-300 mt-4 pt-4 border-t border-gray-700 space-y-2">
                             <p><span class="text-gray-400">طريقة الدفع:</span> <span id="review-payment"
                                     class="font-bold text-accent"></span></p>
                             <p><span class="text-gray-400">التاريخ:</span> <span id="review-date"></span></p>
@@ -320,7 +344,7 @@
                         </h4>
                         <div class="space-y-3 text-white">
                             <div class="flex justify-between">
-                                <span>سعر الخدمة:</span>
+                                <span>إجمالي الخدمات:</span>
                                 <span id="review-service-price" class="font-bold">0 ريال</span>
                             </div>
                             <div class="flex justify-between" id="review-products-total-row" style="display:none;">
@@ -410,7 +434,10 @@
         currentStep = step;
 
         if (step === 4) updateOrderReview();
-        if (step === 3) loadProducts();
+        if (step === 3) {
+            loadAvailableTimes();
+            loadProducts();
+        }
     }
 
     function nextStep(step) {
@@ -439,16 +466,22 @@
             }
             
         } else if (currentStep === 2) {
-            const service = document.getElementById('service-select').value;
-            const vehicle = document.querySelector('[name="vehicle_id"]').value;
-            const time = document.getElementById('time-select').value;
+            const rows = document.querySelectorAll('.vehicle-row');
+            let valid = true;
+            rows.forEach(row => {
+                const v = row.querySelector('.vehicle-select').value;
+                const s = row.querySelector('.service-select').value;
+                if (!v || !s) valid = false;
+            });
 
-            if (!service || !vehicle) {
-                alert('الرجاء اختيار الخدمة والسيارة');
+            if (!valid) {
+                alert('الرجاء اختيار المركبة والخدمة لكل الصفوف المضافة');
                 return;
             }
+        } else if (currentStep === 3) {
+            const time = document.getElementById('time-select').value;
             if (!time) {
-                alert('الرجاء اختيار الوقت المتاح');
+                alert('الرجاء اختيار الوقت المتاح للمتابعة');
                 return;
             }
         }
@@ -508,50 +541,51 @@
         document.getElementById('review-city').textContent = citySelect.options[citySelect.selectedIndex].text;
         document.getElementById('review-neighborhood').textContent = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
 
-        const serviceSelect = document.getElementById('service-select');
-        const serviceTxt = serviceSelect.options[serviceSelect.selectedIndex].text;
-        document.getElementById('review-service').textContent = serviceTxt;
+        const reviewVehiclesList = document.getElementById('review-vehicles-list');
+        reviewVehiclesList.innerHTML = '';
+        
+        let totalServicesPrice = 0;
+        const rows = document.querySelectorAll('.vehicle-row');
+        
+        rows.forEach(row => {
+            const vSelect = row.querySelector('.vehicle-select');
+            const sSelect = row.querySelector('.service-select');
+            
+            const vText = vSelect.options[vSelect.selectedIndex].text;
+            const sOption = sSelect.options[sSelect.selectedIndex];
+            const sText = sOption.text;
+            const sPrice = parseFloat(sOption.getAttribute('data-price') || 0);
+            
+            totalServicesPrice += sPrice;
+            
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'bg-primary/50 p-3 rounded border border-gray-700';
+            itemDiv.innerHTML = `
+                <p class="font-bold text-accent">${vText}</p>
+                <p class="text-sm text-gray-400">${sText}</p>
+            `;
+            reviewVehiclesList.appendChild(itemDiv);
+        });
 
-        const vehicleSelect = document.querySelector('[name="vehicle_id"]');
-        document.getElementById('review-vehicle').textContent = vehicleSelect.options[vehicleSelect.selectedIndex].text;
-
-        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-        document.getElementById('review-payment').textContent = paymentMethod === 'cash' ? 'كاش' : 'شبكة / مدى';
-
+        document.getElementById('review-payment').textContent = document.querySelector('input[name="payment_method"]:checked').value === 'cash' ? 'كاش' : 'شبكة / مدى';
         document.getElementById('review-date').textContent = dateInput.value;
         document.getElementById('review-time').textContent = document.getElementById('time-select').value;
 
-        const priceMatch = serviceTxt.match(/\((\d+(?:\.\d+)?)\s*ريال\)/);
-        servicePrice = priceMatch ? parseFloat(priceMatch[1]) : 0;
-
-        const vehicleId = vehicleSelect.value;
-        if (vehicleId) {
-            fetch(`/customer/api/vehicle/${vehicleId}/size-price`)
-                .then(response => response.json())
-                .then(data => {
-                    vehicleSizePrice = data.size_price || 0;
-                    updateTotals();
-                })
-                .catch(() => {
-                    vehicleSizePrice = 0;
-                    updateTotals();
-                });
-        } else {
-            vehicleSizePrice = 0;
-            updateTotals();
-        }
+        servicePrice = totalServicesPrice; // This is the sum of all services
+        updateTotals();
     }
 
     function updateTotals() {
-        const totalServicePrice = servicePrice + vehicleSizePrice;
-        document.getElementById('review-service-price').textContent = totalServicePrice + ' ريال';
+        // servicePrice now contains the sum of all selected services for all vehicles
+        document.getElementById('review-service-price').textContent = servicePrice.toFixed(2) + ' ريال';
 
         let productsTotal = 0;
         const selectedProducts = [];
         productsData.forEach(product => {
             const checkbox = document.querySelector(`input[name="product_${product.id}"]:checked`);
             if (checkbox) {
-                const qty = parseInt(document.querySelector(`input[name="quantity_${product.id}"]`).value) || 1;
+                const qtyInput = document.querySelector(`input[name="quantity_${product.id}"]`);
+                const qty = parseInt(qtyInput ? qtyInput.value : 1) || 1;
                 const pTotal = product.price * qty;
                 productsTotal += pTotal;
                 selectedProducts.push({ name: product.name_ar, qty, total: pTotal });
@@ -562,19 +596,31 @@
             document.getElementById('review-products-section').style.display = 'block';
             document.getElementById('review-products-total-row').style.display = 'flex';
             document.getElementById('review-products-list').innerHTML = selectedProducts.map(p => `<p>${p.name} × ${p.qty} = ${p.total} ريال</p>`).join('');
-            document.getElementById('review-products-total').textContent = productsTotal + ' ريال';
+            document.getElementById('review-products-total').textContent = productsTotal.toFixed(2) + ' ريال';
         } else {
             document.getElementById('review-products-section').style.display = 'none';
             document.getElementById('review-products-total-row').style.display = 'none';
         }
 
-        let total = (servicePrice + vehicleSizePrice) + productsTotal;
+        let total = servicePrice + productsTotal;
         const freeWash = document.getElementById('use_free_wash')?.checked || false;
 
         if (freeWash) {
             document.getElementById('review-free-wash-row').style.display = 'flex';
             document.getElementById('review-discount-row').style.display = 'none';
-            total = productsTotal;
+            // Simple logic: one free wash covers the first/cheapest service? 
+            // Better: let's assume it covers the base price of one service if allowed.
+            // For multi-vehicle, this is tricky. Let's just deduct a fixed "base" if 
+            // the customer wants to use it, or more accurately, the price of the first item?
+            // User didn't specify multi-vehicle free wash logic.
+            // I'll deduct the price of the first service in the list for now.
+            const rows = document.querySelectorAll('.service-select');
+            let firstServicePrice = 0;
+            if (rows.length > 0) {
+                const opt = rows[0].options[rows[0].selectedIndex];
+                firstServicePrice = parseFloat(opt.getAttribute('data-price') || 0);
+            }
+            total = total - firstServicePrice;
         } else {
             document.getElementById('review-free-wash-row').style.display = 'none';
             const dValue = parseFloat(document.getElementById('discount_value').value) || 0;
@@ -583,7 +629,7 @@
 
             if (dVerified && dValue > 0) {
                 let discount = dType === 'percentage' ? (servicePrice * dValue) / 100 : dValue;
-                total = Math.max(0, (servicePrice + vehicleSizePrice) - discount) + productsTotal;
+                total = Math.max(0, servicePrice - discount) + productsTotal;
                 document.getElementById('review-discount-row').style.display = 'flex';
                 document.getElementById('review-discount').textContent = `- ${discount.toFixed(2)} ريال`;
             } else {
@@ -591,6 +637,91 @@
             }
         }
         document.getElementById('review-total').textContent = total.toFixed(2) + ' ريال';
+    }
+
+    let vehicleRowIndex = 1;
+    function addVehicleRow() {
+        const container = document.getElementById('vehicles-container');
+        const firstRow = container.querySelector('.vehicle-row');
+        const newRow = firstRow.cloneNode(true);
+        
+        newRow.setAttribute('data-index', vehicleRowIndex++);
+        newRow.querySelector('.vehicle-select').value = '';
+        const sSelect = newRow.querySelector('.service-select');
+        sSelect.innerHTML = '<option value="">اختر المركبة أولاً</option>';
+        sSelect.disabled = true;
+        newRow.querySelector('.service-duration-info').classList.add('hidden');
+        
+        // Add delete button if it doesn't have one
+        if (!newRow.querySelector('.remove-btn')) {
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'remove-btn absolute top-2 left-2 text-red-500 hover:text-red-400';
+            delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            delBtn.onclick = function() {
+                newRow.remove();
+            };
+            newRow.appendChild(delBtn);
+        }
+        
+        container.appendChild(newRow);
+    }
+
+    async function handleVehicleChange(select) {
+        const row = select.closest('.vehicle-row');
+        const sSelect = row.querySelector('.service-select');
+        const vehicleId = select.value;
+        const cityId = document.getElementById('city-select').value;
+        const date = dateInput.value;
+
+        if (!vehicleId) {
+            sSelect.innerHTML = '<option value="">اختر المركبة أولاً</option>';
+            sSelect.disabled = true;
+            return;
+        }
+
+        sSelect.innerHTML = '<option value="">جاري تحميل الخدمات...</option>';
+        sSelect.disabled = true;
+
+        try {
+            const resp = await fetch(`/customer/api/services-for-vehicle/${vehicleId}?city_id=${cityId}&date=${date}`);
+            const services = await resp.json();
+            
+            sSelect.innerHTML = '<option value="">اختر الخدمة</option>';
+            if (services.length === 0) {
+                sSelect.innerHTML = '<option value="">لا توجد خدمات متاحة لهذا الحجم</option>';
+            } else {
+                services.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = `${s.name} (${s.price} ريال)`;
+                    opt.setAttribute('data-price', s.price);
+                    opt.setAttribute('data-duration', s.duration);
+                    sSelect.appendChild(opt);
+                });
+                sSelect.disabled = false;
+            }
+        } catch (err) {
+            console.error(err);
+            sSelect.innerHTML = '<option value="">خطأ في التحميل</option>';
+        }
+    }
+
+    function handleServiceChange(select) {
+        const row = select.closest('.vehicle-row');
+        const durationInfo = row.querySelector('.service-duration-info');
+        const durationVal = row.querySelector('.duration-val');
+        const opt = select.options[select.selectedIndex];
+        
+        if (opt.value && opt.getAttribute('data-duration')) {
+            durationVal.textContent = opt.getAttribute('data-duration');
+            durationInfo.classList.remove('hidden');
+        } else {
+            durationInfo.classList.add('hidden');
+        }
+        
+        // Refresh available times when service changes
+        loadAvailableTimes();
     }
 
     const citySelect = document.getElementById('city-select');
@@ -614,8 +745,10 @@
             neighborhoods.forEach(n => {
                 const option = document.createElement('option');
                 option.value = n.id;
-                option.textContent = n.name; // Fixed: API returns name (which contains name_ar)
-                option.className = "bg-darkbg text-white"; // Fix select option visibility
+                option.textContent = n.name;
+                if (n.lat) option.setAttribute('data-lat', n.lat);
+                if (n.lng) option.setAttribute('data-lng', n.lng);
+                option.className = "bg-darkbg text-white";
                 neighborhoodSelect.appendChild(option);
             });
         } catch (e) {
@@ -657,25 +790,78 @@
         neighborhoodSelect.addEventListener('change', function () {
             const neighName = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
             const cityName = citySelect.options[citySelect.selectedIndex].text;
+            const opt = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
+            const lat = opt.getAttribute('data-lat');
+            const lng = opt.getAttribute('data-lng');
+
             if (neighName && neighName !== 'اختر الحي' && this.value) {
-                panMapToLocation(neighName + ' ' + cityName, 'neighborhood');
+                if (lat && lng) {
+                    const latNum = parseFloat(lat);
+                    const lngNum = parseFloat(lng);
+                    locMap.flyTo([latNum, lngNum], 15);
+                    locMarker.setLatLng([latNum, lngNum]);
+                    updateLocationFields(latNum, lngNum);
+                } else {
+                    panMapToLocation(neighName + ' ' + cityName, 'neighborhood');
+                }
                 fetchAndDisplayNeighborhoodBoundary(this.value);
             }
             document.getElementById('detected_neighborhood_id').value = this.value;
+
+            // Reset services if neighborhood (city) changes as prices might change
+            document.querySelectorAll('.vehicle-row').forEach(row => {
+                const vSelect = row.querySelector('.vehicle-select');
+                if (vSelect.value) handleVehicleChange(vSelect);
+            });
         });
     }
 
     function loadAvailableTimes() {
         const date = dateInput.value;
         const nId = neighborhoodSelect.value;
-        const sId = serviceSelect.value;
-        timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
-        if (!date || !nId || !sId) return;
+        const rows = document.querySelectorAll('.service-select');
+        
+        let totalDuration = 0;
+        let selectedServicesCount = 0;
+        let firstServiceId = null;
 
-        const params = new URLSearchParams({ date: date, neighborhood_id: nId, service_id: sId, type: 'service' });
+        rows.forEach(select => {
+            if (select.value) {
+                const opt = select.options[select.selectedIndex];
+                totalDuration += parseInt(opt.getAttribute('data-duration') || 60);
+                selectedServicesCount++;
+                if (!firstServiceId) firstServiceId = select.value;
+            }
+        });
+
+        timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+        if (!date || !nId || selectedServicesCount === 0) return;
+
+        const params = new URLSearchParams({ 
+            date: date, 
+            neighborhood_id: nId, 
+            service_id: firstServiceId, 
+            duration: totalDuration,
+            type: 'service' 
+        });
+        
+        // Add all selected vehicle IDs to check for multi-vehicle assignment rules
+        document.querySelectorAll('.vehicle-select').forEach(select => {
+            if (select.value) {
+                params.append('vehicle_ids[]', select.value);
+            }
+        });
         fetch('/customer/api/available-times?' + params)
             .then(response => response.json())
-            .then(times => {
+            .then(data => {
+                if (data.error) {
+                    timeSelect.innerHTML = `<option value="">${data.error}</option>`;
+                    // Optionally show a separate alert or message div if available
+                    return;
+                }
+                
+                const times = Array.isArray(data) ? data : (data.available_times || []);
+                
                 if (times.length === 0) {
                     timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة (قد يكون اليوم محجوز بالكامل)</option>';
                 } else {
@@ -683,17 +869,17 @@
                         const option = document.createElement('option');
                         option.value = time;
                         option.textContent = time;
-                        option.className = "bg-darkbg text-white"; // Fix select option visibility
+                        option.className = "bg-darkbg text-white";
                         timeSelect.appendChild(option);
                     });
                 }
             });
-
-        // Also fetch seasonal prices for the selected date
-        fetchPrices();
     }
 
+    // Since we now have multiple services, we need to adapt price fetching
     function fetchPrices() {
+        // We now filter services by vehicle size, so fetchPrices is less relevant for the main dropdown
+        // but still needed for products.
         const cityId = document.getElementById('city-select').value;
         const date = document.getElementById('date-input') ? document.getElementById('date-input').value : null;
 
@@ -708,29 +894,6 @@
             .then(data => {
                 if (data.error) return;
 
-                // Update Service Prices in the dropdown
-                if (data.prices && data.prices.services) {
-                    for (let i = 0; i < serviceSelect.options.length; i++) {
-                        const option = serviceSelect.options[i];
-                        if (!option.value) continue;
-                        const sId = option.value;
-                        const newPrice = data.prices.services[sId];
-                        if (newPrice !== undefined) {
-                            let baseName = option.getAttribute('data-base-name');
-                            if (!baseName) {
-                                baseName = option.text.split('(')[0].trim();
-                                option.setAttribute('data-base-name', baseName);
-                            }
-                            option.text = `${baseName} (${newPrice} ريال)`;
-                            
-                            // Also update current active price if selected
-                            if (serviceSelect.value === sId) {
-                                servicePrice = newPrice;
-                            }
-                        }
-                    }
-                }
-
                 // Update Products Prices
                 if (productsData && data.prices && data.prices.products) {
                     productsData.forEach(product => {
@@ -739,13 +902,7 @@
                         }
                     });
 
-                    // Re-render product prices in DOM if products-container has children
-                    const container = document.getElementById('products-container');
-                    if (container && container.children.length > 0 && !container.innerHTML.includes('جاري تحميل') && !container.innerHTML.includes('لا توجد منتجات')) {
-                        // Re-render to show updated prices
-                        loadProducts(false); // passing false could prevent full reload, but it's simpler to just re-render from productsData
-                        renderProductsFromData();
-                    }
+                    renderProductsFromData();
                 }
 
                 // Handle Free Wash availability during seasons
@@ -759,29 +916,11 @@
                     if (freeWashCheckbox) {
                         freeWashCheckbox.checked = false;
                     }
-
-                    let seasonalWarning = document.getElementById('seasonal-free-wash-warning');
-                    if (!seasonalWarning) {
-                        seasonalWarning = document.createElement('div');
-                        seasonalWarning.id = 'seasonal-free-wash-warning';
-                        seasonalWarning.className = 'bg-yellow-900 bg-opacity-20 border border-yellow-600 rounded-lg p-4 mb-4 text-yellow-500 text-sm';
-                        if (freeWashContainer && freeWashContainer.parentNode) {
-                            freeWashContainer.parentNode.insertBefore(seasonalWarning, freeWashContainer);
-                        }
-                    }
-                    seasonalWarning.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>عذراً، لا يمكن استخدام الغسلات المجانية خلال هذا الوقت';
-                    seasonalWarning.style.display = 'block';
                 } else {
                     if (freeWashContainer) {
                         freeWashContainer.style.display = 'block';
                     }
-                    const seasonalWarning = document.getElementById('seasonal-free-wash-warning');
-                    if (seasonalWarning) {
-                        seasonalWarning.style.display = 'none';
-                    }
                 }
-
-                updateTotals();
             })
             .catch(err => console.error("Error fetching seasonal prices:", err));
     }
@@ -825,19 +964,16 @@
         });
     }
 
-    if (dateInput) dateInput.addEventListener('change', loadAvailableTimes);
-    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
-    if (serviceSelect) {
-        serviceSelect.addEventListener('change', () => {
-            loadAvailableTimes();
-            // Refetch price when service changes just in case date was already set
-            if (dateInput.value) {
-                fetchPrices();
-            }
+    if (dateInput) dateInput.addEventListener('change', () => {
+        loadAvailableTimes();
+        // Also refresh service options if vehicle is already selected because prices might be date-dependent (seasons)
+        document.querySelectorAll('.vehicle-row').forEach(row => {
+            const vSelect = row.querySelector('.vehicle-select');
+            if (vSelect.value) handleVehicleChange(vSelect);
         });
-        serviceSelect.addEventListener('change', checkFreeWashEligibility);
-        serviceSelect.addEventListener('change', updateServiceDurationText);
-    }
+    });
+
+    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
 
     function updateServiceDurationText() {
         const sId = serviceSelect.value;
@@ -1018,9 +1154,9 @@
     function initLocationMap() {
         if (locMap) return;
 
-        locMap = L.map('locationMap').setView([defaultLat, defaultLng], 12);
+        locMap = L.map('locationMap', { attributionControl: false }).setView([defaultLat, defaultLng], 12);
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: ''
         }).addTo(locMap);
 
         const customIcon = L.divIcon({

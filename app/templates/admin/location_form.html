@@ -24,6 +24,8 @@
             
             {% if type == 'neighborhood' %}
             <input type="hidden" name="boundary_coords" id="boundary_coords" value="{{ neighborhood.boundary_coords if neighborhood and neighborhood.boundary_coords else '' }}">
+            <input type="hidden" name="latitude" id="latitude" value="{{ neighborhood.latitude if neighborhood and neighborhood.latitude else '' }}">
+            <input type="hidden" name="longitude" id="longitude" value="{{ neighborhood.longitude if neighborhood and neighborhood.longitude else '' }}">
             {% endif %}
 
             {% if type == 'neighborhood' %}
@@ -151,7 +153,7 @@
 <script>
     const formType = '{{ type }}';
     const SAT_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-    const SAT_ATTR = '&copy; Esri, Maxar, Earthstar Geographics';
+    const SAT_ATTR = ''; // User requested removal of attribution
     const BOUNDARY_STYLE = { color: '#00e5ff', weight: 3, fillColor: '#00e5ff', fillOpacity: 0.15 };
 
     // --- Map instances ---
@@ -174,7 +176,7 @@
 
     function initEditMap() {
         if (editMap) return;
-        editMap = L.map('editMap', { zoomControl: true }).setView([24.7136, 46.6753], 6);
+        editMap = L.map('editMap', { zoomControl: true, attributionControl: false }).setView([24.7136, 46.6753], 6);
         L.tileLayer(SAT_TILES, { attribution: SAT_ATTR, maxZoom: 18 }).addTo(editMap);
         editMap.addLayer(drawnItems);
         
@@ -193,7 +195,7 @@
                     polyline: false,
                     rectangle: { shapeOptions: BOUNDARY_STYLE },
                     circle: false,
-                    marker: false,
+                    marker: true,
                     circlemarker: false
                 }
             });
@@ -202,8 +204,22 @@
             // Events for drawing
             editMap.on(L.Draw.Event.CREATED, function (event) {
                 var layer = event.layer;
-                // Only allow one boundary, clear others if needed, but let's clear existing to replace
-                drawnItems.clearLayers();
+                // Only allow one boundary OR one marker for non-boundary types? 
+                // Wait, user wants a pin ALONG WITH the boundary or instead of?
+                // "تعديل مكان نزول الدبوس" - implies one pin.
+                
+                if (event.layerType === 'marker') {
+                    // Clear existing markers
+                    drawnItems.eachLayer(function(l) {
+                        if (l instanceof L.Marker) drawnItems.removeLayer(l);
+                    });
+                } else {
+                    // It's a polygon/rectangle
+                    drawnItems.eachLayer(function(l) {
+                        if (!(l instanceof L.Marker)) drawnItems.removeLayer(l);
+                    });
+                }
+                
                 drawnItems.addLayer(layer);
                 updateBoundaryInput();
             });
@@ -220,13 +236,23 @@
     
     function updateBoundaryInput() {
         if (formType !== 'neighborhood') return;
-        const data = drawnItems.toGeoJSON();
-        if (data.features.length > 0) {
-            // we just store the geometry of the first feature
-            document.getElementById('boundary_coords').value = JSON.stringify(data.features[0].geometry);
-        } else {
-            document.getElementById('boundary_coords').value = '';
-        }
+        
+        let geojson = null;
+        let lat = '';
+        let lng = '';
+        
+        drawnItems.eachLayer(function(layer) {
+            if (layer instanceof L.Marker) {
+                lat = layer.getLatLng().lat;
+                lng = layer.getLatLng().lng;
+            } else {
+                geojson = layer.toGeoJSON().geometry;
+            }
+        });
+        
+        document.getElementById('boundary_coords').value = geojson ? JSON.stringify(geojson) : '';
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lng;
     }
 
     function showEditMapLocation(lat, lon, name, geojson, bbox) {
@@ -241,16 +267,17 @@
                 const gl = L.geoJSON(geojson, { style: BOUNDARY_STYLE });
                 gl.eachLayer(layer => {
                     drawnItems.addLayer(layer);
-                    layer.bindPopup(`<b>${name}</b>`);
                 });
                 editMap.fitBounds(gl.getBounds(), { padding: [20, 20] });
             } else if (bbox) {
                 const rect = L.polygon(bboxToLatLngs(bbox), BOUNDARY_STYLE);
-                rect.bindPopup(`<b>${name}</b>`);
                 drawnItems.addLayer(rect);
                 editMap.fitBounds(rect.getBounds(), { padding: [20, 20] });
-            } else {
-                if (lat && lon) {
+            }
+            
+            if (lat && lon) {
+                const mk = L.marker([lat, lon]).addTo(drawnItems);
+                if (!geojson && !bbox) {
                     editMap.setView([lat, lon], formType === 'city' ? 12 : 14);
                 }
             }
@@ -260,7 +287,7 @@
 
     function initOsmModalMap() {
         if (osmModalMap) return;
-        osmModalMap = L.map('osmModalMap', { zoomControl: true }).setView([24.7136, 46.6753], 6);
+        osmModalMap = L.map('osmModalMap', { zoomControl: true, attributionControl: false }).setView([24.7136, 46.6753], 6);
         L.tileLayer(SAT_TILES, { attribution: SAT_ATTR, maxZoom: 18 }).addTo(osmModalMap);
     }
 
@@ -394,14 +421,22 @@
     document.addEventListener('DOMContentLoaded', function() {
         if (formType === 'neighborhood') {
             const savedBoundaryField = document.getElementById('boundary_coords');
+            const savedLatField = document.getElementById('latitude');
+            const savedLngField = document.getElementById('longitude');
+            
+            let existingGeojson = null;
+            let existingLat = null;
+            let existingLng = null;
+
             if (savedBoundaryField && savedBoundaryField.value) {
-                try {
-                    const existingGeojson = JSON.parse(savedBoundaryField.value);
-                    const name = document.getElementById('name_ar').value;
-                    showEditMapLocation(null, null, name, existingGeojson, null);
-                } catch (e) {
-                    console.error("Could not parse saved boundary", e);
-                }
+                try { existingGeojson = JSON.parse(savedBoundaryField.value); } catch(e) {}
+            }
+            if (savedLatField && savedLatField.value) existingLat = parseFloat(savedLatField.value);
+            if (savedLngField && savedLngField.value) existingLng = parseFloat(savedLngField.value);
+
+            if (existingGeojson || (existingLat && existingLng)) {
+                const name = document.getElementById('name_ar').value;
+                showEditMapLocation(existingLat, existingLng, name, existingGeojson, null);
             } else {
                 // Try to load map based on text search if new or no boundary
                 const nameField = document.getElementById('name_ar');

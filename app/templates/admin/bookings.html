@@ -99,15 +99,41 @@
                     {% endif %}
                 </td>
                 <td class="p-4">
-                    <div>{{ booking.service.name_ar }}</div>
+                    <div class="space-y-3">
+                    {% for item in booking.items.all() %}
+                    <div class="flex justify-between items-start gap-2 border-b border-gray-700 pb-2 last:border-0 last:pb-0">
+                        <div>
+                            <div class="font-bold text-xs text-accent">{{ item.vehicle.brand }} ({{ item.vehicle.plate_number }})</div>
+                            <div class="text-sm">{{ item.service.name_ar }}</div>
+                            <div class="text-[10px] text-gray-400">{{ item.total_item_price }} ريال</div>
+                        </div>
+                        {% if booking.items.count() > 1 %}
+                        <form action="{{ url_for('admin.delete_booking_item', booking_id=booking.id, item_id=item.id) }}" method="post" 
+                              onsubmit="return confirm('هل أنت متأكد من حذف هذه المركبة من الحجز؟ سيتم إعادة حساب الإجمالي.')" class="inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-red-500 hover:text-red-400 text-xs" title="حذف المركبة">
+                                <i class="fas fa-minus-circle"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    {# Fallback for old bookings without items #}
+                    <div>{{ booking.service.name_ar if booking.service else 'N/A' }}</div>
+                    {% endfor %}
+                    </div>
+
                     {% set products = booking.products.all() %}
                     {% if products %}
-                    <div class="mt-2 space-y-1 border-t border-gray-700 pt-1">
+                    <div class="mt-3 space-y-1 border-t border-gray-600 pt-2">
+                        <div class="text-[10px] text-gray-500 mb-1 uppercase tracking-wider">المنتجات الإضافية:</div>
                         {% for item in products %}
-                        <div class="text-xs text-gray-400 flex items-center gap-2">
-                            <i class="fas fa-plus-circle text-[10px] text-accent"></i>
-                            <span>{{ item.product.name_ar }}</span>
-                            <span class="bg-gray-700 px-1 rounded text-[10px] text-white">x{{ item.quantity }}</span>
+                        <div class="text-xs text-gray-400 flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-1">
+                                <i class="fas fa-shopping-basket text-[10px] text-accent"></i>
+                                <span>{{ item.product.name_ar }}</span>
+                            </div>
+                            <span class="bg-gray-800 px-1 rounded text-[10px] text-white">x{{ item.quantity }}</span>
                         </div>
                         {% endfor %}
                     </div>
@@ -189,59 +215,62 @@
                     <span class="text-gray-500">-</span>
                     {% endif %}
                 </td>
-                <td class="p-4 font-bold text-sm">
+                <td class="p-4 font-bold text-sm text-center">
                     {% if booking.status == 'cancelled' %}
                     <span class="text-red-400">ملغي</span>
                     {% else %}
-                    {% set products_total = namespace(value=0) %}
-                    {% for item in products %}
-                    {% set p_price = item.unit_price if item.unit_price is not none else item.product.price %}
-                    {% set products_total.value = products_total.value + (p_price * item.quantity) %}
-                    {% endfor %}
+                    <div class="flex flex-col items-center">
+                        <div class="text-[10px] font-normal text-gray-400">
+                            {% set total_items_price = namespace(val=0) %}
+                            {% for itm in booking.items %}
+                                {% set total_items_price.val = total_items_price.val + itm.total_item_price %}
+                            {% endfor %}
+                            
+                            {% set total_prods_price = namespace(val=0) %}
+                            {% for p in booking.products %}
+                                {% set unit_p = p.unit_price if p.unit_price is not none else (p.product.price if (p.product and p.product.price is not none) else 0) %}
+                                {% set total_prods_price.val = total_prods_price.val + (unit_p * p.quantity) %}
+                            {% endfor %}
 
-                    {% set service_price = 0 %}
-                    {% set size_price = 0 %}
-                    {% set discount = 0 %}
-
-                    {% if not booking.subscription_id and not booking.used_free_wash %}
-                    {% set service_price = booking.custom_service_price if booking.custom_service_price is not none else
-                    (booking.service.price if booking.service else 0) %}
-                    {% set size_price = booking.vehicle_size_price or 0 %}
-
-                    {% if booking.discount_code %}
-                    {% if booking.discount_code.discount_type == 'percentage' %}
-                    {% set discount = (service_price + size_price) * booking.discount_code.value / 100 %}
-                    {% else %}
-                    {% set discount = booking.discount_code.value %}
-                    {% endif %}
-                    {% endif %}
-                    {% endif %}
-
-                    {% set final_service_price = service_price + size_price - discount %}
-                    {% set total_price = final_service_price + products_total.value %}
-
-                    <div class="flex flex-col text-xs font-normal text-gray-400">
-                        <span>خدمة: {{ "%.2f"|format(final_service_price) }}</span>
-                        {% if products_total.value > 0 %}
-                        <span>منتجات: {{ "%.2f"|format(products_total.value) }}</span>
-                        {% endif %}
-                        <span class="border-t border-gray-600 mt-1 pt-1 font-bold text-white text-sm">
-                            الإجمالي: {{ "%.2f"|format(total_price) }} ريال
-                        </span>
+                            {% if total_items_price.val > 0 %}
+                            <div>الخدمات: {{ "%.2f"|format(total_items_price.val) }} ريال</div>
+                            {% endif %}
+                            
+                            {% if total_prods_price.val > 0 %}
+                            <div>المنتجات: {{ "%.2f"|format(total_prods_price.val) }} ريال</div>
+                            {% endif %}
+                            
+                            {% if booking.discount_code %}
+                            <div class="text-red-400 font-bold">خصم: -{{ "%.2f"|format((total_items_price.val + total_prods_price.val) - booking.total_price) }} ريال</div>
+                            {% endif %}
+                        </div>
+                        <div class="mt-1 pt-1 border-t border-gray-600 text-white text-base">
+                            {{ "%.2f"|format(booking.total_price) }} ريال
+                        </div>
                     </div>
                     {% endif %}
                 </td>
                 <td class="p-4">
                     <div class="flex gap-2">
                         <button
-                            onclick='showEditBookingModal({{ booking.id }}, {{ booking.vehicle_size_price or 0 }}, "{{ booking.payment_method }}", {{ booking.custom_service_price if booking.custom_service_price is not none else "null" }})'
-                            class="text-yellow-400 hover:text-yellow-300" title="تعديل">
+                            class="text-yellow-400 hover:text-yellow-300 edit-booking-btn"
+                            title="تعديل"
+                            data-id="{{ booking.id }}"
+                            data-size-price="{{ booking.vehicle_size_price or 0 }}"
+                            data-payment="{{ booking.payment_method }}"
+                            data-custom-price="{{ booking.custom_service_price if (booking.custom_service_price is not none and booking.custom_service_price|string != '') else '' }}">
                             <i class="fas fa-edit"></i>
                         </button>
                         {% if booking.status != 'cancelled' %}
                         <button
-                            onclick='showReassignModal({{ booking.id }}, {{ booking.employee_id if booking.employee_id else "null" }}, "{{ booking.date }}", "{{ booking.time.strftime("%H:%M") if booking.time else "" }}", {{ booking.neighborhood_id if booking.neighborhood_id else "null" }}, {{ booking.service_id }})'
-                            class="text-blue-400 hover:text-blue-300" title="{{ 'إعادة إسناد' if booking.employee_id else 'إسناد موظف' }}">
+                            class="text-blue-400 hover:text-blue-300 reassign-booking-btn"
+                            title="{{ 'إعادة إسناد' if booking.employee_id else 'إسناد موظف' }}"
+                            data-id="{{ booking.id }}"
+                            data-employee-id="{{ booking.employee_id or '' }}"
+                            data-date="{{ booking.date }}"
+                            data-time="{{ booking.time.strftime('%H:%M') if booking.time else '' }}"
+                            data-neighborhood-id="{{ booking.neighborhood_id or '' }}"
+                            data-service-id="{{ booking.service_id }}">
                             <i class="fas fa-user-plus"></i>
                         </button>
                         {% endif %}
@@ -473,7 +502,7 @@
                     <input type="text" id="bookingCustomerSearch" placeholder="ابحث بالاسم أو الهاتف..."
                         onkeyup="searchBookingCustomers()"
                         class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 mb-2">
-                    <select name="customer_id" id="bookingCustomerSelect" required
+                    <select name="customer_id" id="bookingCustomerSelect" required onchange="onCustomerSelected()"
                         class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
                         <option value="">-- اختر العميل --</option>
                         {% for customer in customers %}
@@ -482,13 +511,20 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="col-span-2">
+                    <label class="block text-sm mb-2">المركبة *</label>
+                    <select name="vehicle_id" id="bookingVehicleSelect" required
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر العميل أولاً --</option>
+                    </select>
+                </div>
                 <div>
                     <label class="block text-sm mb-2">الخدمة *</label>
                     <select name="service_id" id="serviceSelect" onchange="updateBookingPrice()" required
                         class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
                         <option value="">-- اختر --</option>
                         {% for service in services %}
-                        <option value="{{ service.id }}" data-price="{{ service.price }}">{{ service.name_ar }} ({{
+                        <option value="{{ service.id }}" data-price="{{ service.price }}" data-city-size-prices='{{ service.city_size_prices | tojson }}'>{{ service.name_ar }} ({{
                             service.price }} ريال)</option>
                         {% endfor %}
                     </select>
@@ -667,7 +703,53 @@
     }
 
     // --- Create Booking Logic ---
-    const citiesData = {{ cities_json| safe }};
+    function onCustomerSelected() {
+        const customerId = document.getElementById('bookingCustomerSelect').value;
+        const vehicleSelect = document.getElementById('bookingVehicleSelect');
+        vehicleSelect.innerHTML = '<option value="">-- جاري التحميل... --</option>';
+
+        if (!customerId) {
+            vehicleSelect.innerHTML = '<option value="">-- اختر العميل أولاً --</option>';
+            return;
+        }
+
+        fetch(`/admin/api/customer-vehicles/${customerId}`)
+            .then(response => response.json())
+            .then(data => {
+                vehicleSelect.innerHTML = '<option value="">-- اختر المركبة --</option>';
+                data.forEach(v => {
+                    const option = document.createElement('option');
+                    option.value = v.id;
+                    option.textContent = `${v.brand} (${v.plate_number}) - ${v.size_name}`;
+                    option.dataset.sizeId = v.size_id;
+                    vehicleSelect.appendChild(option);
+                });
+            });
+    }
+
+    // New function to handle size-based pricing in admin create form
+    function updateAdminSizePrice() {
+        const vehicleSelect = document.getElementById('bookingVehicleSelect');
+        const selectedVehicle = vehicleSelect.options[vehicleSelect.selectedIndex];
+        const serviceId = document.getElementById('serviceSelect').value;
+        
+        if (!selectedVehicle || !selectedVehicle.value || !serviceId) {
+            return;
+        }
+        
+        const sizeId = selectedVehicle.dataset.sizeId;
+        if (!sizeId) return;
+
+        // We could fetch CityServicePrice via API, but for now we'll rely on updateBookingPrice
+        // or a simpler logic. 
+        // Let's just trigger updateBookingPrice which we will enhance to check size if possible.
+        updateBookingPrice();
+    }
+
+    document.getElementById('bookingVehicleSelect').addEventListener('change', updateAdminSizePrice);
+
+    const citiesData = JSON.parse('{{ cities_json | safe }}');
+    const vehicleSizeAdjustments = JSON.parse('{{ vehicle_sizes_json | safe }}');
 
     function updateBookingNeighborhoods() {
         const cityId = document.getElementById('bookingCity').value;
@@ -793,7 +875,28 @@
             return;
         }
 
-        const price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        let price = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+        
+        // Handle size-based pricing if a vehicle is selected
+        const vehicleSelect = document.getElementById('bookingVehicleSelect');
+        const selectedVehicle = vehicleSelect.options[vehicleSelect.selectedIndex];
+        if (selectedVehicle && selectedVehicle.value && selectedVehicle.dataset.sizeId) {
+            const sizeId = selectedVehicle.dataset.sizeId;
+            let sizeFound = false;
+            try {
+                const citySizePrices = JSON.parse(selectedOption.dataset.citySizePrices || '{}');
+                const cityId = document.getElementById('bookingCity').value;
+                if (cityId && citySizePrices[cityId] && citySizePrices[cityId][sizeId] !== undefined) {
+                    price = parseFloat(citySizePrices[cityId][sizeId]);
+                    sizeFound = true;
+                }
+            } catch (e) { console.error("Error parsing city-size prices", e); }
+
+            // Fallback to general size adjustment if no specific CityServicePrice was found
+            if (!sizeFound && vehicleSizeAdjustments && vehicleSizeAdjustments[sizeId] !== undefined) {
+                price += parseFloat(vehicleSizeAdjustments[sizeId]);
+            }
+        }
 
         const discountInput = document.getElementById('bookingDiscount');
         const discountPercent = parseFloat(discountInput.value) || 0;
@@ -860,15 +963,36 @@
         document.getElementById('cancelReasonModal').classList.add('hidden');
     }
 
-    // Event delegation for cancel reason buttons (works on mobile)
+    // Event delegation for administrative actions
     document.addEventListener('click', function (e) {
-        const btn = e.target.closest('.cancel-reason-btn');
-        if (btn) {
+        // Cancel reason buttons
+        const cancelBtn = e.target.closest('.cancel-reason-btn');
+        if (cancelBtn) {
             e.preventDefault();
-            const reason = btn.getAttribute('data-reason');
-            if (reason) {
-                showCancelReasonModal(reason);
-            }
+            const reason = cancelBtn.getAttribute('data-reason');
+            if (reason) showCancelReasonModal(reason);
+        }
+
+        // Edit booking buttons
+        const editBtn = e.target.closest('.edit-booking-btn');
+        if (editBtn) {
+            const id = editBtn.dataset.id;
+            const sizePrice = parseFloat(editBtn.dataset.sizePrice) || 0;
+            const payment = editBtn.dataset.payment;
+            const customPrice = editBtn.dataset.customPrice;
+            showEditBookingModal(id, sizePrice, payment, customPrice === '' ? null : parseFloat(customPrice));
+        }
+
+        // Reassign booking buttons
+        const reassignBtn = e.target.closest('.reassign-booking-btn');
+        if (reassignBtn) {
+            const id = reassignBtn.dataset.id;
+            const empId = reassignBtn.dataset.employeeId;
+            const date = reassignBtn.dataset.date;
+            const time = reassignBtn.dataset.time;
+            const neighborhoodId = reassignBtn.dataset.neighborhoodId;
+            const serviceId = reassignBtn.dataset.serviceId;
+            showReassignModal(id, empId === '' ? null : parseInt(empId), date, time, neighborhoodId === '' ? null : parseInt(neighborhoodId), parseInt(serviceId));
         }
 
         // Close modal when clicking outside

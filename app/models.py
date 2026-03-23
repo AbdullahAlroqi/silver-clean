@@ -94,6 +94,8 @@ class VehicleSize(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     vehicles = db.relationship('Vehicle', backref='size', lazy='dynamic')
 
+
+
 class Vehicle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -108,8 +110,7 @@ class City(db.Model):
     osm_place_id = db.Column(db.String(50), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     neighborhoods = db.relationship('Neighborhood', backref='city', lazy='dynamic')
-    city_service_prices = db.relationship('CityServicePrice', backref='city', lazy='dynamic', cascade='all, delete-orphan')
-    city_product_prices = db.relationship('CityProductPrice', backref='city', lazy='dynamic', cascade='all, delete-orphan')
+    # Price overrides (relationships defined in the respective classes)
 
 class Neighborhood(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -118,6 +119,8 @@ class Neighborhood(db.Model):
     name_en = db.Column(db.String(64))
     osm_name = db.Column(db.String(200), nullable=True)
     boundary_coords = db.Column(db.Text, nullable=True)  # GeoJSON polygon
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
 
     def contains_point(self, lat, lng):
@@ -178,7 +181,7 @@ class Service(db.Model):
     description = db.Column(db.String(255))
     includes_free_wash = db.Column(db.Boolean, default=True)
     is_active = db.Column(db.Boolean, default=True)
-    city_prices = db.relationship('CityServicePrice', backref='service', lazy='dynamic', cascade='all, delete-orphan')
+    # city_prices relationship defined in CityServicePrice
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -191,7 +194,7 @@ class Product(db.Model):
     
     # Relationship to location-based stock
     location_stocks = db.relationship('ProductStock', backref='product', lazy='dynamic')
-    city_prices = db.relationship('CityProductPrice', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    # city_prices relationship defined in CityProductPrice
 
 class ProductStock(db.Model):
     """Product stock per city/neighborhood"""
@@ -222,6 +225,8 @@ class Booking(db.Model):
     status = db.Column(db.String(20), default='pending') # pending, assigned, en_route, arrived, in_progress, completed, cancelled
     location_lat = db.Column(db.Float)
     location_lng = db.Column(db.Float)
+    total_price = db.Column(db.Float, default=0.0)
+    is_multi_vehicle = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Rating fields
@@ -244,13 +249,41 @@ class Booking(db.Model):
     # Cancellation reason from customer
     cancellation_reason = db.Column(db.Text, nullable=True)
 
+    @property
+    def total_duration(self):
+        """Calculate total duration of all items in this booking"""
+        total = 0
+        for item in self.items:
+            if item.service and item.service.duration:
+                total += item.service.duration
+            else:
+                total += 60 # Default duration
+        return total if total > 0 else (self.service.duration if self.service and self.service.duration else 60)
+
+    # Relationships
+    items = db.relationship('BookingItem', backref='booking', lazy='dynamic', cascade='all, delete-orphan')
+    neighborhood = db.relationship('Neighborhood')
+    products = db.relationship('BookingProduct', backref='booking', lazy='dynamic', cascade='all, delete-orphan')
+    discount_code = db.relationship('DiscountCode')
+    subscription = db.relationship('Subscription', backref='wash_bookings')
+    vehicle = db.relationship('Vehicle', foreign_keys=[vehicle_id])
+    service = db.relationship('Service', foreign_keys=[service_id])
+
+class BookingItem(db.Model):
+    """Individual vehicle and service item within a booking"""
+    id = db.Column(db.Integer, primary_key=True)
+    booking_id = db.Column(db.Integer, db.ForeignKey('booking.id'), nullable=False)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicle.id'), nullable=False)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    
+    # Snapshot of prices at time of booking
+    service_price = db.Column(db.Float, default=0.0)
+    size_price_adjustment = db.Column(db.Float, default=0.0)
+    total_item_price = db.Column(db.Float, default=0.0)
+    
     # Relationships
     vehicle = db.relationship('Vehicle')
     service = db.relationship('Service')
-    neighborhood = db.relationship('Neighborhood')
-    products = db.relationship('BookingProduct', backref='booking', lazy='dynamic')
-    discount_code = db.relationship('DiscountCode')
-    subscription = db.relationship('Subscription', backref='wash_bookings')  # Link to subscription
 
 # ... (BookingProduct class)
 
@@ -476,15 +509,21 @@ class EmployeeLocation(db.Model):
 
 
 class CityServicePrice(db.Model):
-    """City-specific price override for a service"""
+    """City and size specific price override for a service"""
     id = db.Column(db.Integer, primary_key=True)
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    vehicle_size_id = db.Column(db.Integer, db.ForeignKey('vehicle_size.id'), nullable=False)
     price = db.Column(db.Float, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     
+    # Relationships
+    city = db.relationship('City', backref=db.backref('city_service_prices', lazy='dynamic', cascade='all, delete-orphan'))
+    service = db.relationship('Service', backref=db.backref('city_size_prices', lazy='dynamic', cascade='all, delete-orphan'))
+    size = db.relationship('VehicleSize', backref=db.backref('city_service_prices_list', lazy='dynamic', cascade='all, delete-orphan'))
+    
     __table_args__ = (
-        db.UniqueConstraint('city_id', 'service_id', name='unique_city_service'),
+        db.UniqueConstraint('city_id', 'service_id', 'vehicle_size_id', name='unique_city_service_size'),
     )
 
 
@@ -495,6 +534,10 @@ class CityProductPrice(db.Model):
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     price = db.Column(db.Float, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    
+    # Relationships
+    city = db.relationship('City', backref=db.backref('city_product_prices', lazy='dynamic', cascade='all, delete-orphan'))
+    product = db.relationship('Product', backref=db.backref('city_prices_list', lazy='dynamic', cascade='all, delete-orphan'))
     
     __table_args__ = (
         db.UniqueConstraint('city_id', 'product_id', name='unique_city_product'),
@@ -508,6 +551,10 @@ class CityPackagePrice(db.Model):
     package_id = db.Column(db.Integer, db.ForeignKey('subscription_package.id'), nullable=False)
     price = db.Column(db.Float, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    
+    # Relationships
+    city = db.relationship('City', backref=db.backref('city_package_prices', lazy='dynamic', cascade='all, delete-orphan'))
+    package = db.relationship('SubscriptionPackage', backref=db.backref('city_prices_list', lazy='dynamic', cascade='all, delete-orphan'))
     
     __table_args__ = (
         db.UniqueConstraint('city_id', 'package_id', name='unique_city_package'),

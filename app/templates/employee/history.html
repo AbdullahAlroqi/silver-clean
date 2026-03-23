@@ -55,44 +55,33 @@
                     <div class="font-bold">{{ booking.customer.username }}</div>
                     <div class="text-xs text-gray-400">{{ booking.customer.phone }}</div>
                 </td>
-                <td class="p-4">{{ booking.service.name_ar }}</td>
                 <td class="p-4">
-                    <div>{{ booking.vehicle.brand }}</div>
-                    <div class="text-xs text-gray-400">{{ booking.vehicle.plate_number }}</div>
+                    {% if booking.is_multi_vehicle %}
+                        <div class="text-xs text-accent">متعدد</div>
+                        {% for item in booking.items %}
+                            <div class="text-[10px]">• {{ item.service.name_ar }}</div>
+                        {% endfor %}
+                    {% else %}
+                        {{ booking.service.name_ar if booking.service else '-' }}
+                    {% endif %}
                 </td>
                 <td class="p-4">
-                    {% set products_total = namespace(value=0) %}
-                    {% for bp in booking.products %}
-                    {% set item_price = bp.unit_price if bp.unit_price is not none else bp.product.price %}
-                    {% set products_total.value = products_total.value + (item_price * bp.quantity) %}
-                    {% endfor %}
-
-                    {% set service_price = booking.custom_service_price if booking.custom_service_price is not none else
-                    (booking.service.price if booking.service else 0) %}
-                    {% set service_price = service_price + (booking.vehicle_size_price or 0) %}
-                    {% set discount_amount = 0 %}
-
-                    {% if booking.used_free_wash or booking.subscription_id %}
-                    {% set service_price = 0 %}
-                    {% elif booking.discount_code %}
-                    {% if booking.discount_code.discount_type == 'percentage' %}
-                    {% set discount_amount = (service_price * booking.discount_code.value / 100) %}
+                    {% if booking.is_multi_vehicle %}
+                        {% for item in booking.items %}
+                            <div class="text-[10px]">{{ item.vehicle.brand }} ({{ item.vehicle.plate_number }})</div>
+                        {% endfor %}
                     {% else %}
-                    {% set discount_amount = booking.discount_code.value %}
+                        <div>{{ booking.vehicle.brand }}</div>
+                        <div class="text-xs text-gray-400">{{ booking.vehicle.plate_number }}</div>
                     {% endif %}
+                </td>
+                <td class="p-4">
+                    <div class="font-bold text-accent">{{ "%.1f"|format(booking.total_price) }} ريال</div>
+                    {% if booking.used_free_wash %}
+                    <div class="text-xs text-green-400"><i class="fas fa-gift"></i> غسلة مجانية</div>
+                    {% elif booking.discount_code %}
+                    <div class="text-xs text-blue-400"><i class="fas fa-tag"></i> {{ booking.discount_code.code }}</div>
                     {% endif %}
-
-                    {% set grand_total = (service_price - discount_amount) + products_total.value %}
-
-                    <div>
-                        <span class="font-bold text-accent">{{ "%.1f"|format(grand_total) }} ريال</span>
-                        {% if booking.used_free_wash %}
-                        <div class="text-xs text-green-400"><i class="fas fa-gift"></i> غسلة مجانية</div>
-                        {% elif booking.discount_code %}
-                        <div class="text-xs text-blue-400"><i class="fas fa-tag"></i> خصم: {{ booking.discount_code.code
-                            }}</div>
-                        {% endif %}
-                    </div>
                 </td>
             </tr>
             {% endfor %}

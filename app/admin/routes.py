@@ -1119,7 +1119,8 @@ def services():
         })
         
     cities = City.query.filter_by(is_active=True).all()
-    return render_template('admin/services.html', services=services_data, cities=cities)
+    vehicle_sizes = VehicleSize.query.filter_by(is_active=True).all()
+    return render_template('admin/services.html', services=services_data, cities=cities, vehicle_sizes=vehicle_sizes)
 
 @bp.route('/services/add', methods=['GET', 'POST'])
 def add_service():
@@ -1163,6 +1164,7 @@ def delete_service(id):
     db.session.commit()
     flash('تم حذف الخدمة')
     return redirect(url_for('admin.services'))
+
 
 # --- Vehicle Size Management ---
 @bp.route('/vehicle-sizes')
@@ -1546,6 +1548,8 @@ def add_neighborhood(city_id):
             name_en=name_en,
             osm_name=osm_name if osm_name else None,
             boundary_coords=boundary_coords if boundary_coords else None,
+            latitude=request.form.get('latitude', type=float),
+            longitude=request.form.get('longitude', type=float),
             is_active=True
         )
         db.session.add(neighborhood)
@@ -1569,6 +1573,8 @@ def edit_neighborhood(id):
         neighborhood.osm_name = osm_name if osm_name else None
         boundary_coords = request.form.get('boundary_coords', '').strip()
         neighborhood.boundary_coords = boundary_coords if boundary_coords else None
+        neighborhood.latitude = request.form.get('latitude', type=float)
+        neighborhood.longitude = request.form.get('longitude', type=float)
         neighborhood.is_active = 'is_active' in request.form or request.form.get('is_active') == 'true'
         db.session.commit()
         flash('تم تعديل الحي', 'success')
@@ -2096,7 +2102,27 @@ def bookings():
         employees = User.query.filter_by(role='employee').all()
     
     customers = User.query.filter_by(role='customer').all()
-    services = Service.query.all()
+    services_query = Service.query.all()
+    services = []
+    for s in services_query:
+        # Include city-size prices for frontend logic
+        # Format: { city_id: { size_id: price } }
+        city_size_prices_map = {}
+        for cp in s.city_size_prices:
+            c_id = str(cp.city_id)
+            if c_id not in city_size_prices_map:
+                city_size_prices_map[c_id] = {}
+            city_size_prices_map[c_id][cp.vehicle_size_id] = float(cp.price)
+            
+        services.append({
+            'id': s.id,
+            'name_ar': s.name_ar,
+            'price': float(s.price),
+            'city_size_prices': city_size_prices_map
+        })
+    
+    vehicle_sizes = VehicleSize.query.all()
+    vehicle_sizes_json = json.dumps({vs.id: float(vs.price_adjustment or 0) for vs in vehicle_sizes})
     
     # Get counts for status tabs
     current_statuses = ['pending', 'assigned', 'en_route', 'arrived', 'in_progress']
@@ -2107,7 +2133,8 @@ def bookings():
     return render_template('admin/bookings.html', bookings=bookings_list, employees=employees, 
                            status_filter=status_filter, employee_filter=employee_filter,
                            from_date=from_date_filter, to_date=to_date_filter, sort_dir=sort_dir,
-                           customers=customers, services=services, cities=cities, cities_json=cities_json, today=today,
+                           customers=customers, services=services, cities=cities, cities_json=cities_json, 
+                           vehicle_sizes_json=vehicle_sizes_json, today=today,
                            current_count=current_count, completed_count=completed_count, cancelled_count=cancelled_count)
 
 @bp.route('/bookings/create', methods=['POST'])
@@ -2160,6 +2187,33 @@ def create_booking():
             
     # Calculate custom service price with discount if discount > 0
     # Always set custom_service_price if there's a seasonal price or discount to lock it
+    
+    # 1. City & Size Specific Price (Unified Pricing)
+    vehicle_id = request.form.get('vehicle_id')
+    vehicle_size_price = 0.0
+    
+    if vehicle_id and neighborhood_id:
+        from app.models import Vehicle, CityServicePrice, Neighborhood
+        vehicle = Vehicle.query.get(int(vehicle_id))
+        neighborhood_obj = Neighborhood.query.get(int(neighborhood_id))
+        
+        if vehicle and neighborhood_obj:
+            city_id = neighborhood_obj.city_id
+            # Query the unified table
+            csp = CityServicePrice.query.filter_by(
+                city_id=city_id,
+                service_id=service.id,
+                vehicle_size_id=vehicle.vehicle_size_id
+            ).first()
+            
+            if csp:
+                # Unified price overrides the base service price
+                base_price = csp.price
+                vehicle_size_price = 0.0 # Price is already unified
+            elif vehicle.size:
+                # Fallback to general size adjustment if no specific city-size override
+                vehicle_size_price = vehicle.size.price_adjustment
+
     custom_service_price = base_price
     if discount > 0:
         discount_amount = base_price * (discount / 100.0)
@@ -2176,9 +2230,27 @@ def create_booking():
         date=booking_date_obj, 
         time=time_obj,
         status=booking_status,
-        custom_service_price=custom_service_price
+        custom_service_price=custom_service_price,
+        vehicle_size_price=vehicle_size_price, 
+        total_price=custom_service_price + vehicle_size_price
     )
     db.session.add(booking)
+    db.session.flush()
+
+    # Create BookingItem for consistency
+    from app.models import BookingItem
+    if vehicle_id:
+        b_item = BookingItem(
+            booking_id=booking.id,
+            vehicle_id=int(vehicle_id),
+            service_id=int(service_id),
+            service_price=custom_service_price,
+            size_price_adjustment=vehicle_size_price,
+            total_item_price=custom_service_price + vehicle_size_price
+        )
+        db.session.add(b_item)
+        booking.vehicle_id = int(vehicle_id)
+
     db.session.commit()
     
     # Notify employee if assigned
@@ -2200,6 +2272,48 @@ def create_booking():
             
     flash(f'تم إضافة الحجز بنجاح (الخصم: {discount}%)')
     return redirect(url_for('admin.bookings'))
+
+@bp.route('/bookings/<int:booking_id>/delete-item/<int:item_id>', methods=['POST'])
+def delete_booking_item(booking_id, item_id):
+    booking = Booking.query.get_or_404(booking_id)
+    from app.models import BookingItem
+    item = BookingItem.query.get_or_404(item_id)
+    
+    if item.booking_id != booking.id:
+        flash('العنصر غير تابع لهذا الحجز')
+        return redirect(url_for('admin.bookings'))
+    
+    # Check if it's the last item
+    if booking.items.count() <= 1:
+        flash('لا يمكن حذف آخر مركبة من الحجز. يمكنك إلغاء الحجز بالكامل بدلاً من ذلك.', 'warning')
+        return redirect(url_for('admin.bookings'))
+    
+    db.session.delete(item)
+    db.session.commit()
+    
+    # Recalculate total price
+    update_booking_totals(booking)
+    
+    flash('تم حذف المركبة من الحجز وتعديل السعر الإجمالي')
+    return redirect(url_for('admin.bookings'))
+
+def update_booking_totals(booking):
+    """Helper to recalculate total_price based on items and products"""
+    total_services = sum(item.total_item_price for item in booking.items)
+    total_products = sum(p.unit_price * p.quantity for p in booking.products)
+    
+    # Apply discount if any (from header)
+    if booking.discount_code:
+        if booking.discount_code.discount_type == 'percentage':
+            # Apply to services only?
+            discount = (total_services * booking.discount_code.value) / 100
+        else:
+            discount = booking.discount_code.value
+        booking.total_price = max(0, (total_services + total_products) - discount)
+    else:
+        booking.total_price = total_services + total_products
+    
+    db.session.commit()
 
 @bp.route('/bookings/<int:id>/edit', methods=['POST'])
 def edit_booking(id):
@@ -2243,6 +2357,17 @@ def edit_booking(id):
                 continue
         
     db.session.commit()
+    
+    # Recalculate total price
+    if booking.items.count() == 1:
+        item = booking.items.first()
+        # If custom_service_price was set, use it. Otherwise fallback to base service price.
+        item.service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0.0)
+        item.size_price_adjustment = booking.vehicle_size_price or 0.0
+        item.total_item_price = item.service_price + item.size_price_adjustment
+        
+    update_booking_totals(booking)
+    
     flash('تم تحديث الحجز بنجاح', 'success')
     return redirect(request.referrer or url_for('admin.bookings'))
 
@@ -2261,11 +2386,12 @@ def refund_product(id, product_id):
             
         # Delete link
         db.session.delete(product_link)
-        db.session.commit()
-        flash(f'تم استرجاع المنتج "{product.name_ar}" للمخزون بنجاح', 'success')
-    else:
-        flash('المنتج غير موجود في هذا الحجز', 'error')
-        
+    db.session.commit()
+    
+    # Recalculate total price
+    update_booking_totals(booking)
+    
+    flash(f'تم استرجاع المنتج "{product.name_ar}" للمخزون بنجاح', 'success')
     return redirect(request.referrer or url_for('admin.bookings'))
 
 @bp.route('/bookings/<int:id>/add-product', methods=['POST'])
@@ -2305,6 +2431,10 @@ def add_booking_product(id):
     product.stock_quantity -= quantity
     
     db.session.commit()
+    
+    # Recalculate total price
+    update_booking_totals(booking)
+    
     flash('تم إضافة المنتج للحجز بنجاح', 'success')
     
     # Redirect back to referring page (could be bookings or employee stats)
@@ -2340,7 +2470,20 @@ def get_booking_products_api(id):
             'original_price': item.product.price
         })
         
-    return jsonify(products)
+@bp.route('/api/customer-vehicles/<int:customer_id>')
+def get_customer_vehicles(customer_id):
+    from app.models import Vehicle
+    vehicles = Vehicle.query.filter_by(user_id=customer_id).all()
+    v_list = []
+    for v in vehicles:
+        v_list.append({
+            'id': v.id,
+            'brand': v.brand,
+            'plate_number': v.plate_number,
+            'size_id': v.vehicle_size_id,
+            'size_name': v.size.name_ar if v.size else ''
+        })
+    return jsonify(v_list)
 
 @bp.route('/api/available-slots/<int:employee_id>/<date>')
 def get_available_slots(employee_id, date):
@@ -2742,13 +2885,13 @@ def reports():
             price = service_price + (b.vehicle_size_price or 0)
             
             # Add products
-            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
+            p_total = sum((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in b.products)
             price += p_total
             
             # Apply discount
             if b.discount_code:
                 if b.discount_code.discount_type == 'percentage':
-                    disc = (service_price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
+                    disc = (service_price + (b.vehicle_size_price or 0)) * ((b.discount_code.value or 0) / 100)
                     price -= disc
                 else:
                     price -= b.discount_code.value
@@ -2764,7 +2907,7 @@ def reports():
         # Check if subscription or free wash -> Service is 0
         if b.subscription_id or b.used_free_wash:
             # Calculate products only
-            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
+            p_total = sum((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in b.products)
             price = p_total
         else:
             # Standard booking
@@ -2772,13 +2915,13 @@ def reports():
             price = service_price + (b.vehicle_size_price or 0)
             
             # Add products
-            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
+            p_total = sum((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in b.products)
             price += p_total
             
             # Apply discount
             if b.discount_code:
                 if b.discount_code.discount_type == 'percentage':
-                    disc = (service_price + (b.vehicle_size_price or 0)) * b.discount_code.value / 100
+                    disc = (service_price + (b.vehicle_size_price or 0)) * ((b.discount_code.value or 0) / 100)
                     price -= disc
                 else:
                     price -= b.discount_code.value
@@ -2834,7 +2977,7 @@ def reports():
         # Check if discount code was applied
         elif booking.discount_code:
             if booking.discount_code.discount_type == 'percentage':
-                discount_amount = (service_price + (booking.vehicle_size_price or 0)) * (booking.discount_code.value / 100)
+                discount_amount = (service_price + (booking.vehicle_size_price or 0)) * ((booking.discount_code.value or 0) / 100)
             else:
                 discount_amount = booking.discount_code.value
         
@@ -2847,7 +2990,7 @@ def reports():
         
         # Add product revenue
         for bp in booking.products:
-            product_revenue += ((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity)
+            product_revenue += ((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity)
     
     # Subscription revenue (only active subscriptions created in date range)
     sub_rev_query = db.session.query(func.sum(SubscriptionPackage.price))\
@@ -3160,7 +3303,7 @@ def delete_discount_code(id):
 def discount_code_stats(id):
     code = DiscountCode.query.get_or_404(id)
     bookings = Booking.query.filter_by(discount_code_id=id).all()
-    total_savings = sum(b.service.price * (code.value / 100) if code.discount_type == 'percentage' else code.value for b in bookings if b.service)
+    total_savings = sum((b.service.price or 0) * ((code.value or 0) / 100) if code.discount_type == 'percentage' else (code.value or 0) for b in bookings if b.service)
     
     return render_template('admin/discount_code_stats.html', code=code, bookings=bookings, total_savings=total_savings)
 
@@ -3477,38 +3620,54 @@ def get_employee_locations():
 # --- City-Based Pricing: Services ---
 @bp.route('/api/city-service-prices/<int:service_id>')
 def get_city_service_prices(service_id):
-    """Get all city prices for a service"""
+    """Get all city & size prices for a service"""
+    from app.models import City, VehicleSize
     prices = CityServicePrice.query.filter_by(service_id=service_id).all()
     return jsonify([{
         'id': p.id,
         'city_id': p.city_id,
         'city_name': City.query.get(p.city_id).name_ar if City.query.get(p.city_id) else '',
+        'size_id': p.vehicle_size_id,
+        'size_name': VehicleSize.query.get(p.vehicle_size_id).name_ar if VehicleSize.query.get(p.vehicle_size_id) else '',
         'price': p.price,
         'is_active': p.is_active
     } for p in prices])
 
 
-@bp.route('/services/assign-city', methods=['POST'])
-def assign_service_to_city():
-    """Assign a service to a city with a specific price"""
+@bp.route('/services/assign-city-size', methods=['POST'])
+def assign_service_to_city_size():
+    """Assign a service to a city and vehicle size with a specific price"""
     service_id = request.form.get('service_id', type=int)
     city_id = request.form.get('city_id', type=int)
+    vehicle_size_id = request.form.get('vehicle_size_id', type=int)
     price = request.form.get('price', type=float)
     
-    if not all([service_id, city_id, price is not None]):
-        flash('بيانات غير مكتملة', 'error')
+    if not all([service_id, city_id, vehicle_size_id, price is not None]):
+        flash('جميع الحقول مطلوبة', 'error')
         return redirect(url_for('admin.services'))
     
-    # Check if already exists
-    existing = CityServicePrice.query.filter_by(city_id=city_id, service_id=service_id).first()
+    # Update or Create
+    existing = CityServicePrice.query.filter_by(
+        city_id=city_id, 
+        service_id=service_id, 
+        vehicle_size_id=vehicle_size_id
+    ).first()
+    
     if existing:
-        flash('الخدمة مسندة لهذه المدينة بالفعل', 'error')
-        return redirect(url_for('admin.services'))
+        existing.price = price
+        flash('تم تحديث السعر المخصص بنجاح', 'success')
+    else:
+        csp = CityServicePrice(
+            city_id=city_id, 
+            service_id=service_id, 
+            vehicle_size_id=vehicle_size_id, 
+            price=price, 
+            is_active=True
+        )
+        db.session.add(csp)
+        flash('تم إسناد السعر المخصص بنجاح', 'success')
     
-    csp = CityServicePrice(city_id=city_id, service_id=service_id, price=price, is_active=True)
-    db.session.add(csp)
     db.session.commit()
-    flash('تم إسناد الخدمة للمدينة بنجاح', 'success')
     return redirect(url_for('admin.services'))
 
 

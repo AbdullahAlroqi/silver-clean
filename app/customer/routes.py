@@ -3,7 +3,11 @@ from flask_login import login_required, current_user
 from app import db
 from app.customer import bp
 from app.customer.forms import VehicleForm, BookingForm, EditProfileForm, ChangePasswordForm
-from app.models import Vehicle, Service, Booking, City, Neighborhood, VehicleSize, SiteSettings
+from app.models import (
+    Vehicle, Service, Booking, City, Neighborhood, VehicleSize, SiteSettings, 
+    BookingItem, DiscountCode, Season, CityServicePrice, 
+    CityProductPrice, CityPackagePrice
+)
 
 def check_expired_bookings():
     """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
@@ -309,7 +313,6 @@ def book():
 
         if form.validate_on_submit():
             from datetime import datetime, timedelta
-            from app.models import DiscountCode
             
             location_lat = request.form.get('location_lat')
             location_lng = request.form.get('location_lng')
@@ -319,6 +322,13 @@ def book():
 
             # Get booking details
             booking_date = form.date.data
+            
+            # Check for active season
+            active_season = Season.query.filter(
+                Season.is_active == True,
+                Season.start_date <= booking_date,
+                Season.end_date >= booking_date
+            ).first()
             
             # Backend Validation for Booking Days Limit
             settings = SiteSettings.get_settings()
@@ -333,19 +343,69 @@ def book():
                 flash(f'عذراً، الحجز متاح فقط لمدة {limit} أيام قادمة', 'error')
                 return redirect(url_for('customer.book'))
                 
-            booking_time = datetime.strptime(request.form.get('time'), '%H:%M').time()
+            booking_time_str = request.form.get('time')
+            if not booking_time_str:
+                flash('الرجاء اختيار الوقت المتاح', 'error')
+                return redirect(url_for('customer.book'))
+                
+            booking_time = datetime.strptime(booking_time_str, '%H:%M').time()
             neighborhood_id = int(request.form.get('neighborhood_id'))
-            service_id = form.service_id.data
+            
+            # Multi-vehicle support
+            vehicle_ids = request.form.getlist('vehicle_ids[]')
+            service_ids = request.form.getlist('service_ids[]')
+            
+            # Fallback for old forms or direct access
+            if not vehicle_ids and form.vehicle_id.data:
+                vehicle_ids = [str(form.vehicle_id.data)]
+            if not service_ids and form.service_id.data:
+                service_ids = [str(form.service_id.data)]
+                
+            if not vehicle_ids or not service_ids or len(vehicle_ids) != len(service_ids):
+                flash('يجب اختيار مركبة وخدمة صحيحة', 'error')
+                return redirect(url_for('customer.book'))
+
+            # Validate all vehicles and services
+            order_items = []
+            total_duration_minutes = 0
+            
+            for v_id, s_id in zip(vehicle_ids, service_ids):
+                v_id = int(v_id)
+                s_id = int(s_id)
+                vehicle = Vehicle.query.get(v_id)
+                service = Service.query.get(s_id)
+                
+                if not vehicle or vehicle.user_id != current_user.id:
+                    flash('واحدة من المركبات غير صالحة')
+                    return redirect(url_for('customer.book'))
+                if not service:
+                    flash('واحدة من الخدمات غير صالحة')
+                    return redirect(url_for('customer.book'))
+                
+                # Check for existing active bookings for the same vehicle on the same day/time
+                existing_v_booking = Booking.query.filter(
+                    Booking.customer_id == current_user.id,
+                    Booking.vehicle_id == v_id,
+                    Booking.date == booking_date,
+                    Booking.time == booking_time,
+                    Booking.status.notin_(['cancelled', 'completed'])
+                ).first()
+                if existing_v_booking:
+                    flash(f'المركبة {vehicle.brand} ({vehicle.plate_number}) لديها حجز آخر في نفس هذا الوقت')
+                    return redirect(url_for('customer.book'))
+
+                total_duration_minutes += (service.duration if service.duration else 60)
+                order_items.append({'vehicle': vehicle, 'service': service})
             
             # Check for free wash or discount code (mutual exclusivity)
             use_free_wash = request.form.get('use_free_wash') == 'on'
             discount_code_str = request.form.get('discount_code', '').strip()
             
-            # Validate Free Wash Eligibility for the selected service
+            # Validate Free Wash Eligibility (check the first service in multi-vehicle)
             if use_free_wash:
-                selected_service = Service.query.get(service_id)
-                if not selected_service or not selected_service.includes_free_wash:
-                    flash('عذراً، هذه الخدمة لا تشمل الغسلة المجانية', 'error')
+                first_service = order_items[0]['service']
+                if not first_service.includes_free_wash:
+                    flash('عذراً، الخدمة الأولى المختارة لا تشمل الغسلة المجانية', 'error')
                     return redirect(url_for('customer.book'))
 
             if use_free_wash and discount_code_str:
@@ -394,15 +454,8 @@ def book():
                     flash('ليس لديك غسلات مجانية متاحة')
                     return redirect(url_for('customer.book'))
                     
-                # Check for active season
-                from app.models import Season
-                active_season_fw = Season.query.filter(
-                    Season.is_active == True,
-                    Season.start_date <= booking_date,
-                    Season.end_date >= booking_date
-                ).first()
-                
-                if active_season_fw and not active_season_fw.allow_free_washes:
+                # Check for active season (already defined above)
+                if active_season and not active_season.allow_free_washes:
                     flash('عذراً، لا يمكن استخدام الغسلات المجانية خلال هذا الوقت')
                     return redirect(url_for('customer.book'))
             
@@ -422,17 +475,7 @@ def book():
                 flash('إحداثيات الموقع غير صالحة', 'error')
                 return redirect(url_for('customer.book'))
             
-            # Check for existing active bookings for the same vehicle on the same day
-            existing_booking = Booking.query.filter(
-                Booking.customer_id == current_user.id,
-                Booking.vehicle_id == form.vehicle_id.data,
-                Booking.date == booking_date,
-                Booking.status.notin_(['cancelled', 'completed'])
-            ).first()
-            
-            if existing_booking:
-                flash('لديك حجز آخر لنفس السيارة في نفس اليوم. الرجاء اختيار يوم آخر أو إلغاء الحجز السابق.')
-                return redirect(url_for('customer.book'))
+            # (Vehicle conflict check moved inside loop above)
             
             # Sticky Employee Logic: Priority to employee already assigned to this customer today
             employees = neighborhood.employees.filter_by(role='employee').all()
@@ -462,132 +505,195 @@ def book():
                 # For night shifts, we need to determine the actual booking datetime
                 booking_datetime = datetime.combine(booking_date, booking_time)
                 
-                # Get selected service duration
-                selected_service = Service.query.get(service_id)
-                duration_minutes = selected_service.duration if selected_service and selected_service.duration else 60
+                # Get total duration for all services in the order
+                duration_minutes = total_duration_minutes
                 
-                # Check if booking fits in any shift (including night shifts)
                 fits_in_schedule = False
+                available_employee = None
                 actual_booking_datetime = booking_datetime
                 actual_booking_date = booking_date
                 
-                for schedule in employee_schedules:
-                    schedule_start = datetime.combine(booking_date, schedule.start_time)
-                    schedule_end = datetime.combine(booking_date, schedule.end_time)
+                # --- Advanced Rules: Strict Single-Active-Booking Rule & Same-Employee Enforcement ---
+                preferred_employee_id = None
+                for v_id in vehicle_ids:
+                    # 1. Check for ANY active booking (not completed/cancelled) today
+                    active_prev = BookingItem.query.join(Booking).filter(
+                        BookingItem.vehicle_id == v_id,
+                        Booking.date == booking_date,
+                        Booking.status.notin_(['cancelled', 'completed'])
+                    ).first()
+                    if active_prev:
+                        flash(f'المركبة {active_prev.vehicle.brand} ({active_prev.vehicle.plate_number}) لديها حجز نشط حالياً هذا اليوم رقم ({active_prev.booking_id}). لا يمكن إجراء حجز آخر قبل إتمام الحجز الحالي أو إلغائه.')
+                        return redirect(url_for('customer.book'))
+
+                    # 2. Find any non-cancelled booking today to pick the preferred employee
+                    prev_item = BookingItem.query.join(Booking).filter(
+                        BookingItem.vehicle_id == v_id,
+                        Booking.date == booking_date,
+                        Booking.status.notin_(['cancelled'])
+                    ).first()
+                    if prev_item and prev_item.booking.employee_id:
+                        preferred_employee_id = prev_item.booking.employee_id
+                
+                search_employees = employees
+                if preferred_employee_id:
+                    search_employees = [e for e in employees if e.id == preferred_employee_id]
+                    if not search_employees:
+                        flash('الموظف المسؤول عن هذه المركبة اليوم غير متاح في هذا الوقت', 'error')
+                        return redirect(url_for('customer.book'))
+
+                for employee in search_employees:
+                    # Get ALL employee's schedules for this day
+                    employee_schedules = employee.schedules.filter_by(day_of_week=actual_booking_datetime.weekday(), is_active=True).all()
                     
-                    # Night Shift Detection: if end_time <= start_time, shift extends to next day
-                    is_night_shift = schedule.end_time <= schedule.start_time
-                    if is_night_shift:
-                        schedule_end += timedelta(days=1)
+                    emp_fits_in_schedule = False
+                    for schedule in employee_schedules:
+                        schedule_start = datetime.combine(booking_date, schedule.start_time)
+                        schedule_end = datetime.combine(booking_date, schedule.end_time)
+                        
+                        is_night_shift = schedule.end_time <= schedule.start_time
+                        if is_night_shift:
+                            schedule_end += timedelta(days=1)
+                        
+                        test_datetime = booking_datetime
+                        if is_night_shift and booking_time < schedule.start_time:
+                            test_datetime = booking_datetime + timedelta(days=1)
+                        
+                        end_datetime = test_datetime + timedelta(minutes=duration_minutes)
+                        
+                        if test_datetime >= schedule_start and end_datetime <= schedule_end:
+                            emp_fits_in_schedule = True
+                            actual_booking_datetime = test_datetime
+                            actual_booking_date = test_datetime.date()
+                            break
                     
-                    # For times after midnight (00:00-05:59) in night shifts, 
-                    # the actual datetime is the next day
-                    test_datetime = booking_datetime
-                    if is_night_shift and booking_time < schedule.start_time:
-                        # This is a time after midnight, actual date is next day
-                        test_datetime = booking_datetime + timedelta(days=1)
+                    if not emp_fits_in_schedule:
+                        continue
                     
-                    end_datetime = test_datetime + timedelta(minutes=duration_minutes)
+                    # Check if employee has conflicting booking (check for time overlap)
+                    next_day = booking_date + timedelta(days=1)
+                    conflicts = Booking.query.filter(
+                        Booking.employee_id == employee.id,
+                        Booking.date.in_([booking_date, next_day]),
+                        ~Booking.status.in_(['completed', 'cancelled'])
+                    ).all()
                     
-                    if test_datetime >= schedule_start and end_datetime <= schedule_end:
+                    has_conflict = False
+                    for existing_booking in conflicts:
+                        existing_start = datetime.combine(existing_booking.date, existing_booking.time)
+                        existing_duration = existing_booking.total_duration
+                        existing_end = existing_start + timedelta(minutes=existing_duration)
+                        
+                        # Use actual_booking_datetime (which identifies night shifts correctly)
+                        new_booking_start = actual_booking_datetime
+                        new_booking_end = actual_booking_datetime + timedelta(minutes=total_duration_minutes)
+                        
+                        if existing_start < new_booking_end and existing_end > new_booking_start:
+                            has_conflict = True
+                            break
+                    
+                    if not has_conflict:
+                        available_employee = employee
                         fits_in_schedule = True
-                        actual_booking_datetime = test_datetime
-                        actual_booking_date = test_datetime.date()
                         break
                 
-                if not fits_in_schedule:
+                if not available_employee:
                     continue
                 
-                end_datetime = actual_booking_datetime + timedelta(minutes=duration_minutes)
-                
-                # Check if employee has conflicting booking (check for time overlap)
-                # For night shifts, we need to check both the selected date and next day
-                # Check for any booking that is NOT completed or cancelled
-                next_day = booking_date + timedelta(days=1)
-                conflicts = Booking.query.filter(
-                    Booking.employee_id == employee.id,
-                    Booking.date.in_([booking_date, next_day]),
-                    ~Booking.status.in_(['completed', 'cancelled'])
-                ).all()
-                
-                has_conflict = False
-                for existing_booking in conflicts:
-                    # Calculate existing booking end time
-                    existing_start = datetime.combine(existing_booking.date, existing_booking.time)
-                    # Use existing booking's service duration or default to 60
-                    existing_duration = existing_booking.service.duration if existing_booking.service and existing_booking.service.duration else 60
-                    existing_end = existing_start + timedelta(minutes=existing_duration)
-                    
-                    # Check for overlap: existing_start < new_end AND existing_end > new_start
-                    if existing_start < end_datetime and existing_end > actual_booking_datetime:
-                        has_conflict = True
-                        break
-                
-                if not has_conflict:
-                    available_employee = employee
-                    # Store actual booking date/time for night shift bookings
-                    booking_date = actual_booking_date
-                    booking_time = actual_booking_datetime.time()
-                    break
+                # Store actual booking date/time if it were modified by night shifts
+                booking_date = actual_booking_date
+                booking_time = actual_booking_datetime.time()
+                break
             
             if not available_employee:
                 flash('عذراً، لا يوجد موظفين متاحين في هذا الوقت')
                 return redirect(url_for('customer.book'))
             
-            # --- Pricing Logic (City + Seasonal) ---
-            from app.models import Season, CityServicePrice, CityProductPrice
-            
-            # 1. Base Price + City Override
-            selected_service = Service.query.get(form.service_id.data)
-            custom_service_price = None
-            
-            city_service_price = CityServicePrice.query.filter_by(
-                city_id=neighborhood.city_id, 
-                service_id=form.service_id.data
-            ).first()
-            
-            if city_service_price:
-                custom_service_price = city_service_price.price
-            
-            # 2. Seasonal Override (takes highest priority if active)
-            active_season = Season.query.filter(
-                Season.is_active == True,
-                Season.start_date <= booking_date,
-                Season.end_date >= booking_date
-            ).first()
-            
-            if active_season:
-                ssp = active_season.service_prices.filter_by(service_id=form.service_id.data).first()
-                if ssp:
-                    custom_service_price = ssp.price
-                
+            # Create primary booking record
+            first_item = order_items[0]
             booking = Booking(
                 customer_id=current_user.id,
                 employee_id=available_employee.id,
-                vehicle_id=form.vehicle_id.data,
-                service_id=form.service_id.data,
+                vehicle_id=first_item['vehicle'].id,
+                service_id=first_item['service'].id,
                 neighborhood_id=neighborhood_id,
                 location_lat=float(location_lat),
                 location_lng=float(location_lng),
                 date=booking_date,
                 time=booking_time,
                 status='assigned',
+                is_multi_vehicle=len(order_items) > 1,
                 discount_code_id=discount_code.id if discount_code else None,
                 used_free_wash=use_free_wash,
                 vehicle_size_price=0.0,
                 payment_method=request.form.get('payment_method', 'cash'),
-                custom_service_price=custom_service_price
+                created_at=datetime.utcnow()
             )
             
-            # Get vehicle size price
-            vehicle = Vehicle.query.get(form.vehicle_id.data)
-            if vehicle and vehicle.size:
-                booking.vehicle_size_price = vehicle.size.price_adjustment
             db.session.add(booking)
-            db.session.flush()  # Get booking ID before adding products
+            db.session.flush()  # Get booking ID
+            
+            # --- Per-Item Pricing and BookingItem Creation ---
+            total_items_price = 0
+            
+            for idx, item in enumerate(order_items):
+                v = item['vehicle']
+                s = item['service']
+                
+                # Pricing Logic per item
+                item_service_price = s.price # Default
+                size_adj = 0.0
+                
+                # 1. City & Size Specific Price
+                city_size_price = CityServicePrice.query.filter_by(
+                    city_id=neighborhood.city_id, 
+                    service_id=s.id, 
+                    vehicle_size_id=v.vehicle_size_id
+                ).first()
+                
+                if city_size_price:
+                    item_service_price = city_size_price.price
+                    size_adj = 0.0 # City-size price is the full price
+                else:
+                    # Fallback to base price + size adjustment if no specific override
+                    # Note: You might want to filter services in the UI to only show those with city_size_price
+                    item_service_price = s.price
+                    if v.size:
+                        size_adj = v.size.price_adjustment
+                
+                # 3. Seasonal Override
+                if active_season:
+                    seasonal_sp = active_season.service_prices.filter_by(service_id=s.id).first()
+                    if seasonal_sp:
+                        item_service_price = seasonal_sp.price
+                
+                # Free Wash logic: Apply to first item
+                final_item_price = item_service_price + size_adj
+                if idx == 0 and use_free_wash:
+                    final_item_price = 0.0
+                
+                total_items_price += final_item_price
+                
+                b_item = BookingItem(
+                    booking_id=booking.id,
+                    vehicle_id=v.id,
+                    service_id=s.id,
+                    service_price=item_service_price,
+                    size_price_adjustment=size_adj,
+                    total_item_price=final_item_price
+                )
+                db.session.add(b_item)
+                
+                # For compatibility/legacy, set primary booking fields from first item
+                if idx == 0:
+                    booking.custom_service_price = item_service_price
+                    booking.vehicle_size_price = size_adj
+
+            booking.total_price = total_items_price
             
             # Handle product selections
             from app.models import BookingProduct, Product
+            total_products_price = 0
             for key in request.form.keys():
                 if key.startswith('product_') and request.form.get(key):
                     product_id = int(request.form.get(key))
@@ -616,6 +722,7 @@ def book():
                         if spp:
                             unit_price = spp.price
                     
+                    total_products_price += ((unit_price or 0) * (quantity or 1))
                     booking_product = BookingProduct(
                         booking_id=booking.id,
                         product_id=product_id,
@@ -623,6 +730,20 @@ def book():
                         unit_price=unit_price
                     )
                     db.session.add(booking_product)
+            
+            # Apply discounts on top of the calculated totals
+            if discount_code:
+                discount_value = 0
+                if discount_code.discount_type == 'percentage':
+                    # Apply percentage to the sum of services only? Usually standard.
+                    discount_value = ((total_items_price or 0) * (discount_code.value or 0)) / 100
+                else:
+                    discount_value = discount_code.value
+                
+                total_order = (total_items_price + total_products_price) - discount_value
+                booking.total_price = max(0, total_order)
+            else:
+                booking.total_price = total_items_price + total_products_price
             
             # Apply free wash or discount
             if use_free_wash:
@@ -669,7 +790,7 @@ def get_vehicle_size_price(vehicle_id):
 @bp.route('/api/neighborhoods/<int:city_id>')
 def get_neighborhoods(city_id):
     neighborhoods = Neighborhood.query.filter_by(city_id=city_id, is_active=True).all()
-    return jsonify([{'id': n.id, 'name': n.name_ar} for n in neighborhoods])
+    return jsonify([{'id': n.id, 'name': n.name_ar, 'lat': n.latitude, 'lng': n.longitude} for n in neighborhoods])
 
 @bp.route('/api/package-price/<int:package_id>/<int:city_id>')
 def get_package_price(package_id, city_id):
@@ -855,9 +976,11 @@ def get_available_times():
     if booking_date > today + timedelta(days=limit): 
         return jsonify([])
     
-    # Dynamic duration based on service
-    service = Service.query.get(service_id)
-    duration_minutes = service.duration if service and service.duration else 60
+    # Dynamic duration based on service or explicit parameter
+    duration_minutes = request.args.get('duration', type=int)
+    if not duration_minutes:
+        service = Service.query.get(service_id)
+        duration_minutes = service.duration if service and service.duration else 60
     
     # 15-minute intervals for start times
     interval_minutes = 15
@@ -870,8 +993,60 @@ def get_available_times():
     
     employees = neighborhood.employees.filter_by(role='employee').all()
     
+    # --- New Rules: Multi-vehicle and Same-Employee Logic ---
+    vehicle_ids = request.args.getlist('vehicle_ids[]')
+    
+    # 1. Strict Single-Active-Booking Rule: Check for active bookings today
+    if vehicle_ids:
+        active_booking = BookingItem.query.join(Booking).filter(
+            BookingItem.vehicle_id.in_(vehicle_ids),
+            Booking.date == booking_date,
+            Booking.status.notin_(['cancelled', 'completed'])
+        ).first()
+        if active_booking:
+            # If any vehicle has an active booking today, no additional bookings allowed
+            return jsonify({
+                'available_times': [], 
+                'error': f'عذراً، لديك سيارة لديها حجز فعال حالياً لهذا اليوم رقم ({active_booking.booking_id}). يرجى إتمامه أولاً.'
+            })
+
+    # 2. Same-Employee Assignment Rule: Find preferred employee based on ANY booking today
+    preferred_employee_id = None
+    if vehicle_ids:
+        for v_id in vehicle_ids:
+            prev_item = BookingItem.query.join(Booking).filter(
+                BookingItem.vehicle_id == v_id,
+                Booking.date == booking_date,
+                Booking.status.notin_(['cancelled'])
+            ).first()
+            if prev_item and prev_item.booking.employee_id:
+                preferred_employee_id = prev_item.booking.employee_id
+                break
+                
+    # If a vehicle has a preferred employee, restrict availability to that employee only
+    if preferred_employee_id:
+        employees = [e for e in employees if e.id == preferred_employee_id]
+    
     if not employees:
         return jsonify([])
+    
+    # 3. Get customer's other bookings to prevent they booking multiple overlapping slots
+    customer_other_bookings = []
+    if current_user.is_authenticated:
+        customer_other_bookings = Booking.query.filter(
+            Booking.customer_id == current_user.id,
+            Booking.date == booking_date,
+            Booking.status.notin_(['cancelled', 'completed'])
+        ).all()
+
+    # 4. Vehicle conflicts (kept for temporal overlap check of COMPLETED/Other bookings, though Rule #1 handles active)
+    vehicle_conflicts = []
+    if vehicle_ids:
+        vehicle_conflicts = BookingItem.query.join(Booking).filter(
+            BookingItem.vehicle_id.in_(vehicle_ids),
+            Booking.date == booking_date,
+            Booking.status.notin_(['cancelled'])
+        ).all()
     
     # Collect all available slots from all employees
     # Format: (display_time_str, actual_datetime)
@@ -929,18 +1104,35 @@ def get_available_times():
             while current_time + timedelta(minutes=duration_minutes) <= shift_end:
                 slot_end_datetime = current_time + timedelta(minutes=duration_minutes)
                 
-                # Check if this slot conflicts with existing bookings
+                # Check if this slot conflicts with existing bookings (Employee, Customer, and Vehicle)
                 has_conflict = False
+                
+                # Check Employee Conflicts (Already in code)
                 for booking in conflicts:
-                    # Calculate existing booking time range
-                    booking_start = datetime.combine(booking.date, booking.time)
-                    existing_duration = booking.service.duration if booking.service and booking.service.duration else 60
-                    booking_end = booking_start + timedelta(minutes=existing_duration)
-                    
-                    # Check for overlap: slot_start < booking_end AND slot_end > booking_start
-                    if current_time < booking_end and slot_end_datetime > booking_start:
+                    b_start = datetime.combine(booking.date, booking.time)
+                    b_end = b_start + timedelta(minutes=booking.total_duration)
+                    if current_time < b_end and slot_end_datetime > b_start:
                         has_conflict = True
                         break
+                
+                if not has_conflict:
+                    # Check Customer Conflicts (Cannot have two overlapping bookings)
+                    for b in customer_other_bookings:
+                        b_start = datetime.combine(b.date, b.time)
+                        b_end = b_start + timedelta(minutes=b.total_duration)
+                        if current_time < b_end and slot_end_datetime > b_start:
+                            has_conflict = True
+                            break
+                            
+                if not has_conflict:
+                    # Check Vehicle Conflicts (Car can't be washed twice at the same time)
+                    for item in vehicle_conflicts:
+                        b = item.booking
+                        b_start = datetime.combine(b.date, b.time)
+                        b_end = b_start + timedelta(minutes=b.total_duration)
+                        if current_time < b_end and slot_end_datetime > b_start:
+                            has_conflict = True
+                            break
                 
                 if not has_conflict:
                     # Additional check: if booking for today, ensure time slot hasn't passed
@@ -1139,13 +1331,16 @@ def book_subscription_wash(subscription_id):
              return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
         # Check for existing active booking on the same day for this subscription
-        existing_booking = Booking.query.filter(
-            Booking.subscription_id == subscription.id,
+        # 1. Strict Single-Active-Booking Rule: Check for ANY active booking for this vehicle today
+        from app.models import BookingItem
+        active_prev = BookingItem.query.join(Booking).filter(
+            BookingItem.vehicle_id == subscription.vehicle_id,
             Booking.date == booking_date,
-            ~Booking.status.in_(['completed', 'cancelled'])
+            Booking.status.notin_(['cancelled', 'completed'])
         ).first()
-        if existing_booking:
-            flash('لديك حجز قائم بالفعل في هذا اليوم لهذا الاشتراك', 'error')
+
+        if active_prev:
+            flash(f'عذراً، لديك حجز فعال حالياً لهذه المركبة في نفس اليوم. يرجى إتمام الحجز الحالي أولاً.', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
         # Find available employee
@@ -1196,10 +1391,9 @@ def book_subscription_wash(subscription_id):
                 
                 # For times after midnight in night shifts, actual datetime is next day
                 test_datetime = booking_datetime
-                if is_night_shift and booking_time < schedule.start_time:
-                    test_datetime = booking_datetime + timedelta(days=1)
-                
-                end_datetime = test_datetime + timedelta(minutes=90)
+                # Determine end time based on the service duration (default to 60 if not found)
+                booking_duration = default_service.duration if (default_service and default_service.duration) else 60
+                end_datetime = test_datetime + timedelta(minutes=booking_duration)
                 
                 if test_datetime >= schedule_start and end_datetime <= schedule_end:
                     fits_in_schedule = True
@@ -1210,7 +1404,9 @@ def book_subscription_wash(subscription_id):
             if not fits_in_schedule:
                 continue
             
-            end_datetime = actual_booking_datetime + timedelta(minutes=90)
+            # Use dynamic service duration (default to 60 if not found)
+            booking_duration = default_service.duration if (default_service and default_service.duration) else 60
+            end_datetime = actual_booking_datetime + timedelta(minutes=booking_duration)
             
             # Check for conflicts with existing bookings (check both days for night shifts)
             next_day = booking_date + timedelta(days=1)
@@ -1222,8 +1418,11 @@ def book_subscription_wash(subscription_id):
             
             has_conflict = False
             for existing_booking in conflicts:
+                # Use total duration of all items in existing booking
+                existing_duration = existing_booking.total_duration
+                # Use ACTUAL scheduled time for comparison
                 existing_start = datetime.combine(existing_booking.date, existing_booking.time)
-                existing_end = existing_start + timedelta(minutes=90)
+                existing_end = existing_start + timedelta(minutes=existing_duration)
                 
                 if existing_start < end_datetime and existing_end > actual_booking_datetime:
                     has_conflict = True
@@ -1628,3 +1827,61 @@ def track_booking(booking_id):
         return redirect(url_for('customer.my_bookings'))
     
     return render_template('customer/track_booking.html', booking=booking)
+
+@bp.route('/api/services-for-vehicle/<int:vehicle_id>')
+def get_services_for_vehicle(vehicle_id):
+    from app.models import Vehicle, CityServicePrice, Season, Service
+    from datetime import datetime
+    
+    vehicle = Vehicle.query.get_or_404(vehicle_id)
+    city_id = request.args.get('city_id', type=int)
+    date_str = request.args.get('date')
+    
+    booking_date = datetime.strptime(date_str, '%Y-%m-%d').date() if (date_str and date_str != 'undefined') else datetime.utcnow().date()
+    
+    # 1. Get prices from unified CityServicePrice for this city and vehicle size
+    if city_id:
+        city_prices = CityServicePrice.query.filter_by(
+            city_id=city_id, 
+            vehicle_size_id=vehicle.vehicle_size_id,
+            is_active=True
+        ).all()
+    else:
+        # Fallback if no city (though flow requires it) - maybe show all services with base price?
+        # But for this app, we strictly use city prices now.
+        return jsonify([])
+
+    if not city_prices:
+        return jsonify([])
+    
+    # 2. Get active season for overrides
+    active_season = Season.query.filter(
+        Season.is_active == True,
+        Season.start_date <= booking_date,
+        Season.end_date >= booking_date
+    ).first()
+    
+    results = []
+    for cp in city_prices:
+        service = cp.service
+        if not service or not service.is_active:
+            continue
+            
+        # Base price from city-size override
+        final_price = cp.price
+        
+        # Seasonal override (highest priority)
+        if active_season:
+            ssp = active_season.service_prices.filter_by(service_id=service.id).first()
+            if ssp:
+                final_price = ssp.price
+        
+        results.append({
+            'id': service.id,
+            'name': service.name_ar,
+            'description': service.description,
+            'price': final_price,
+            'duration': service.duration
+        })
+        
+    return jsonify(results)

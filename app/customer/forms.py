@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, DateField, TimeField, SubmitField, PasswordField
-from wtforms.validators import DataRequired, ValidationError, Email, EqualTo
+from wtforms.validators import DataRequired, ValidationError, Email, EqualTo, Optional
 from app.models import Vehicle, Service, City, Neighborhood
 
 class VehicleForm(FlaskForm):
@@ -17,12 +17,12 @@ class VehicleForm(FlaskForm):
     submit = SubmitField('حفظ')
 
 class BookingForm(FlaskForm):
-    vehicle_id = SelectField('السيارة', coerce=int, validators=[DataRequired()])
-    service_id = SelectField('الخدمة', coerce=lambda x: int(x) if x else None, validators=[DataRequired()])
-    city_id = SelectField('المدينة', coerce=lambda x: int(x) if x else None)
-    neighborhood_id = SelectField('الحي', coerce=int, validators=[DataRequired()])
+    vehicle_id = StringField('السيارة', validators=[Optional()])
+    service_id = StringField('الخدمة', validators=[Optional()])
+    city_id = SelectField('المدينة', coerce=lambda x: int(x) if x and str(x).isdigit() else None)
+    neighborhood_id = SelectField('الحي', coerce=lambda x: int(x) if x and str(x).isdigit() else None, validators=[DataRequired()])
     date = DateField('التاريخ', validators=[DataRequired()])
-    time = TimeField('الوقت', validators=[DataRequired()])
+    time = StringField('الوقت', validators=[DataRequired()])
     submit = SubmitField('حجز')
 
 class EditProfileForm(FlaskForm):
