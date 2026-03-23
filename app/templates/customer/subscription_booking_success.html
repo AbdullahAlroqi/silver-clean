@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center py-12">
+    <div
+        class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-green-500 to-green-600 rounded-full mb-6 animate-bounce">
+        <i class="fas fa-check text-white text-4xl"></i>
+    </div>
+
+    <h2 class="text-3xl font-bold text-white mb-4">تم تأكيد الحجز بنجاح!</h2>
+
+    <div class="bg-primary rounded-lg shadow-lg p-6 max-w-md mx-auto mb-6 border border-gray-700">
+        <div class="flex items-center justify-center gap-4 mb-4">
+            <i class="fas fa-car-side text-accent text-3xl"></i>
+            <i class="fas fa-arrow-left text-gray-500"></i>
+            <i class="fas fa-calendar-check text-green-400 text-3xl"></i>
+        </div>
+        
+        <p class="text-gray-300 text-lg mb-2">رقم الحجز: <span class="font-bold text-white">#{{ booking.id }}</span></p>
+        <p class="text-gray-400 text-sm mb-1">الموعد: <span class="text-white">{{ booking.date.strftime('%Y-%m-%d') }}</span></p>
+        
+        <p class="text-gray-400 text-sm mt-4 pt-4 border-t border-gray-700">
+            يمكنك متابعة حالة الحجز وتفاصيله من خلال صفحة حجوزاتي.
+        </p>
+    </div>
+
+    <div class="flex justify-center gap-4 flex-wrap">
+        <a href="{{ url_for('customer.my_bookings') }}"
+            class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-bold transition">
+            <i class="fas fa-list"></i>
+            الذهاب لحجوزاتي
+        </a>
+        <a href="{{ url_for('customer.index') }}"
+            class="inline-flex items-center gap-2 bg-accent hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-bold transition">
+            <i class="fas fa-home"></i>
+            العودة للرئيسية
+        </a>
+    </div>
+</div>
+{% endblock %}

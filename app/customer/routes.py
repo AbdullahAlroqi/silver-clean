@@ -1331,7 +1331,7 @@ def book_subscription_wash(subscription_id):
         
         # Check for existing active booking on the same day for this subscription
         # 1. Strict Single-Active-Booking Rule: Check for ANY active booking for this vehicle today
-        from app.models import BookingItem
+        from app.models import BookingItem, Booking
         active_prev = BookingItem.query.join(Booking).filter(
             BookingItem.vehicle_id == subscription.vehicle_id,
             Booking.date == booking_date,
@@ -1439,6 +1439,8 @@ def book_subscription_wash(subscription_id):
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
         # Create booking linked to subscription
+        payment_method = request.form.get('payment_method', 'subscription')
+        
         booking = Booking(
             customer_id=current_user.id,
             employee_id=available_employee.id,
@@ -1453,10 +1455,58 @@ def book_subscription_wash(subscription_id):
             subscription_id=subscription.id,  # Link to subscription
             used_free_wash=False,
             vehicle_size_price=0.0,
-            payment_method='subscription'
+            payment_method=payment_method
         )
         
         db.session.add(booking)
+        db.session.flush()  # needed to get booking.id
+        
+        # Handle product selections
+        from app.models import BookingProduct, Product, CityProductPrice, Season
+        total_products_price = 0
+        
+        active_season = Season.query.filter(
+            Season.is_active == True,
+            Season.start_date <= booking_date,
+            Season.end_date >= booking_date
+        ).first()
+
+        for key in request.form.keys():
+            if key.startswith('product_') and request.form.get(key):
+                product_id = int(request.form.get(key))
+                quantity_key = f'quantity_{product_id}'
+                quantity = int(request.form.get(quantity_key, 1))
+                
+                product = Product.query.get(product_id)
+                if not product:
+                    continue
+                    
+                unit_price = product.price
+                
+                city_product_price = CityProductPrice.query.filter_by(
+                    city_id=neighborhood.city_id,
+                    product_id=product.id
+                ).first()
+                if city_product_price:
+                    unit_price = city_product_price.price
+                    
+                if active_season:
+                    spp = active_season.product_prices.filter_by(product_id=product.id).first()
+                    if spp:
+                        unit_price = spp.price
+                        
+                total_product_cost = unit_price * quantity
+                total_products_price += total_product_cost
+                
+                bp = BookingProduct(
+                    booking_id=booking.id,
+                    product_id=product.id,
+                    quantity=quantity,
+                    unit_price=unit_price
+                )
+                db.session.add(bp)
+                
+        booking.total_price = total_products_price
         
         # Decrement remaining washes
         subscription.remaining_washes -= 1
@@ -1480,8 +1530,8 @@ def book_subscription_wash(subscription_id):
         except Exception as e:
             print(f"Failed to send notification: {e}")
         
-        flash('تم حجز الغسلة بنجاح!', 'success')
-        return redirect(url_for('customer.subscriptions'))
+        flash('تم تأكيد الحجز بنجاح!', 'success')
+        return redirect(url_for('customer.subscription_booking_success', booking_id=booking.id))
     
     settings = SiteSettings.get_settings()
     from app.models import City, Booking
@@ -1510,6 +1560,15 @@ def book_subscription_wash(subscription_id):
                            cities=cities,
                            default_city_id=default_city_id,
                            default_neighborhood_id=default_neighborhood_id)
+
+@bp.route('/subscription/booking-success/<int:booking_id>')
+@login_required
+def subscription_booking_success(booking_id):
+    from app.models import Booking
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.customer_id != current_user.id:
+        return redirect(url_for('customer.index'))
+    return render_template('customer/subscription_booking_success.html', booking=booking)
 
 @bp.route('/loyalty')
 def loyalty():

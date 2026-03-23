@@ -59,10 +59,10 @@
                     {% if booking.is_multi_vehicle %}
                         <div class="text-xs text-accent">متعدد</div>
                         {% for item in booking.items %}
-                            <div class="text-[10px]">• {{ item.service.name_ar }}</div>
+                            <div class="text-[10px]">• {{ booking.subscription.package.name_ar if booking.subscription_id and booking.subscription else item.service.name_ar }}</div>
                         {% endfor %}
                     {% else %}
-                        {{ booking.service.name_ar if booking.service else '-' }}
+                        {{ booking.subscription.package.name_ar if booking.subscription_id and booking.subscription else (booking.service.name_ar if booking.service else '-') }}
                     {% endif %}
                 </td>
                 <td class="p-4">

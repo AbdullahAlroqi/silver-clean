@@ -88,8 +88,20 @@
                                         <p class="text-accent text-xs">{{ item.vehicle.size.name_ar if item.vehicle.size else '' }}</p>
                                     </div>
                                     <div class="text-left">
-                                        <p class="text-white text-sm">{{ item.service.name_ar }}</p>
-                                        <p class="text-gray-400 text-xs font-bold">{{ item.total_item_price }} {{ _('SAR') }}</p>
+                                        <p class="text-white text-sm">
+                                            {% if booking.subscription_id and booking.subscription %}
+                                                {{ booking.subscription.package.name_ar }}
+                                            {% else %}
+                                                {{ item.service.name_ar }}
+                                            {% endif %}
+                                        </p>
+                                        <p class="text-gray-400 text-xs font-bold">
+                                            {% if booking.subscription_id or booking.used_free_wash %}
+                                                0.00 {{ _('SAR') }}
+                                            {% else %}
+                                                {{ item.total_item_price }} {{ _('SAR') }}
+                                            {% endif %}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -112,8 +124,20 @@
                                         <p class="text-accent text-xs">{{ booking.vehicle.size.name_ar if booking.vehicle.size else '' }}</p>
                                     </div>
                                     <div class="text-left">
-                                        <p class="text-white text-sm">{{ booking.service.name_ar }}</p>
-                                        <p class="text-gray-400 text-xs font-bold">{{ booking.custom_service_price or booking.service.price }} {{ _('SAR') }}</p>
+                                        <p class="text-white text-sm">
+                                            {% if booking.subscription_id and booking.subscription %}
+                                                {{ booking.subscription.package.name_ar }}
+                                            {% else %}
+                                                {{ booking.service.name_ar }}
+                                            {% endif %}
+                                        </p>
+                                        <p class="text-gray-400 text-xs font-bold">
+                                            {% if booking.subscription_id or booking.used_free_wash %}
+                                                0.00 {{ _('SAR') }}
+                                            {% else %}
+                                                {{ booking.custom_service_price or booking.service.price }} {{ _('SAR') }}
+                                            {% endif %}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -249,21 +273,22 @@
                     <span class="text-white font-bold text-lg">{{ _('Total') }}:</span>
                 </div>
                 <div class="text-left">
-                    {% if booking.subscription_id %}
-                    {# Subscription booking - already paid through subscription #}
-                    <span class="text-purple-400 font-bold text-2xl">0.0 {{ _('SAR') }}</span>
-                    <p class="text-xs text-gray-400 mt-1">(اشتراك - مدفوع مسبقاً)</p>
-                    {% else %}
                     <span class="text-accent font-bold text-2xl">{{ "%.1f"|format(booking.total_price) }} {{ _('SAR') }}</span>
+                    {% if booking.subscription_id %}
+                    <p class="text-xs text-blue-400 mt-1">(الخدمة مشمولة بالاشتراك)</p>
+                    {% elif booking.used_free_wash %}
+                    <p class="text-xs text-green-400 mt-1">(غسلة مجانية)</p>
                     {% endif %}
                 </div>
             </div>
 
             {% set vehicles_str = namespace(val="") %}
             {% for itm in booking.items %}
-                {% set vehicles_str.val = vehicles_str.val ~ "%0A🚗 " ~ itm.vehicle.brand ~ " (" ~ itm.vehicle.plate_number ~ ") - " ~ itm.service.name_ar %}
+                {% set Vehicles_ServiceName = booking.subscription.package.name_ar if (booking.subscription_id and booking.subscription) else itm.service.name_ar %}
+                {% set vehicles_str.val = vehicles_str.val ~ "%0A🚗 " ~ itm.vehicle.brand ~ " (" ~ itm.vehicle.plate_number ~ ") - " ~ Vehicles_ServiceName %}
             {% else %}
-                {% set vehicles_str.val = "%0A🚗 " ~ booking.vehicle.brand ~ " (" ~ booking.vehicle.plate_number ~ ") - " ~ booking.service.name_ar %}
+                {% set Legacy_ServiceName = booking.subscription.package.name_ar if (booking.subscription_id and booking.subscription) else booking.service.name_ar %}
+                {% set vehicles_str.val = "%0A🚗 " ~ booking.vehicle.brand ~ " (" ~ booking.vehicle.plate_number ~ ") - " ~ Legacy_ServiceName %}
             {% endfor %}
 
             {% set msg = "مرحباً " ~ booking.customer.username ~ " 👋،%0A" ~

@@ -58,19 +58,45 @@
                             <div class="bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
                                 <div>
                                     <div class="font-bold text-white">{{ item.vehicle.brand }} - {{ item.vehicle.plate_number }}</div>
-                                    <div class="text-sm text-gray-400">{{ item.service.name_ar }}</div>
+                                    <div class="text-sm text-gray-400">
+                                        {% if booking.subscription_id and booking.subscription %}
+                                            {{ booking.subscription.package.name_ar }}
+                                        {% else %}
+                                            {{ item.service.name_ar }}
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                <div class="text-accent font-bold">{{ item.total_item_price }} ريال</div>
+                                <div class="text-accent font-bold">
+                                    {% if booking.subscription_id %}
+                                        0 ريال (مشمول)
+                                    {% elif booking.used_free_wash %}
+                                        0 ريال (مجانية)
+                                    {% else %}
+                                        {{ item.total_item_price }} ريال
+                                    {% endif %}
+                                </div>
                             </div>
                             {% else %}
                             {# Fallback for legacy bookings #}
                             <div class="bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
                                 <div>
                                     <div class="font-bold text-white">{{ booking.vehicle.brand }} - {{ booking.vehicle.plate_number }}</div>
-                                    <div class="text-sm text-gray-400">{{ booking.service.name_ar }}</div>
+                                    <div class="text-sm text-gray-400">
+                                        {% if booking.subscription_id and booking.subscription %}
+                                            {{ booking.subscription.package.name_ar }}
+                                        {% else %}
+                                            {{ booking.service.name_ar }}
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 <div class="text-accent font-bold">
-                                    {{ booking.custom_service_price if booking.custom_service_price is not none else booking.service.price }} ريال
+                                    {% if booking.subscription_id %}
+                                        0 ريال (مشمول)
+                                    {% elif booking.used_free_wash %}
+                                        0 ريال (مجانية)
+                                    {% else %}
+                                        {{ booking.custom_service_price if booking.custom_service_price is not none else booking.service.price }} ريال
+                                    {% endif %}
                                 </div>
                             </div>
                             {% endfor %}

@@ -104,8 +104,20 @@
                     <div class="flex justify-between items-start gap-2 border-b border-gray-700 pb-2 last:border-0 last:pb-0">
                         <div>
                             <div class="font-bold text-xs text-accent">{{ item.vehicle.brand }} ({{ item.vehicle.plate_number }})</div>
-                            <div class="text-sm">{{ item.service.name_ar }}</div>
-                            <div class="text-[10px] text-gray-400">{{ item.total_item_price }} ريال</div>
+                            <div class="text-sm">
+                                {% if booking.subscription_id and booking.subscription %}
+                                    {{ booking.subscription.package.name_ar }}
+                                {% else %}
+                                    {{ item.service.name_ar }}
+                                {% endif %}
+                            </div>
+                            <div class="text-[10px] text-gray-400">
+                                {% if booking.subscription_id or booking.used_free_wash %}
+                                    0.00 ريال
+                                {% else %}
+                                    {{ item.total_item_price }} ريال
+                                {% endif %}
+                            </div>
                         </div>
                         {% if booking.items.count() > 1 %}
                         <form action="{{ url_for('admin.delete_booking_item', booking_id=booking.id, item_id=item.id) }}" method="post" 
@@ -119,7 +131,13 @@
                     </div>
                     {% else %}
                     {# Fallback for old bookings without items #}
-                    <div>{{ booking.service.name_ar if booking.service else 'N/A' }}</div>
+                    <div>
+                        {% if booking.subscription_id and booking.subscription %}
+                            {{ booking.subscription.package.name_ar }}
+                        {% else %}
+                            {{ booking.service.name_ar if booking.service else 'N/A' }}
+                        {% endif %}
+                    </div>
                     {% endfor %}
                     </div>
 
@@ -232,8 +250,9 @@
                                 {% set total_prods_price.val = total_prods_price.val + (unit_p * p.quantity) %}
                             {% endfor %}
 
-                            {% if total_items_price.val > 0 %}
-                            <div>الخدمات: {{ "%.2f"|format(total_items_price.val) }} ريال</div>
+                            {% set show_items_price = 0 if (booking.subscription_id or booking.used_free_wash) else total_items_price.val %}
+                            {% if show_items_price > 0 or booking.subscription_id or booking.used_free_wash %}
+                            <div>الخدمات: {{ "%.2f"|format(show_items_price) }} ريال</div>
                             {% endif %}
                             
                             {% if total_prods_price.val > 0 %}

@@ -11,8 +11,34 @@
 </div>
 
 <div class="mb-6">
-    <h2 class="text-2xl font-bold text-white mb-2">حجز غسلة من الاشتراك</h2>
-    <p class="text-gray-400">{{ subscription.package.name_ar if subscription.package else subscription.plan_type }}</p>
+    <h2 class="text-3xl font-bold text-white mb-8 text-center">حجز موعد باشتراك</h2>
+    <p class="text-center text-gray-400 mb-8">{{ subscription.package.name_ar if subscription.package else subscription.plan_type }}</p>
+</div>
+
+<!-- Progress Steps -->
+<div class="mb-8">
+    <div class="flex justify-between items-center">
+        <div class="flex-1 text-center">
+            <div id="step1-indicator"
+                class="w-10 h-10 bg-accent rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm transition-colors duration-300">
+                1</div>
+            <p class="text-xs text-gray-400">الموقع</p>
+        </div>
+        <div class="flex-1 h-1 bg-gray-700 transition-colors duration-300" id="line1"></div>
+        <div class="flex-1 text-center">
+            <div id="step2-indicator"
+                class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm transition-colors duration-300">
+                2</div>
+            <p class="text-xs text-gray-400">الموعد والمنتجات</p>
+        </div>
+        <div class="flex-1 h-1 bg-gray-700 transition-colors duration-300" id="line2"></div>
+        <div class="flex-1 text-center">
+            <div id="step3-indicator"
+                class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm transition-colors duration-300">
+                3</div>
+            <p class="text-xs text-gray-400">المراجعة</p>
+        </div>
+    </div>
 </div>
 
 <!-- Subscription Info -->
@@ -43,19 +69,19 @@
 </div>
 
 <!-- Booking Form -->
-<form method="POST" class="bg-primary rounded-lg shadow-lg p-6">
+<form method="POST" id="subscriptionBookingForm" class="bg-primary rounded-lg shadow-lg p-6" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="space-y-6">
-        <!-- Location Selection -->
-        <h3 class="text-xl font-bold text-accent mb-4 flex items-center">
-            <i class="fas fa-map-marker-alt ml-2"></i>
-            اختر الموقع
+    
+    <!-- Step 1: Location -->
+    <div id="step1" class="step-content">
+        <h3 class="text-xl font-bold text-accent mb-6 flex items-center">
+            <i class="fas fa-map-marker-alt ml-2"></i> الخطوة 1: موقع الخدمة
         </h3>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
                 <label class="block text-gray-300 text-sm font-bold mb-2">المدينة</label>
-                <select id="city-select" name="city_id" required
+                <select id="city-select" name="city_id"
                         class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
                     <option value="">-- اختر المدينة --</option>
                     {% for city in cities %}
@@ -65,7 +91,7 @@
             </div>
             <div>
                 <label class="block text-gray-300 text-sm font-bold mb-2">الحي</label>
-                <select id="neighborhood-select" name="neighborhood_id" required
+                <select id="neighborhood-select" name="neighborhood_id"
                         class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
                     <option value="">-- اختر الحي --</option>
                     {% if subscription.neighborhood %}
@@ -75,61 +101,133 @@
             </div>
         </div>
 
-        <!-- Map Location Picker -->
-        <div class="mt-6 border-b border-gray-700 pb-6">
-            <label class="block text-sm font-medium text-gray-300 mb-2">
-                <i class="fas fa-map ml-1"></i> حدد موقعك بدقة من الخريطة <span class="text-red-500">*</span>
-            </label>
-            <div class="flex gap-2 mb-3">
-                <button type="button" onclick="getMyLocation()" id="geoBtn"
-                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
-                    <i class="fas fa-crosshairs ml-1"></i> حدد موقعي تلقائياً
-                </button>
+        <label class="block text-sm font-medium text-gray-300 mb-2">
+            <i class="fas fa-map ml-1"></i> حدد موقعك بدقة من الخريطة <span class="text-red-500">*</span>
+        </label>
+        <div class="flex gap-2 mb-3">
+            <button type="button" onclick="getMyLocation()" id="geoBtn"
+                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                <i class="fas fa-crosshairs ml-1"></i> حدد موقعي تلقائياً
+            </button>
+        </div>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <div id="locationMap" style="height: 300px; width: 100%; border-radius: 12px; z-index: 1;" class="border border-gray-700"></div>
+        <div id="coverageStatus" class="mt-3 hidden p-3 rounded-lg text-center font-bold">
+            <span id="coverageIcon"></span>
+            <span id="coverageText"></span>
+        </div>
+        <!-- Hidden inputs -->
+        <input type="hidden" name="location_lat" id="location_lat" value="">
+        <input type="hidden" name="location_lng" id="location_lng" value="">
+        <input type="hidden" name="detected_neighborhood_id" id="detected_neighborhood_id" value="{{ subscription.neighborhood_id or '' }}">
+        
+        <div class="mt-8 flex justify-end border-t border-gray-700 pt-6">
+            <button type="button" onclick="nextStep(2)" id="btnNextStep1"
+                class="bg-accent hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition" disabled>
+                التالي <i class="fas fa-arrow-left mr-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 2: Date, Time & Products -->
+    <div id="step2" class="step-content hidden">
+        <h3 class="text-xl font-bold text-accent mb-6 flex items-center">
+            <i class="fas fa-calendar-alt ml-2"></i> الخطوة 2: الموعد والمنتجات
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="date">
+                    <i class="fas fa-calendar-day ml-2"></i>التاريخ
+                </label>
+                <input type="date" id="date" name="date"
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
             </div>
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-            <div id="locationMap" style="height: 300px; width: 100%; border-radius: 12px; z-index: 1;" class="border border-gray-700"></div>
-            <div id="coverageStatus" class="mt-3 hidden p-3 rounded-lg text-center font-bold">
-                <span id="coverageIcon"></span>
-                <span id="coverageText"></span>
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="time">
+                    <i class="fas fa-clock ml-2"></i>الوقت
+                </label>
+                <select id="time" name="time"
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
+                    <option value="">-- اختر التاريخ أولاً --</option>
+                </select>
+                <p id="time-loading" class="text-gray-400 text-sm mt-2 hidden">
+                    <i class="fas fa-spinner fa-spin ml-2"></i>جاري تحميل الأوقات...
+                </p>
+                <p id="no-times" class="text-yellow-400 text-sm mt-2 hidden">
+                    <i class="fas fa-exclamation-triangle ml-2"></i>لا توجد أوقات متاحة
+                </p>
             </div>
-            <!-- Hidden inputs -->
-            <input type="hidden" name="location_lat" id="location_lat" value="">
-            <input type="hidden" name="location_lng" id="location_lng" value="">
-            <input type="hidden" name="detected_neighborhood_id" id="detected_neighborhood_id" value="{{ subscription.neighborhood_id or '' }}">
         </div>
 
-        <!-- Date Selection -->
-        <div>
-            <label class="block text-gray-300 text-sm font-bold mb-2" for="date">
-                <i class="fas fa-calendar-alt ml-2"></i>اختر التاريخ
-            </label>
-            <input type="date" id="date" name="date" required
-                class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
+        <h3 class="text-lg font-bold text-white mb-4 flex items-center mt-8 border-t border-gray-700 pt-6">
+            <i class="fas fa-pump-soap ml-2 text-accent"></i> المنتجات الإضافية (اختياري)
+        </h3>
+        <p class="text-gray-400 text-sm mb-4">أضف منتجات العناية بسيارتك، وسيتم تحصيل قيمتها من قبل الموظف عند تقديم الخدمة.</p>
+        <div id="products-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <p class="text-gray-500 text-center col-span-2">يرجى اختيار الحي والتاريخ لعرض المنتجات</p>
+        </div>
+        
+        <div class="mt-8 flex justify-between border-t border-gray-700 pt-6">
+            <button type="button" onclick="prevStep(1)"
+                class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                <i class="fas fa-arrow-right mr-2"></i> السابق
+            </button>
+            <button type="button" onclick="nextStep(3)" id="btnNextStep2"
+                class="bg-accent hover:bg-blue-600 disabled:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition" disabled>
+                التالي <i class="fas fa-arrow-left mr-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Step 3: Order Summary & Submit -->
+    <div id="step3" class="step-content hidden">
+        <h3 class="text-xl font-bold text-accent mb-6 flex items-center">
+            <i class="fas fa-receipt ml-2"></i> الخطوة 3: ملخص الطلب والتأكيد
+        </h3>
+        
+        <div class="space-y-3 text-gray-300 bg-darkbg p-6 rounded-lg border border-gray-600 mb-6 shadow-inner">
+            <div class="flex justify-between items-center text-xl mb-4">
+                <span>الخدمة الأساسية:</span>
+                <span class="font-bold text-green-400">مشمولة (0 ريال)</span>
+            </div>
+            
+            <div id="summary-products-container" class="hidden">
+                 <div class="border-t border-gray-700 my-4 pt-4">
+                     <p class="font-bold mb-3 text-white text-lg">المنتجات الإضافية:</p>
+                     <div id="summary-products-list" class="space-y-2 text-gray-300 ml-2"></div>
+                 </div>
+                 <div class="flex justify-between items-center font-bold mt-4 bg-gray-900 border border-gray-700 p-3 rounded text-lg">
+                    <span>قيمة المنتجات:</span>
+                    <span id="summary-products-total" class="text-accent">0 ريال</span>
+                 </div>
+                 
+                 <div class="mt-6 pt-4 border-t border-gray-700">
+                     <p class="font-bold mb-4 text-white text-lg">طريقة الدفع للمنتجات بوجود الموظف:</p>
+                     <div class="flex gap-6">
+                         <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-600 rounded flex-1 hover:border-accent transition">
+                             <input type="radio" name="payment_method" value="cash" checked class="form-radio text-accent w-5 h-5 focus:ring-accent"> 
+                             <span class="font-bold">كاش <i class="fas fa-money-bill-wave text-green-500 mr-2"></i></span>
+                         </label>
+                         <label class="flex items-center gap-3 cursor-pointer p-3 border border-gray-600 rounded flex-1 hover:border-accent transition">
+                             <input type="radio" name="payment_method" value="pos" class="form-radio text-accent w-5 h-5 focus:ring-accent"> 
+                             <span class="font-bold">شبكة / مدى <i class="fas fa-credit-card text-blue-400 mr-2"></i></span>
+                         </label>
+                     </div>
+                 </div>
+            </div>
         </div>
 
-        <!-- Time Selection -->
-        <div>
-            <label class="block text-gray-300 text-sm font-bold mb-2" for="time">
-                <i class="fas fa-clock ml-2"></i>اختر الوقت
-            </label>
-            <select id="time" name="time" required
-                class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-accent focus:outline-none">
-                <option value="">-- اختر التاريخ أولاً --</option>
-            </select>
-            <p id="time-loading" class="text-gray-400 text-sm mt-2 hidden">
-                <i class="fas fa-spinner fa-spin ml-2"></i>جاري تحميل الأوقات المتاحة...
-            </p>
-            <p id="no-times" class="text-yellow-400 text-sm mt-2 hidden">
-                <i class="fas fa-exclamation-triangle ml-2"></i>لا توجد أوقات متاحة في هذا اليوم
-            </p>
+        <div class="mt-8 flex justify-between border-t border-gray-700 pt-6">
+            <button type="button" onclick="prevStep(2)"
+                class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                <i class="fas fa-arrow-right mr-2"></i> السابق
+            </button>
+            <button type="submit" id="submit-btn"
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition flex items-center justify-center gap-2">
+                <i class="fas fa-check-circle text-xl"></i>
+                <span class="text-lg">تأكيد الحجز النهائي</span>
+            </button>
         </div>
-
-        <!-- Submit Button -->
-        <button type="submit" id="submit-btn" disabled
-            class="w-full bg-accent hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition flex items-center justify-center gap-2">
-            <i class="fas fa-check-circle"></i>
-            تأكيد الحجز
-        </button>
     </div>
 </form>
 
@@ -139,6 +237,85 @@
     var locMarker = null;
     var currentBoundaryGeoJSON = null;
     var currentBoundaryLayer = null;
+    let productsData = [];
+
+    // Stepper Variables
+    let currentStep = 1;
+
+    function showStep(step) {
+        document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+        document.getElementById('step' + step).classList.remove('hidden');
+
+        for (let i = 1; i <= 3; i++) {
+            const indicator = document.getElementById('step' + i + '-indicator');
+            const line = document.getElementById('line' + i);
+
+            if (indicator) {
+                if (i < step) {
+                    indicator.classList.remove('bg-gray-700');
+                    indicator.classList.add('bg-green-600');
+                    if (line) {
+                        line.classList.remove('bg-gray-700');
+                        line.classList.add('bg-green-600');
+                    }
+                } else if (i === step) {
+                    indicator.classList.remove('bg-gray-700', 'bg-green-600');
+                    indicator.classList.add('bg-accent');
+                } else {
+                    indicator.classList.remove('bg-accent', 'bg-green-600');
+                    indicator.classList.add('bg-gray-700');
+                    if (line) {
+                        line.classList.remove('bg-green-600');
+                        line.classList.add('bg-gray-700');
+                    }
+                }
+            }
+        }
+        currentStep = step;
+        
+        if (step === 3) updateSummary();
+        if (step === 1 && locMap) {
+            setTimeout(() => locMap.invalidateSize(), 100);
+        }
+    }
+
+    function nextStep(step) {
+        if (currentStep === 1) {
+            const city = document.getElementById('city-select').value;
+            const neighborhood = document.getElementById('neighborhood-select').value;
+            const lat = document.getElementById('location_lat').value;
+            const lng = document.getElementById('location_lng').value;
+            
+            if (!city || !neighborhood) {
+                alert('الرجاء اختيار المدينة والحي');
+                return;
+            }
+            if (!lat || !lng) {
+                alert('الرجاء تحديد موقعك بدقة على الخريطة للوصول إليك');
+                return;
+            }
+            if (currentBoundaryGeoJSON && !checkPointInGeoJSON(lat, lng, currentBoundaryGeoJSON)) {
+                alert('عذراً الموقع المحدد يقع خارج حدود الحي المختار! يرجى تحريك الدبوس إلى داخل المنطقة المظللة للاستمرار.');
+                return;
+            }
+        } else if (currentStep === 2) {
+            const date = document.getElementById('date').value;
+            const time = document.getElementById('time').value;
+            if (!date) {
+                alert('الرجاء اختيار التاريخ');
+                return;
+            }
+            if (!time) {
+                alert('الرجاء اختيار الوقت المتاح للمتابعة');
+                return;
+            }
+        }
+        showStep(step);
+    }
+
+    function prevStep(step) {
+        showStep(step);
+    }
 
     var customIcon = L.icon({
         iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -285,6 +462,7 @@
             }
             document.getElementById('detected_neighborhood_id').value = this.value;
             loadAvailableTimes();
+            loadProducts();
         });
 
         function loadAvailableTimes() {
@@ -302,7 +480,7 @@
             timeLoading.classList.remove('hidden');
             noTimes.classList.add('hidden');
             timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
-            submitBtn.disabled = true;
+            document.getElementById('btnNextStep2').disabled = true;
 
             fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId + '&vehicle_ids[]=' + "{{ subscription.vehicle_id }}" + '&type=subscription')
                 .then(function (response) { return response.json(); })
@@ -314,7 +492,7 @@
                         noTimes.classList.remove('hidden');
                         noTimes.innerHTML = `<i class="fas fa-exclamation-circle ml-2"></i>${data.error}`;
                         timeSelect.innerHTML = `<option value="">${data.error}</option>`;
-                        submitBtn.disabled = true;
+                        document.getElementById('btnNextStep2').disabled = true;
                         return;
                     }
 
@@ -323,7 +501,7 @@
                     if (times.length === 0) {
                         noTimes.classList.remove('hidden');
                         timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
-                        submitBtn.disabled = true;
+                        document.getElementById('btnNextStep2').disabled = true;
                     } else {
                         var defaultOption = document.createElement('option');
                         defaultOption.value = '';
@@ -347,11 +525,13 @@
                 });
         }
 
-        dateInput.addEventListener('change', loadAvailableTimes);
+        dateInput.addEventListener('change', function() {
+            loadAvailableTimes();
+            loadProducts();
+        });
 
         timeSelect.addEventListener('change', function () {
-            // Also ensure valid location
-            submitBtn.disabled = !this.value || !document.getElementById('location_lat').value || !isWithinBoundary;
+            document.getElementById('btnNextStep2').disabled = !this.value;
         });
 
         initLocationMap();
@@ -371,6 +551,7 @@
             });
             // Try to load immediately if date is somehow set
             loadAvailableTimes();
+            loadProducts();
         }
 
         // Form submission validation
@@ -425,9 +606,8 @@
         document.getElementById('location_lat').value = lat;
         document.getElementById('location_lng').value = lng;
         
-        // Final logic to enable submit button
-        const timeVal = document.getElementById('time').value;
-        document.getElementById('submit-btn').disabled = !timeVal || !lat || !isWithinBoundary;
+        // Final logic to enable step 1 next button
+        document.getElementById('btnNextStep1').disabled = !lat || !isWithinBoundary;
     }
 
     function getMyLocation() {
@@ -534,6 +714,171 @@
             statusDiv.classList.remove('hidden');
         }
         updateLocationFields(lat, lng);
+    }
+
+    function loadProducts() {
+        const neighborhoodId = document.getElementById('neighborhood-select').value;
+        const productsContainer = document.getElementById('products-container');
+        
+        if (!neighborhoodId) {
+            productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2">يرجى اختيار الحي لعرض المنتجات</p>';
+            return;
+        }
+
+        productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2"><i class="fas fa-spinner fa-spin mr-2"></i>جاري تحميل المنتجات...</p>';
+
+        const params = new URLSearchParams();
+        params.append('neighborhood_id', neighborhoodId);
+
+        fetch('/customer/api/products?' + params)
+            .then(response => response.json())
+            .then(products => {
+                productsData = products;
+                if (products.length === 0) {
+                    productsContainer.innerHTML = '<p class="text-gray-500 text-center col-span-2">لا توجد منتجات متاحة في هذا الموقع</p>';
+                    return;
+                }
+
+                const date = document.getElementById('date').value;
+                if (date) {
+                    fetch('/customer/api/prices?date=' + date)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (!data.error && data.prices && data.prices.products) {
+                                productsData.forEach(p => {
+                                    if (data.prices.products[p.id] !== undefined) {
+                                        p.price = data.prices.products[p.id];
+                                    }
+                                });
+                            }
+                            renderProductsFromData();
+                        })
+                        .catch(() => renderProductsFromData());
+                } else {
+                    renderProductsFromData();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading products:', error);
+                productsContainer.innerHTML = '<p class="text-red-500 text-center col-span-2">حدث خطأ في تحميل المنتجات</p>';
+            });
+    }
+
+    function renderProductsFromData() {
+        const productsContainer = document.getElementById('products-container');
+        if (!productsData || productsData.length === 0) return;
+
+        // Save current selections to avoid resetting when changing date
+        const userSelections = {};
+        productsData.forEach(product => {
+            const checkbox = document.querySelector(`input[name="product_${product.id}"]`);
+            if (checkbox && checkbox.checked) {
+                const qtyInput = document.querySelector(`input[name="quantity_${product.id}"]`);
+                userSelections[product.id] = qtyInput ? parseInt(qtyInput.value) : 1;
+            }
+        });
+
+        productsContainer.innerHTML = '';
+
+        productsData.forEach(product => {
+            const isSelected = !!userSelections[product.id];
+            const qty = userSelections[product.id] || 1;
+            
+            const div = document.createElement('div');
+            div.className = `product-card bg-darkbg border ${isSelected ? 'border-accent' : 'border-gray-700'} rounded-lg p-4 cursor-pointer hover:border-accent transition`;
+            div.onclick = function(e) {
+                if (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'button' || e.target.tagName.toLowerCase() === 'i') {
+                    return; // Let native events handle these
+                }
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            };
+            
+            div.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" name="product_${product.id}" value="${product.id}" 
+                           class="w-5 h-5 text-accent rounded focus:ring-accent bg-gray-700 border-gray-600"
+                           ${isSelected ? 'checked' : ''} onchange="toggleProductStyle(this, ${product.id}); updateSummary();">
+                    
+                    <div class="flex-1 w-0">
+                        <div class="flex items-center gap-2">
+                             ${product.image_url ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-10 h-10 object-cover rounded shadow-sm">` : `<div class="w-10 h-10 bg-gray-700 rounded flex items-center justify-center shadow-sm"><i class="fas fa-box text-gray-500"></i></div>`}
+                             <div class="truncate">
+                                 <h4 class="font-bold text-white text-sm truncate" title="${product.name_ar}">${product.name_ar}</h4>
+                                 <p class="text-accent font-bold text-sm" id="price-display-${product.id}">${product.price} ريال</p>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="qty-container-${product.id}" class="mt-3 flex items-center justify-between border-t border-gray-700 pt-3 ${isSelected ? '' : 'hidden'}">
+                    <span class="text-sm text-gray-400">الكمية:</span>
+                    <div class="flex items-center gap-2 bg-gray-800 rounded px-2 py-1">
+                        <button type="button" onclick="updateQuantity(${product.id}, -1)" class="text-gray-400 hover:text-white px-2 py-1"><i class="fas fa-minus text-xs"></i></button>
+                        <input type="number" name="quantity_${product.id}" value="${qty}" min="1" max="10" readonly
+                               class="w-12 text-center bg-transparent text-white border-none focus:ring-0 p-0 text-sm font-bold">
+                        <button type="button" onclick="updateQuantity(${product.id}, 1)" class="text-gray-400 hover:text-white px-2 py-1"><i class="fas fa-plus text-xs"></i></button>
+                    </div>
+                </div>
+            `;
+            productsContainer.appendChild(div);
+        });
+        updateSummary();
+    }
+
+    window.toggleProductStyle = function(checkbox, productId) {
+        const card = checkbox.closest('.product-card');
+        const qtyContainer = document.getElementById(`qty-container-${productId}`);
+        
+        if (checkbox.checked) {
+            card.classList.remove('border-gray-700');
+            card.classList.add('border-accent');
+            if (qtyContainer) qtyContainer.classList.remove('hidden');
+        } else {
+            card.classList.remove('border-accent');
+            card.classList.add('border-gray-700');
+            if (qtyContainer) qtyContainer.classList.add('hidden');
+        }
+    };
+
+    window.updateQuantity = function(productId, change) {
+        const input = document.querySelector(`input[name="quantity_${productId}"]`);
+        if (input) {
+            let newVal = parseInt(input.value) + change;
+            if (newVal < 1) newVal = 1;
+            if (newVal > 10) newVal = 10;
+            input.value = newVal;
+            updateSummary();
+        }
+    };
+
+    function updateSummary() {
+        let productsTotal = 0;
+        const selectedProducts = [];
+        
+        productsData.forEach(product => {
+            const checkbox = document.querySelector(`input[name="product_${product.id}"]:checked`);
+            if (checkbox) {
+                const qtyInput = document.querySelector(`input[name="quantity_${product.id}"]`);
+                const qty = parseInt(qtyInput ? qtyInput.value : 1) || 1;
+                const pTotal = product.price * qty;
+                productsTotal += pTotal;
+                selectedProducts.push({ name: product.name_ar, qty, total: pTotal });
+            }
+        });
+
+        const summaryContainer = document.getElementById('summary-products-container');
+        const summaryList = document.getElementById('summary-products-list');
+        const summaryTotal = document.getElementById('summary-products-total');
+        
+        if (selectedProducts.length > 0) {
+            summaryContainer.classList.remove('hidden');
+            summaryList.innerHTML = selectedProducts.map(p => `<p>• ${p.name} × ${p.qty} = ${p.total} ريال</p>`).join('');
+            summaryTotal.textContent = productsTotal.toFixed(2) + ' ريال';
+        } else {
+            summaryContainer.classList.add('hidden');
+        }
     }
 </script>
 {% endblock %}
