@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin/base.html" %}
 
 {% block content %}
 <!-- Header -->
@@ -12,7 +12,10 @@
     <a href="{{ url_for('admin.index') }}"
         class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
         <i class="fas fa-arrow-right ml-2"></i> رجوع
-   <!-- Tabs -->
+    </a>
+</div>
+
+<!-- Tabs -->
 <div class="mb-6 border-b border-gray-700">
     <nav class="flex gap-4">
         <a href="{{ url_for('admin.gift_orders', status='pending') }}"
@@ -36,7 +39,101 @@
     </nav>
 </div>
 
-<!-- Macro ... (keep as is) ... -->
+<!-- Macro for Order Card -->
+{% macro order_card(order, show_actions=true, status_badge=none) %}
+<div class="bg-primary rounded-xl overflow-hidden shadow-lg border border-gray-700 hover:border-accent transition group">
+    <div class="p-4 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center">
+        <div>
+            <span class="text-xs text-gray-400 block mb-1">رقم الطلب #{{ order.id }}</span>
+            <div class="flex items-center gap-2">
+                <i class="fas fa-calendar-alt text-accent text-xs"></i>
+                <span class="text-sm font-bold">{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+        </div>
+        {% if status_badge %}
+        <span class="px-3 py-1 rounded-full text-xs font-bold 
+            {% if order.status == 'accepted' %}bg-green-600/20 text-green-400 border border-green-500/30
+            {% elif order.status == 'rejected' %}bg-red-600/20 text-red-400 border border-red-500/30
+            {% else %}bg-yellow-600/20 text-yellow-400 border border-yellow-500/30{% endif %}">
+            {{ status_badge }}
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="p-4 space-y-4">
+        <!-- Sender & Recipient -->
+        <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1">
+                <span class="text-[10px] text-gray-500 uppercase tracking-wider">المهدي (المرسل)</span>
+                <div class="font-bold text-sm">{{ order.sender.username }}</div>
+                <div class="text-xs text-gray-400">{{ order.sender.phone }}</div>
+            </div>
+            <div class="space-y-1 border-r border-gray-700 pr-4">
+                <span class="text-[10px] text-gray-500 uppercase tracking-wider">المهدى له (المستلم)</span>
+                <div class="font-bold text-sm text-pink-400">{{ order.recipient_name }}</div>
+                <div class="text-xs text-gray-400">{{ order.recipient_phone }}</div>
+            </div>
+        </div>
+
+        <!-- Location -->
+        <div class="bg-darkbg/50 p-3 rounded-lg border border-gray-700/50">
+            <div class="flex items-center gap-2 text-xs text-gray-300">
+                <i class="fas fa-map-marker-alt text-red-400"></i>
+                <span>{{ order.city.name_ar if order.city else 'N/A' }} - {{ order.neighborhood.name_ar if order.neighborhood else 'N/A' }}</span>
+            </div>
+        </div>
+
+        <!-- Gift Details -->
+        <div class="flex items-start gap-3 bg-accent/5 p-3 rounded-lg border border-accent/10">
+            <div class="bg-accent/20 p-2 rounded-lg">
+                <i class="fas {% if order.gift_type == 'wash' %}fa-car-wash{% else %}fa-tags{% endif %} text-accent"></i>
+            </div>
+            <div>
+                <span class="text-[10px] text-accent uppercase font-bold">نوع الهدية: {{ 'غسلة' if order.gift_type == 'wash' else 'اشتراك' }}</span>
+                <div class="font-bold text-sm">
+                    {% if order.gift_type == 'wash' %}
+                        {{ order.service.name_ar if order.service else 'Service N/A' }}
+                    {% else %}
+                        {{ order.package.name_ar if order.package else 'Package N/A' }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Products -->
+        {% if order.products %}
+        <div class="space-y-1">
+            <span class="text-[10px] text-gray-500 uppercase tracking-wider">منتجات إضافية:</span>
+            <div class="flex flex-wrap gap-2">
+                {% for op in order.products %}
+                <span class="bg-gray-800 text-gray-300 text-[10px] px-2 py-1 rounded border border-gray-700">
+                    {{ op.product.name_ar }} (x{{ op.quantity }})
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        {% if show_actions %}
+        <div class="flex gap-2 pt-2">
+            <form action="{{ url_for('admin.accept_gift_order', id=order.id) }}" method="POST" class="flex-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-500 text-white py-2 rounded-lg text-sm font-bold transition shadow-lg shadow-green-900/20">
+                    <i class="fas fa-check ml-1"></i> قبول
+                </button>
+            </form>
+            <form action="{{ url_for('admin.reject_gift_order', id=order.id) }}" method="POST" class="flex-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="w-full bg-gray-700 hover:bg-red-600 text-white py-2 rounded-lg text-sm font-bold transition">
+                    <i class="fas fa-times ml-1"></i> رفض
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
 
 <!-- Orders List -->
 <div id="orders-content">
@@ -56,11 +153,4 @@
 
 {% include "admin/_pagination.html" %}
 
-<script>
-    // showTab is no longer needed as we use full page reloads for pagination
-</script>if (tab === 'pending') btn.classList.add('border-yellow-500');
-        else if (tab === 'accepted') btn.classList.add('border-green-500');
-        else if (tab === 'rejected') btn.classList.add('border-red-500');
-    }
-</script>
 {% endblock %}
