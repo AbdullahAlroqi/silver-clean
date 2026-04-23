@@ -3124,6 +3124,36 @@ def reports():
         city_performance[city_name]['count'] += 1
         city_performance[city_name]['revenue'] += (s_price + p_price)
 
+    # Add subscription revenue to city performance
+    from app.models import City
+    sub_city_rev_query = db.session.query(
+        City.name_ar,
+        func.sum(SubscriptionPackage.price)
+    ).join(Neighborhood, Neighborhood.city_id == City.id)\
+    .join(Subscription, Subscription.neighborhood_id == Neighborhood.id)\
+    .join(SubscriptionPackage)\
+    .filter(
+        Subscription.start_date >= from_date,
+        Subscription.start_date <= to_date,
+        Subscription.status == 'active'
+    )
+    
+    if city_id:
+        sub_city_rev_query = sub_city_rev_query.filter(Neighborhood.city_id == city_id)
+        
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            sub_city_rev_query = sub_city_rev_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            sub_city_rev_query = sub_city_rev_query.filter(Subscription.id == -1)
+            
+    sub_city_revs = sub_city_rev_query.group_by(City.id).all()
+    
+    for c_name, c_rev in sub_city_revs:
+        if c_name not in city_performance:
+            city_performance[c_name] = {'count': 0, 'revenue': 0}
+        city_performance[c_name]['revenue'] += (c_rev or 0)
+
     return render_template('admin/reports.html', 
                            total_bookings=total_bookings,
                            completed_bookings=completed_bookings,
