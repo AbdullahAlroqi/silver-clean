@@ -183,15 +183,11 @@ def update_status(id, status):
             from app.utils.timezone import get_saudi_time
             booking.completed_at = get_saudi_time().replace(tzinfo=None)
             
-            # Add loyalty point (only if not a subscription booking)
-            if not booking.subscription_id:
-                current_points = (booking.customer.points or 0) + 1
-                if current_points >= 10:
-                    booking.customer.points = 0
-                    booking.customer.free_washes = (booking.customer.free_washes or 0) + 1
-                    flash('تم إكمال الخدمة. وصل العميل لـ 10 نقاط وحصل على غسلة مجانية! 🎉', 'success')
+            # Add loyalty point (only if not a subscription booking and not a free wash)
+            if not booking.subscription_id and not booking.used_free_wash:
+                if booking.customer.add_loyalty_point():
+                    flash('تم إكمال الخدمة. وصل العميل للحد المطلوب وحصل على غسلة مجانية! 🎉', 'success')
                 else:
-                    booking.customer.points = current_points
                     flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
             
             # --- Referral System: First Wash Tracking ---
@@ -206,15 +202,11 @@ def update_status(id, status):
             if first_completed_count <= 1:
                 # 1. Influencer Code Signups -> 1 loyalty point for customer
                 if booking.customer.used_influencer_code_id:
-                    booking.customer.points = (booking.customer.points or 0) + 1
-                    # Check if they just hit 10 points after adding this bonus point
-                    if booking.customer.points >= 10:
-                        booking.customer.points = 0
-                        booking.customer.free_washes = (booking.customer.free_washes or 0) + 1
+                    if booking.customer.add_loyalty_point():
                         db.session.add(Notification(
                             user_id=booking.customer_id,
                             title='🎉 حصلت على غسلة مجانية!',
-                            message='لقد جمعت 10 نقاط وحصلت على غسلة مجانية جديدة!',
+                            message='لقد حصلت على غسلة مجانية جديدة!',
                             created_at=datetime.utcnow()
                         ))
                     else:

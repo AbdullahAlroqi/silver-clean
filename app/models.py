@@ -59,6 +59,18 @@ class User(UserMixin, db.Model):
     supervisor_cities = db.relationship('City', secondary=supervisor_cities, backref=db.backref('supervisors', lazy='dynamic'))
     supervisor_neighborhoods = db.relationship('Neighborhood', secondary=supervisor_neighborhoods, backref=db.backref('supervisors', lazy='dynamic'))
 
+    def add_loyalty_point(self):
+        """Add a loyalty point and check for free wash reward using system threshold"""
+        settings = SiteSettings.get_settings()
+        threshold = settings.loyalty_points_threshold or 10
+        
+        self.points = (self.points or 0) + 1
+        if self.points >= threshold:
+            self.points = 0
+            self.free_washes = (self.free_washes or 0) + 1
+            return True # Reward granted (Free wash added)
+        return False
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 

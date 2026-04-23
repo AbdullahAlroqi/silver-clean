@@ -5,6 +5,7 @@
 
 <div class="max-w-2xl bg-primary p-8 rounded-lg">
     <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="mb-6">
             <label class="block text-sm font-medium text-gray-300 mb-2">عدد النقاط المطلوبة للحصول على غسلة
                 مجانية</label>
