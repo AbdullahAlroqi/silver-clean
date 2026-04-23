@@ -286,6 +286,62 @@
         </div>
     </div>
 
+    <!-- City Performance Card -->
+    <div class="bg-primary rounded-xl shadow-2xl overflow-hidden border border-gray-700">
+        <div class="bg-gradient-to-r from-blue-600 to-cyan-600 p-6">
+            <h3 class="text-2xl font-bold text-white flex items-center gap-3">
+                <i class="fas fa-city"></i>
+                أداء المدن
+            </h3>
+            <p class="text-white text-sm opacity-90 mt-1">إحصائيات أداء المدن في الفترة</p>
+        </div>
+
+        <div class="p-6">
+            {% if city_performance %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-800">
+                            <th class="text-right p-4 text-gray-300 font-semibold rounded-r-lg">
+                                <i class="fas fa-map-marker-alt ml-2"></i>المدينة
+                            </th>
+                            <th class="text-right p-4 text-gray-300 font-semibold">
+                                <i class="fas fa-list ml-2"></i>الطلبات
+                            </th>
+                            <th class="text-right p-4 text-gray-300 font-semibold rounded-l-lg">
+                                <i class="fas fa-dollar-sign ml-2"></i>الإيرادات
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for city_name, data in city_performance.items() %}
+                        <tr class="border-b border-gray-700 hover:bg-gray-800 transition">
+                            <td class="p-4">
+                                <span class="text-white font-medium">{{ city_name }}</span>
+                            </td>
+                            <td class="p-4">
+                                <span class="text-white font-bold text-lg">{{ data.count }}</span>
+                            </td>
+                            <td class="p-4">
+                                <span class="bg-blue-900 text-blue-200 px-3 py-2 rounded-full font-bold inline-flex items-center gap-1">
+                                    {{ "%.2f"|format(data.revenue) }}
+                                    <span class="text-[10px]">ر.س</span>
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-inbox text-gray-600 text-6xl mb-4"></i>
+                <p class="text-gray-400 text-lg">لا توجد بيانات للمدن في هذه الفترة</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
     <!-- Employee Performance Card -->
     <div class="bg-primary rounded-xl shadow-2xl overflow-hidden border border-gray-700">
         <div class="bg-gradient-to-r from-green-600 to-teal-600 p-6">

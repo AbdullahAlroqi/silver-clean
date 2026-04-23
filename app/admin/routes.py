@@ -3097,6 +3097,33 @@ def reports():
         
     employee_stats = employee_stats_query.group_by(User.id).all()
     
+    # City performance (in date range)
+    city_performance = {} # {city_name: {'count': 0, 'revenue': 0}}
+    for booking in completed_bookings_list:
+        city_name = booking.neighborhood.city.name_ar if (booking.neighborhood and booking.neighborhood.city) else 'غير محدد'
+        if city_name not in city_performance:
+            city_performance[city_name] = {'count': 0, 'revenue': 0}
+        
+        # Calculate booking revenue (service + products - discount)
+        # Service
+        s_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0)
+        if booking.subscription_id or booking.used_free_wash:
+            s_price = 0
+        else:
+            d_amt = 0
+            if booking.discount_code:
+                if booking.discount_code.discount_type == 'percentage':
+                    d_amt = (s_price + (booking.vehicle_size_price or 0)) * ((booking.discount_code.value or 0) / 100)
+                else:
+                    d_amt = booking.discount_code.value
+            s_price = max(0, s_price - d_amt + (booking.vehicle_size_price or 0))
+        
+        # Products
+        p_price = sum([(bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in booking.products])
+        
+        city_performance[city_name]['count'] += 1
+        city_performance[city_name]['revenue'] += (s_price + p_price)
+
     return render_template('admin/reports.html', 
                            total_bookings=total_bookings,
                            completed_bookings=completed_bookings,
@@ -3108,6 +3135,7 @@ def reports():
                            total_revenue=total_revenue,
                            top_services=top_services,
                            employee_stats=employee_stats,
+                           city_performance=city_performance,
                            cash_count=cash_count,
                            cash_total=cash_total,
                            card_count=card_count,
