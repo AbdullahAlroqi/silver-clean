@@ -15,10 +15,10 @@ def check_expired_bookings():
     from app.models import Subscription
     from app.utils.timezone import get_saudi_time
     
-    # Find ALL bookings that are still active (assigned, en_route, arrived, in_progress)
+    # Find ALL bookings that are still active (assigned only)
     # and have passed their scheduled time by more than 4 hours
     expired_bookings = Booking.query.filter(
-        Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress']),
+        Booking.status == 'assigned',
     ).all()
     
     now = get_saudi_time()
@@ -40,6 +40,19 @@ def check_expired_bookings():
             
             db.session.commit()
             # print(f"Auto-cancelled expired booking #{booking.id}")
+
+    # Check for expired subscriptions based on end_date
+    from app.utils.timezone import get_saudi_date
+    today = get_saudi_date()
+    expired_subs = Subscription.query.filter(
+        Subscription.status == 'active',
+        Subscription.end_date < today
+    ).all()
+    
+    if expired_subs:
+        for sub in expired_subs:
+            sub.status = 'expired'
+        db.session.commit()
 
 @bp.before_request
 def before_request():
@@ -122,7 +135,21 @@ def my_bookings():
         else_=8
     )
     
-    bookings = current_user.bookings.order_by(
+    from app.utils.timezone import get_saudi_time
+    from datetime import timedelta
+    from sqlalchemy import and_, or_
+    
+    thirty_days_ago = get_saudi_time().replace(tzinfo=None) - timedelta(days=30)
+    
+    bookings = current_user.bookings.filter(
+        ~and_(
+            Booking.status == 'cancelled',
+            or_(
+                Booking.cancelled_at < thirty_days_ago,
+                and_(Booking.cancelled_at == None, Booking.created_at < thirty_days_ago)
+            )
+        )
+    ).order_by(
         status_order,
         Booking.date.desc(),
         Booking.time.desc()
@@ -1167,7 +1194,18 @@ from datetime import datetime, timedelta
 
 @bp.route('/subscriptions')
 def subscriptions():
-    my_subscriptions = current_user.subscriptions.order_by(Subscription.id.desc()).all()
+    from app.utils.timezone import get_saudi_time
+    from datetime import timedelta
+    from sqlalchemy import and_
+    
+    thirty_days_ago = get_saudi_time().replace(tzinfo=None) - timedelta(days=30)
+    
+    my_subscriptions = current_user.subscriptions.filter(
+        ~and_(
+            Subscription.status == 'rejected',
+            Subscription.created_at < thirty_days_ago
+        )
+    ).order_by(Subscription.id.desc()).all()
     return render_template('customer/my_subscriptions.html', subscriptions=my_subscriptions)
 
 @bp.route('/subscribe')

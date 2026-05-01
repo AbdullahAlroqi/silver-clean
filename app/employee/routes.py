@@ -10,9 +10,9 @@ from app.notifications import send_push_notification
 def check_expired_bookings():
     """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
     from app.utils.timezone import get_saudi_time
-    # Find ALL bookings that are still active
+    # Find ALL bookings that are still active (assigned only)
     expired_bookings = Booking.query.filter(
-        Booking.status.in_(['assigned', 'en_route', 'arrived', 'in_progress']),
+        Booking.status == 'assigned',
     ).all()
     
     now = get_saudi_time()
@@ -33,6 +33,19 @@ def check_expired_bookings():
             
             db.session.commit()
             print(f"Auto-cancelled expired booking #{booking.id}")
+
+    # Check for expired subscriptions based on end_date
+    from app.utils.timezone import get_saudi_date
+    today = get_saudi_date()
+    expired_subs = Subscription.query.filter(
+        Subscription.status == 'active',
+        Subscription.end_date < today
+    ).all()
+    
+    if expired_subs:
+        for sub in expired_subs:
+            sub.status = 'expired'
+        db.session.commit()
 
 @bp.before_request
 def before_request():
