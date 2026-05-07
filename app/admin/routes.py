@@ -19,6 +19,17 @@ def before_request():
 
 @bp.route('/')
 def index():
+    from app.utils.timezone import get_saudi_date
+    from datetime import datetime
+    selected_date_str = request.args.get('date')
+    if selected_date_str:
+        try:
+            selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = get_saudi_date()
+    else:
+        selected_date = get_saudi_date()
+
     # Get supervisor's neighborhood scope if applicable
     supervisor_neighborhood_ids = []
     if current_user.role == 'supervisor':
@@ -35,7 +46,7 @@ def index():
             employees_count = User.query.filter_by(role='employee').join(User.neighborhoods).filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).distinct().count()
             # Fix AmbiguousForeignKeysError by specifying join condition
             customers_count = User.query.filter_by(role='customer').join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).distinct().count()
-            bookings_count = Booking.query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).count()
+            bookings_count = Booking.query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids), Booking.date == selected_date).count()
         else:
             employees_count = 0
             customers_count = 0
@@ -43,10 +54,10 @@ def index():
     else:
         employees_count = User.query.filter_by(role='employee').count()
         customers_count = User.query.filter_by(role='customer').count()
-        bookings_count = Booking.query.count()
+        bookings_count = Booking.query.filter(Booking.date == selected_date).count()
     
     # Calculate total revenue from completed bookings
-    completed_bookings_query = Booking.query.filter_by(status='completed')
+    completed_bookings_query = Booking.query.filter_by(status='completed', date=selected_date)
     
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
@@ -58,7 +69,7 @@ def index():
     total_revenue = sum(b.service.price for b in completed_bookings if b.service)
     
     # Get recent bookings
-    recent_bookings_query = Booking.query.order_by(Booking.date.desc(), Booking.time.desc())
+    recent_bookings_query = Booking.query.filter(Booking.date == selected_date).order_by(Booking.time.desc())
     
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
@@ -73,7 +84,8 @@ def index():
                            customers_count=customers_count, 
                            bookings_count=bookings_count,
                            total_revenue=total_revenue,
-                           recent_bookings=recent_bookings)
+                           recent_bookings=recent_bookings,
+                           selected_date=selected_date)
 
 # --- Seasons Management ---
 @bp.route('/seasons')
@@ -2840,6 +2852,7 @@ def reports():
     from_date_str = request.args.get('from_date', '')
     to_date_str = request.args.get('to_date', '')
     city_id = request.args.get('city_id', type=int)
+    neighborhood_id = request.args.get('neighborhood_id', type=int)
     
     # Set default date range (last 30 days if not specified)
     if not from_date_str:
@@ -2864,10 +2877,14 @@ def reports():
         Booking.status == 'completed'
     )
     
-    # Filter by city if specified
+    # Filter by city or neighborhood if specified
     if city_id:
         bookings_query = bookings_query.filter(Neighborhood.city_id == city_id)
         completed_bookings_query = completed_bookings_query.filter(Neighborhood.city_id == city_id)
+        
+    if neighborhood_id:
+        bookings_query = bookings_query.filter(Booking.neighborhood_id == neighborhood_id)
+        completed_bookings_query = completed_bookings_query.filter(Booking.neighborhood_id == neighborhood_id)
     
     customers_query = User.query.filter_by(role='customer')
     
@@ -2895,6 +2912,10 @@ def reports():
     if city_id:
         cash_bookings = cash_bookings.filter(Neighborhood.city_id == city_id)
         card_bookings = card_bookings.filter(Neighborhood.city_id == city_id)
+        
+    if neighborhood_id:
+        cash_bookings = cash_bookings.filter(Booking.neighborhood_id == neighborhood_id)
+        card_bookings = card_bookings.filter(Booking.neighborhood_id == neighborhood_id)
         
     cash_count = cash_bookings.count()
     card_count = card_bookings.count()
@@ -3037,6 +3058,9 @@ def reports():
     if city_id:
         sub_rev_query = sub_rev_query.filter(Neighborhood.city_id == city_id)
         
+    if neighborhood_id:
+        sub_rev_query = sub_rev_query.filter(Subscription.neighborhood_id == neighborhood_id)
+        
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
             sub_rev_query = sub_rev_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
@@ -3061,6 +3085,9 @@ def reports():
     
     if city_id:
         top_services_query = top_services_query.filter(Neighborhood.city_id == city_id)
+        
+    if neighborhood_id:
+        top_services_query = top_services_query.filter(Booking.neighborhood_id == neighborhood_id)
     
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
@@ -3088,6 +3115,9 @@ def reports():
     
     if city_id:
         employee_stats_query = employee_stats_query.filter(Neighborhood.city_id == city_id)
+        
+    if neighborhood_id:
+        employee_stats_query = employee_stats_query.filter(Booking.neighborhood_id == neighborhood_id)
     
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
@@ -3141,6 +3171,9 @@ def reports():
     if city_id:
         sub_city_rev_query = sub_city_rev_query.filter(Neighborhood.city_id == city_id)
         
+    if neighborhood_id:
+        sub_city_rev_query = sub_city_rev_query.filter(Subscription.neighborhood_id == neighborhood_id)
+        
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
             sub_city_rev_query = sub_city_rev_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
@@ -3153,6 +3186,12 @@ def reports():
         if c_name not in city_performance:
             city_performance[c_name] = {'count': 0, 'revenue': 0}
         city_performance[c_name]['revenue'] += (c_rev or 0)
+
+    # Fetch cities and neighborhoods for the filters
+    cities = City.query.filter_by(is_active=True).all()
+    neighborhoods = []
+    if city_id:
+        neighborhoods = Neighborhood.query.filter_by(city_id=city_id, is_active=True).all()
 
     return render_template('admin/reports.html', 
                            total_bookings=total_bookings,
@@ -3171,8 +3210,11 @@ def reports():
                            card_count=card_count,
                            card_total=card_total,
                            from_date=from_date.strftime('%Y-%m-%d'),
+                           to_date=to_date.strftime('%Y-%m-%d'),
                            city_id=city_id,
-                           to_date=to_date.strftime('%Y-%m-%d'))
+                           neighborhood_id=neighborhood_id,
+                           cities=cities,
+                           neighborhoods=neighborhoods)
 
 # --- Settings (Loyalty, Admin Accounts, Backup) ---
 @bp.route('/settings/loyalty', methods=['GET', 'POST'])

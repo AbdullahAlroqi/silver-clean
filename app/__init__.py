@@ -61,6 +61,16 @@ def create_app(config_class=Config):
         from app.models import SiteSettings
         return dict(site_settings=SiteSettings.get_settings(), get_locale=get_locale)
 
+    @app.before_request
+    def check_banned():
+        from flask_login import current_user, logout_user
+        from flask import redirect, url_for, flash, request
+        if current_user.is_authenticated and getattr(current_user, 'is_banned', False):
+            logout_user()
+            flash('تم حظر حسابك بشكل نهائي. للتواصل مع الإدارة يرجى الاتصال بالدعم.', 'error')
+            if request.endpoint != 'auth.login':
+                return redirect(url_for('auth.login'))
+
     @app.after_request
     def set_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'

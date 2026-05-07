@@ -18,7 +18,7 @@
         <h3 class="text-xl font-bold text-white">تحديد الفترة الزمنية</h3>
     </div>
 
-    <form method="GET" action="{{ url_for('admin.reports') }}" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <form method="GET" action="{{ url_for('admin.reports') }}" class="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div>
             <label class="block text-gray-300 text-sm font-semibold mb-2">
                 <i class="fas fa-calendar-day ml-1"></i> من تاريخ
@@ -32,6 +32,30 @@
             </label>
             <input type="date" name="to_date" value="{{ to_date }}"
                 class="w-full bg-darkbg text-white border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-accent transition">
+        </div>
+        <div>
+            <label class="block text-gray-300 text-sm font-semibold mb-2">
+                <i class="fas fa-city ml-1"></i> المدينة
+            </label>
+            <select name="city_id" onchange="this.form.submit()"
+                class="w-full bg-darkbg text-white border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-accent transition">
+                <option value="">الكل</option>
+                {% for city in cities %}
+                <option value="{{ city.id }}" {% if city_id == city.id %}selected{% endif %}>{{ city.name_ar }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-gray-300 text-sm font-semibold mb-2">
+                <i class="fas fa-map-marker-alt ml-1"></i> الحي
+            </label>
+            <select name="neighborhood_id"
+                class="w-full bg-darkbg text-white border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-accent transition">
+                <option value="">الكل</option>
+                {% for n in neighborhoods %}
+                <option value="{{ n.id }}" {% if neighborhood_id == n.id %}selected{% endif %}>{{ n.name_ar }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div class="flex items-end gap-2">
             <button type="submit"
