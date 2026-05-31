@@ -7,6 +7,19 @@ from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm
 from app.models import User
 from app.limiter import limiter
 
+def maintenance_mode_enabled():
+    from app.models import SiteSettings
+    return bool(getattr(SiteSettings.get_settings(), 'maintenance_mode', False))
+
+def get_post_login_redirect(user):
+    if maintenance_mode_enabled() and user.role in ['admin', 'supervisor']:
+        return url_for('admin.settings')
+    if user.role in ['admin', 'supervisor']:
+        return url_for('admin.index')
+    if user.role == 'employee':
+        return url_for('employee.index')
+    return url_for('customer.index')
+
 def convert_arabic_to_english_numerals(text):
     """Convert Arabic numerals to English numerals"""
     arabic_numerals = '٠١٢٣٤٥٦٧٨٩'
@@ -18,12 +31,7 @@ def convert_arabic_to_english_numerals(text):
 @limiter.limit("20 per minute")
 def login():
     if current_user.is_authenticated:
-        if current_user.role in ['admin', 'supervisor']:
-            return redirect(url_for('admin.index'))
-        elif current_user.role == 'employee':
-            return redirect(url_for('employee.index'))
-        else:
-            return redirect(url_for('customer.index'))
+        return redirect(get_post_login_redirect(current_user))
             
     form = LoginForm()
     if form.validate_on_submit():
@@ -43,13 +51,10 @@ def login():
         login_user(user, remember=True)
         
         next_page = request.args.get('next')
-        if not next_page or urlparse(next_page).netloc != '':
-            if user.role in ['admin', 'supervisor']:
-                next_page = url_for('admin.index')
-            elif user.role == 'employee':
-                next_page = url_for('employee.index')
-            else:
-                next_page = url_for('customer.index')
+        if maintenance_mode_enabled() and user.role in ['admin', 'supervisor']:
+            next_page = url_for('admin.settings')
+        elif not next_page or urlparse(next_page).netloc != '':
+            next_page = get_post_login_redirect(user)
         return redirect(next_page)
         
     return render_template('auth/login.html', title='تسجيل الدخول', form=form)

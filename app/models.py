@@ -35,6 +35,7 @@ class User(UserMixin, db.Model):
     reset_code_expiration = db.Column(db.DateTime, nullable=True)
     is_banned = db.Column(db.Boolean, default=False)
     ban_reason = db.Column(db.String(255), nullable=True)
+    is_on_break = db.Column(db.Boolean, default=False)
     
     # Referral System
     referral_code = db.Column(db.String(10), unique=True, index=True)  # e.g. SILVC4821
@@ -266,10 +267,11 @@ class Booking(db.Model):
         """Calculate total duration of all items in this booking"""
         total = 0
         for item in self.items:
+            quantity = item.quantity or 1
             if item.service and item.service.duration:
-                total += item.service.duration
+                total += item.service.duration * quantity
             else:
-                total += 60 # Default duration
+                total += 60 * quantity # Default duration
         return total if total > 0 else (self.service.duration if self.service and self.service.duration else 60)
 
     # Relationships
@@ -287,6 +289,7 @@ class BookingItem(db.Model):
     booking_id = db.Column(db.Integer, db.ForeignKey('booking.id'), nullable=False)
     vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicle.id'), nullable=False)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1)
     
     # Snapshot of prices at time of booking
     service_price = db.Column(db.Float, default=0.0)
@@ -435,6 +438,7 @@ class SiteSettings(db.Model):
     booking_days_limit = db.Column(db.Integer, default=7)       # عدد أيام حجز الخدمة (0 = إيقاف)
     subscription_days_limit = db.Column(db.Integer, default=7)   # عدد أيام حجز الاشتراك (0 = إيقاف)
     referral_target_count = db.Column(db.Integer, default=10)    # عدد الإحالات المطلوبة للحصول على غسلة مجانية
+    maintenance_mode = db.Column(db.Boolean, default=False)      # إيقاف الموقع مؤقتاً للصيانة
     
     @staticmethod
     def get_settings():

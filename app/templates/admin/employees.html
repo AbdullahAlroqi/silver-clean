@@ -52,6 +52,7 @@
                 <th class="p-4">الصلاحية</th>
                 <th class="p-4">البريد الإلكتروني</th>
                 <th class="p-4">رقم الجوال</th>
+                <th class="p-4">راحة</th>
                 <th class="p-4">الإجراءات</th>
             </tr>
         </thead>
@@ -69,6 +70,19 @@
                 </td>
                 <td class="p-4">{{ emp.email }}</td>
                 <td class="p-4">{{ emp.phone }}</td>
+                <td class="p-4">
+                    {% if emp.role == 'employee' %}
+                    <form action="{{ url_for('admin.toggle_employee_break', id=emp.id) }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit"
+                            class="{% if emp.is_on_break %}bg-red-600 hover:bg-red-500{% else %}bg-green-600 hover:bg-green-500{% endif %} text-white px-3 py-1 rounded text-xs">
+                            {% if emp.is_on_break %}مفعلة{% else %}متاح{% endif %}
+                        </button>
+                    </form>
+                    {% else %}
+                    <span class="text-gray-500 text-xs">-</span>
+                    {% endif %}
+                </td>
                 <td class="px-6 py-4">
                     <div class="flex gap-2">
                         <a href="{{ url_for('admin.employee_stats', id=emp.id) }}"
@@ -99,7 +113,7 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="6" class="p-4 text-center text-gray-500">لا يوجد {% if role_filter == 'employee' %}موظفين{%
+                <td colspan="7" class="p-4 text-center text-gray-500">لا يوجد {% if role_filter == 'employee' %}موظفين{%
                     elif role_filter == 'supervisor' %}مشرفين{% else %}موظفين{% endif %} حالياً.</td>
             </tr>
             {% endfor %}

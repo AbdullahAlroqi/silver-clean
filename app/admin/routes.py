@@ -348,7 +348,13 @@ def add_employee():
         else:
             role = 'employee'
         
-        user = User(username=form.username.data, email=form.email.data, phone=form.phone.data, role=role)
+        user = User(
+            username=form.username.data,
+            email=form.email.data,
+            phone=form.phone.data,
+            role=role,
+            is_on_break=form.is_on_break.data if role == 'employee' else False
+        )
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.flush()  # Get user ID
@@ -468,6 +474,8 @@ def edit_employee(id):
         password = request.form.get('password')
         if password and password.strip():
             employee.set_password(password)
+
+        employee.is_on_break = bool(request.form.get('is_on_break')) if employee.role == 'employee' else False
         
         # Handle based on role
         if employee.role == 'supervisor':
@@ -519,6 +527,7 @@ def edit_employee(id):
     form.username.data = employee.username
     form.email.data = employee.email
     form.phone.data = employee.phone
+    form.is_on_break.data = bool(employee.is_on_break)
     
     if employee.role == 'supervisor':
         form.role.data = 'supervisor'
@@ -529,6 +538,19 @@ def edit_employee(id):
         form.neighborhoods.data = [n.id for n in employee.neighborhoods]
 
     return render_template('admin/employee_form.html', form=form, title='تعديل موظف / مشرف', employee=employee)
+
+@bp.route('/employees/<int:id>/toggle-break', methods=['POST'])
+def toggle_employee_break(id):
+    employee = User.query.get_or_404(id)
+
+    if employee.role != 'employee':
+        flash('خيار الراحة متاح للموظفين فقط', 'error')
+        return redirect(request.referrer or url_for('admin.employees'))
+
+    employee.is_on_break = not bool(employee.is_on_break)
+    db.session.commit()
+    flash('تم تفعيل الراحة للموظف' if employee.is_on_break else 'تم إيقاف الراحة للموظف', 'success')
+    return redirect(request.referrer or url_for('admin.employees'))
 
 @bp.route('/employees/schedule/<int:id>', methods=['GET', 'POST'])
 def employee_schedule(id):
@@ -1858,7 +1880,7 @@ def subscriptions():
         'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods]
     } for c in cities])
     
-    employees = User.query.filter_by(role='employee').all()
+    employees = User.query.filter_by(role='employee', is_on_break=False).all()
     customers = User.query.filter_by(role='customer').all()
     packages = SubscriptionPackage.query.filter_by(is_active=True).all()
     
@@ -1887,7 +1909,7 @@ def create_subscription():
     employee_id = request.form.get('employee_id')
     neighborhood_id = request.form.get('neighborhood_id')
     discount = float(request.form.get('discount', 0))
-    
+
     # Validate supervisor scope
     if current_user.role == 'supervisor':
         supervisor_neighborhood_ids = []
@@ -1907,6 +1929,12 @@ def create_subscription():
     if not package:
         flash('الباقة غير موجودة')
         return redirect(url_for('admin.subscriptions'))
+
+    if employee_id:
+        employee = User.query.get(int(employee_id))
+        if not employee or employee.role != 'employee' or employee.is_on_break:
+            flash('لا يمكن إسناد الاشتراك لموظف في وضع الراحة', 'error')
+            return redirect(url_for('admin.subscriptions'))
     
     # Create subscription (employee is now optional - booking will find available employee)
     subscription = Subscription(
@@ -1934,6 +1962,10 @@ def approve_subscription(id):
     # Employee is now optional - bookings will find available employee in neighborhood
     subscription.status = 'active'
     if employee_id:
+        employee = User.query.get(int(employee_id))
+        if not employee or employee.role != 'employee' or employee.is_on_break:
+            flash('لا يمكن إسناد الاشتراك لموظف في وضع الراحة', 'error')
+            return redirect(url_for('admin.subscriptions'))
         subscription.employee_id = int(employee_id)
     
     # Set remaining washes from package
@@ -1960,6 +1992,11 @@ def reassign_subscription(id):
     if not employee_id:
         flash('يجب اختيار موظف')
         return redirect(url_for('admin.subscriptions', status='active'))
+
+    employee = User.query.get(int(employee_id))
+    if not employee or employee.role != 'employee' or employee.is_on_break:
+        flash('لا يمكن إسناد الاشتراك لموظف في وضع الراحة', 'error')
+        return redirect(url_for('admin.subscriptions', status='active'))
     
     subscription.employee_id = int(employee_id)
     db.session.commit()
@@ -1973,6 +2010,10 @@ def edit_subscription(id):
     # Update employee
     employee_id = request.form.get('employee_id')
     if employee_id:
+        employee = User.query.get(int(employee_id))
+        if not employee or employee.role != 'employee' or employee.is_on_break:
+            flash('لا يمكن إسناد الاشتراك لموظف في وضع الراحة', 'error')
+            return redirect(url_for('admin.subscriptions', status='active'))
         subscription.employee_id = int(employee_id)
     
     # Update location
@@ -2027,7 +2068,8 @@ def employees_by_neighborhood(neighborhood_id):
     # Get employees assigned to this neighborhood
     employees = User.query.join(employee_neighborhoods).filter(
         employee_neighborhoods.c.neighborhood_id == neighborhood_id,
-        User.role == 'employee'
+        User.role == 'employee',
+        User.is_on_break == False
     ).all()
     
     return jsonify([{'id': emp.id, 'username': emp.username} for emp in employees])
@@ -2136,11 +2178,14 @@ def bookings():
     # Filter employees for supervisor
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
-            employees = User.query.filter_by(role='employee').join(User.neighborhoods).filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).distinct().all()
+            employees = User.query.filter_by(role='employee').join(User.neighborhoods).filter(
+                Neighborhood.id.in_(supervisor_neighborhood_ids),
+                User.is_on_break == False
+            ).distinct().all()
         else:
             employees = []
     else:
-        employees = User.query.filter_by(role='employee').all()
+        employees = User.query.filter_by(role='employee', is_on_break=False).all()
     
     customers = User.query.filter_by(role='customer').all()
     services_query = Service.query.all()
@@ -2190,6 +2235,12 @@ def create_booking():
     date = request.form.get('date')
     time_str = request.form.get('time')
     discount = float(request.form.get('discount', 0))
+
+    if employee_id:
+        employee = User.query.get(int(employee_id))
+        if not employee or employee.role != 'employee' or employee.is_on_break:
+            flash('لا يمكن إسناد الحجز لموظف في وضع الراحة', 'error')
+            return redirect(url_for('admin.bookings'))
     
     # Validate supervisor scope
     if current_user.role == 'supervisor':
@@ -2286,6 +2337,7 @@ def create_booking():
             booking_id=booking.id,
             vehicle_id=int(vehicle_id),
             service_id=int(service_id),
+            quantity=1,
             service_price=custom_service_price,
             size_price_adjustment=vehicle_size_price,
             total_item_price=custom_service_price + vehicle_size_price
@@ -2341,8 +2393,14 @@ def delete_booking_item(booking_id, item_id):
 
 def update_booking_totals(booking):
     """Helper to recalculate total_price based on items and products"""
-    total_services = sum(item.total_item_price for item in booking.items)
-    total_products = sum(p.unit_price * p.quantity for p in booking.products)
+    total_services = sum((item.total_item_price or 0) for item in booking.items)
+    total_products = sum(
+        ((p.unit_price if p.unit_price is not None else (p.product.price if p.product else 0)) or 0) * (p.quantity or 0)
+        for p in booking.products
+    )
+    if booking.items.count() == 0 and not booking.subscription_id and not booking.used_free_wash:
+        service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0)
+        total_services = (service_price or 0) + (booking.vehicle_size_price or 0)
     
     # Apply discount if any (from header)
     if booking.discount_code:
@@ -2360,23 +2418,54 @@ def update_booking_totals(booking):
 @bp.route('/bookings/<int:id>/edit', methods=['POST'])
 def edit_booking(id):
     booking = Booking.query.get_or_404(id)
+    has_item_fields = any(
+        key.startswith('item_service_price_')
+        for key in request.form.keys()
+    )
     
-    # Update vehicle size price
-    try:
-        vehicle_size_price = float(request.form.get('vehicle_size_price', 0))
-        booking.vehicle_size_price = vehicle_size_price
-    except ValueError:
-        pass
+    if has_item_fields:
+        for item in booking.items.all():
+            service_price = request.form.get(f'item_service_price_{item.id}')
 
-    # Update service price (custom)
-    try:
-        custom_service_price = request.form.get('custom_service_price')
-        if custom_service_price and custom_service_price.strip():
-            booking.custom_service_price = float(custom_service_price)
+            try:
+                if service_price is not None and service_price.strip():
+                    item.service_price = max(0.0, float(service_price))
+            except ValueError:
+                pass
+
+            item.quantity = 1
+            item.total_item_price = (item.service_price or 0.0) + (item.size_price_adjustment or 0.0)
+
+        if booking.items.count() == 1:
+            item = booking.items.first()
+            booking.custom_service_price = item.service_price
+            booking.vehicle_size_price = item.size_price_adjustment
         else:
             booking.custom_service_price = None
-    except ValueError:
-        pass
+            booking.vehicle_size_price = 0.0
+    else:
+        # Legacy fallback for old bookings without BookingItem rows.
+        try:
+            vehicle_size_price = float(request.form.get('vehicle_size_price', booking.vehicle_size_price or 0))
+            booking.vehicle_size_price = vehicle_size_price
+        except ValueError:
+            pass
+
+        try:
+            custom_service_price = request.form.get('custom_service_price')
+            if custom_service_price and custom_service_price.strip():
+                booking.custom_service_price = float(custom_service_price)
+            elif 'custom_service_price' in request.form:
+                booking.custom_service_price = None
+        except ValueError:
+            pass
+
+        if booking.items.count() == 1:
+            item = booking.items.first()
+            item.service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0.0)
+            item.size_price_adjustment = booking.vehicle_size_price or 0.0
+            item.quantity = 1
+            item.total_item_price = item.service_price + item.size_price_adjustment
         
     # Update payment method
     payment_method = request.form.get('payment_method')
@@ -2397,16 +2486,27 @@ def edit_booking(id):
                     bp_item.unit_price = price
             except (ValueError, IndexError):
                 continue
-        
-    db.session.commit()
-    
-    # Recalculate total price
-    if booking.items.count() == 1:
-        item = booking.items.first()
-        # If custom_service_price was set, use it. Otherwise fallback to base service price.
-        item.service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0.0)
-        item.size_price_adjustment = booking.vehicle_size_price or 0.0
-        item.total_item_price = item.service_price + item.size_price_adjustment
+
+        if key.startswith('product_quantity_'):
+            try:
+                product_id = int(key.split('_')[2])
+                new_quantity = max(1, int(value))
+
+                bp_item = BookingProduct.query.filter_by(booking_id=id, product_id=product_id).first()
+                if bp_item:
+                    old_quantity = bp_item.quantity or 0
+                    diff = new_quantity - old_quantity
+
+                    available_stock = (bp_item.product.stock_quantity or 0) if bp_item.product else 0
+                    if diff > 0 and bp_item.product and available_stock < diff:
+                        flash(f'الكمية المطلوبة غير متوفرة للمنتج "{bp_item.product.name_ar}". المتوفر: {available_stock}', 'error')
+                        return redirect(request.referrer or url_for('admin.bookings'))
+
+                    bp_item.quantity = new_quantity
+                    if bp_item.product:
+                        bp_item.product.stock_quantity = (bp_item.product.stock_quantity or 0) - diff
+            except (ValueError, IndexError):
+                continue
         
     update_booking_totals(booking)
     
@@ -2494,6 +2594,27 @@ def get_available_products_api():
 
 # --- APIs ---
 
+@bp.route('/bookings/<int:id>/items')
+def get_booking_items_api(id):
+    booking = Booking.query.get_or_404(id)
+    items = []
+
+    for item in booking.items.all():
+        service_price = item.service_price if item.service_price is not None else (item.service.price if item.service else 0)
+
+        if (booking.subscription_id or booking.used_free_wash) and (item.total_item_price or 0) == 0:
+            service_price = 0
+
+        items.append({
+            'item_id': item.id,
+            'vehicle': f"{item.vehicle.brand} ({item.vehicle.plate_number})" if item.vehicle else 'N/A',
+            'service': item.service.name_ar if item.service else 'N/A',
+            'service_price': service_price,
+            'total': item.total_item_price or 0
+        })
+
+    return jsonify(items)
+
 @bp.route('/bookings/<int:id>/products')
 def get_booking_products_api(id):
     booking = Booking.query.get_or_404(id)
@@ -2509,7 +2630,8 @@ def get_booking_products_api(id):
             'quantity': item.quantity,
             'product_name': item.product.name_ar,
             'price': current_price,
-            'original_price': item.product.price
+            'original_price': item.product.price,
+            'stock': item.product.stock_quantity
         })
     
     return jsonify(products)
@@ -2533,6 +2655,10 @@ def get_customer_vehicles(customer_id):
 def get_available_slots(employee_id, date):
     from datetime import datetime, timedelta, time as dt_time
     from app.utils.timezone import get_saudi_time
+
+    employee = User.query.get(employee_id)
+    if not employee or employee.role != 'employee' or employee.is_on_break:
+        return jsonify([])
     
     # Get service duration if provided
     service_id = request.args.get('service_id')
@@ -2641,7 +2767,8 @@ def get_area_available_slots(neighborhood_id, date):
     # Get all employees in this neighborhood
     employees = User.query.join(employee_neighborhoods).filter(
         employee_neighborhoods.c.neighborhood_id == neighborhood_id,
-        User.role == 'employee'
+        User.role == 'employee',
+        User.is_on_break == False
     ).all()
     
     # Collect all available slots from all employees
@@ -2720,7 +2847,8 @@ def auto_assign_employee(neighborhood_id, date, time_str):
     # Get all employees in this neighborhood
     employees = User.query.join(employee_neighborhoods).filter(
         employee_neighborhoods.c.neighborhood_id == neighborhood_id,
-        User.role == 'employee'
+        User.role == 'employee',
+        User.is_on_break == False
     ).all()
     
     available_employees = []
@@ -2772,6 +2900,11 @@ def reassign_booking(id):
     
     if not new_employee_id:
         flash('يجب اختيار موظف')
+        return redirect(url_for('admin.bookings'))
+
+    new_employee = User.query.get(int(new_employee_id))
+    if not new_employee or new_employee.role != 'employee' or new_employee.is_on_break:
+        flash('لا يمكن إسناد الحجز لموظف في وضع الراحة')
         return redirect(url_for('admin.bookings'))
     
     # If time is being changed, convert and validate
@@ -3267,6 +3400,7 @@ def settings():
         settings.booking_days_limit = form.booking_days_limit.data
         settings.subscription_days_limit = form.subscription_days_limit.data
         settings.referral_target_count = form.referral_target_count.data
+        settings.maintenance_mode = form.maintenance_mode.data
         
         if form.logo.data:
             import os
@@ -3305,6 +3439,7 @@ def settings():
         form.booking_days_limit.data = settings.booking_days_limit
         form.subscription_days_limit.data = settings.subscription_days_limit
         form.referral_target_count.data = settings.referral_target_count or 10
+        form.maintenance_mode.data = bool(settings.maintenance_mode)
 
     return render_template('admin/settings.html', form=form, settings=settings)
 

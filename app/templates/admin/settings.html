@@ -29,6 +29,16 @@
                     </div>
                 </div>
 
+                <!-- Maintenance Settings -->
+                <h3 class="text-xl font-bold mb-4 text-accent border-b border-gray-700 pb-2">الصيانة</h3>
+                <div class="mb-6 bg-darkbg border border-gray-700 rounded-lg p-4">
+                    <label class="flex items-center gap-3 text-white font-semibold">
+                        {{ form.maintenance_mode(class="form-checkbox h-5 w-5 text-accent rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800") }}
+                        <span>{{ form.maintenance_mode.label.text }}</span>
+                    </label>
+                    <small class="block text-gray-400 mt-2">عند التفعيل ستظهر صفحة الصيانة لجميع العملاء والموظفين حتى لو كانت جلساتهم تعمل.</small>
+                </div>
+
                 <!-- Referral Settings -->
                 <h3 class="text-xl font-bold mb-4 text-accent border-b border-gray-700 pb-2">إعدادات الإحالة</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

@@ -504,7 +504,7 @@ def book():
             # (Vehicle conflict check moved inside loop above)
             
             # Sticky Employee Logic: Priority to employee already assigned to this customer today
-            employees = neighborhood.employees.filter_by(role='employee').all()
+            employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
             
             customer_active_booking = Booking.query.filter(
                 Booking.customer_id == current_user.id,
@@ -704,6 +704,7 @@ def book():
                     booking_id=booking.id,
                     vehicle_id=v.id,
                     service_id=s.id,
+                    quantity=1,
                     service_price=item_service_price,
                     size_price_adjustment=size_adj,
                     total_item_price=final_item_price
@@ -1017,7 +1018,7 @@ def get_available_times():
         return jsonify([])
     
     
-    employees = neighborhood.employees.filter_by(role='employee').all()
+    employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
     
     # --- New Rules: Multi-vehicle and Same-Employee Logic ---
     vehicle_ids = request.args.getlist('vehicle_ids[]')
@@ -1398,7 +1399,7 @@ def book_subscription_wash(subscription_id):
             flash('إحداثيات الموقع غير صالحة', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
-        employees = neighborhood.employees.filter_by(role='employee').all()
+        employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
         available_employee = None
         
         for employee in employees:

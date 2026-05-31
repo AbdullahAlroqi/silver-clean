@@ -34,6 +34,7 @@ def migrate():
                 booking_id INTEGER NOT NULL,
                 vehicle_id INTEGER NOT NULL,
                 service_id INTEGER NOT NULL,
+                quantity INTEGER DEFAULT 1,
                 service_price REAL DEFAULT 0.0,
                 size_price_adjustment REAL DEFAULT 0.0,
                 total_item_price REAL DEFAULT 0.0,
@@ -54,6 +55,19 @@ def migrate():
             cursor.execute('ALTER TABLE booking ADD COLUMN is_multi_vehicle BOOLEAN DEFAULT 0')
         except sqlite3.OperationalError:
             print("⏭️ 'is_multi_vehicle' already exists")
+
+        try:
+            cursor.execute('ALTER TABLE booking_item ADD COLUMN quantity INTEGER DEFAULT 1')
+        except sqlite3.OperationalError:
+            print("⏭️ 'booking_item.quantity' already exists")
+
+        try:
+            cursor.execute('ALTER TABLE user ADD COLUMN is_on_break BOOLEAN DEFAULT 0')
+        except sqlite3.OperationalError:
+            print("⏭️ 'user.is_on_break' already exists")
+
+        cursor.execute('UPDATE booking_item SET quantity = 1 WHERE quantity IS NULL')
+        cursor.execute('UPDATE user SET is_on_break = 0 WHERE is_on_break IS NULL')
 
         # 4. Migrate existing booking data to booking_item
         print("🔄 Migrating existing bookings to items...")
@@ -83,9 +97,9 @@ def migrate():
             total_item = base_price + size_adj
             
             cursor.execute('''
-                INSERT INTO booking_item (booking_id, vehicle_id, service_id, service_price, size_price_adjustment, total_item_price)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (booking_id, vehicle_id, service_id, base_price, size_adj, total_item))
+                INSERT INTO booking_item (booking_id, vehicle_id, service_id, quantity, service_price, size_price_adjustment, total_item_price)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (booking_id, vehicle_id, service_id, 1, base_price, size_adj, total_item))
             
             # Update booking total_price
             cursor.execute('UPDATE booking SET total_price = ? WHERE id = ?', (total_item, booking_id))

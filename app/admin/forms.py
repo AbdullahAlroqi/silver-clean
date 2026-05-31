@@ -9,6 +9,7 @@ class EmployeeForm(FlaskForm):
     phone = StringField('رقم الجوال', validators=[DataRequired(), Length(min=10, max=15)])
     password = PasswordField('كلمة المرور', validators=[Optional()])
     role = SelectField('الدور', choices=[('employee', 'موظف'), ('supervisor', 'مشرف')], default='employee')
+    is_on_break = BooleanField('راحة', default=False)
     neighborhoods = SelectMultipleField('الأحياء المسندة (للموظفين)', coerce=int)
     supervisor_cities = SelectMultipleField('المدن المسندة (للمشرفين)', coerce=int)
     supervisor_neighborhoods = SelectMultipleField('الأحياء المسندة (للمشرفين)', coerce=int)
@@ -91,6 +92,7 @@ class SiteSettingsForm(FlaskForm):
     booking_days_limit = IntegerField('عدد أيام الحجز (الخدمة)', validators=[InputRequired(), NumberRange(min=0)])
     subscription_days_limit = IntegerField('عدد أيام الحجز (الاشتراك)', validators=[InputRequired(), NumberRange(min=0)])
     referral_target_count = IntegerField('عدد الإحالات للغسلة المجانية', validators=[InputRequired(), NumberRange(min=1)])
+    maintenance_mode = BooleanField('إيقاف العمل للصيانة', default=False)
     submit = SubmitField('Save Settings')
 
 class NotificationForm(FlaskForm):

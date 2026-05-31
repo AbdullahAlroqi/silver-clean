@@ -44,6 +44,14 @@
             </div>
             {% endif %}
 
+            <div class="mb-4" id="employee-break-field">
+                <label class="flex items-center gap-2 text-gray-300 text-sm font-semibold">
+                    {{ form.is_on_break(class="form-checkbox h-5 w-5 text-accent rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800") }}
+                    <span>راحة</span>
+                </label>
+                <p class="text-gray-500 text-xs mt-1">عند التفعيل لن يظهر الموظف ضمن خيارات الإسناد أو الأوقات المتاحة.</p>
+            </div>
+
             <!-- Employee Neighborhoods -->
             <div class="mb-4" id="employee-neighborhoods-field">
                 <label class="block text-gray-300 text-sm font-semibold mb-2">الأحياء المسندة (للموظفين)</label>
@@ -108,13 +116,16 @@
                     const roleSelect = document.getElementById('role');
                     const supervisorFields = document.getElementById('supervisor-fields');
                     const employeeFields = document.getElementById('employee-neighborhoods-field');
+                    const breakField = document.getElementById('employee-break-field');
 
                     if (roleSelect && roleSelect.value === 'supervisor') {
                         supervisorFields.classList.remove('hidden');
                         employeeFields.classList.add('hidden');
+                        breakField.classList.add('hidden');
                     } else {
                         supervisorFields.classList.add('hidden');
                         employeeFields.classList.remove('hidden');
+                        breakField.classList.remove('hidden');
                     }
                 }
 

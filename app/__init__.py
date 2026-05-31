@@ -64,7 +64,19 @@ def create_app(config_class=Config):
     @app.before_request
     def check_banned():
         from flask_login import current_user, logout_user
-        from flask import redirect, url_for, flash, request
+        from flask import redirect, url_for, flash, request, render_template
+        from app.models import SiteSettings
+
+        if request.endpoint != 'static':
+            settings = SiteSettings.get_settings()
+            if getattr(settings, 'maintenance_mode', False):
+                auth_endpoint = request.endpoint in ['auth.login', 'auth.logout']
+                admin_settings_endpoint = request.endpoint == 'admin.settings'
+                allowed_endpoint = auth_endpoint or admin_settings_endpoint
+
+                if not allowed_endpoint:
+                    return render_template('maintenance.html', settings=settings), 503
+
         if current_user.is_authenticated and getattr(current_user, 'is_banned', False):
             logout_user()
             flash('تم حظر حسابك بشكل نهائي. للتواصل مع الإدارة يرجى الاتصال بالدعم.', 'error')
