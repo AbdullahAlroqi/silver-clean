@@ -193,6 +193,7 @@ class Service(db.Model):
     duration = db.Column(db.Integer) # in minutes
     description = db.Column(db.String(255))
     includes_free_wash = db.Column(db.Boolean, default=True)
+    awards_loyalty_point = db.Column(db.Boolean, default=True)
     is_active = db.Column(db.Boolean, default=True)
     # city_prices relationship defined in CityServicePrice
 

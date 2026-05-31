@@ -195,13 +195,25 @@ def update_status(id, status):
             # Set completion time
             from app.utils.timezone import get_saudi_time
             booking.completed_at = get_saudi_time().replace(tzinfo=None)
+
+            service_awards_loyalty = False
+            if booking.items.count() > 0:
+                service_awards_loyalty = any(
+                    item.service and item.service.awards_loyalty_point is not False
+                    for item in booking.items
+                )
+            elif booking.service:
+                service_awards_loyalty = booking.service.awards_loyalty_point is not False
             
             # Add loyalty point (only if not a subscription booking and not a free wash)
             if not booking.subscription_id and not booking.used_free_wash:
-                if booking.customer.add_loyalty_point():
-                    flash('تم إكمال الخدمة. وصل العميل للحد المطلوب وحصل على غسلة مجانية! 🎉', 'success')
+                if service_awards_loyalty:
+                    if booking.customer.add_loyalty_point():
+                        flash('تم إكمال الخدمة. وصل العميل للحد المطلوب وحصل على غسلة مجانية! 🎉', 'success')
+                    else:
+                        flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
                 else:
-                    flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
+                    flash('تم إكمال الخدمة بدون إضافة نقطة ولاء', 'success')
             
             # --- Referral System: First Wash Tracking ---
             # Check if this is the customer's first completed booking (for referral reward)

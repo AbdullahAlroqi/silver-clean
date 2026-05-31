@@ -1174,6 +1174,7 @@ def add_service():
                               price=form.price.data, duration=form.duration.data, 
                               description=form.description.data,
                               includes_free_wash=form.includes_free_wash.data,
+                              awards_loyalty_point=form.awards_loyalty_point.data,
                               is_active=form.is_active.data)
             db.session.add(service)
             db.session.commit()
@@ -3986,6 +3987,7 @@ def duplicate_service(id):
         duration=service.duration,
         description=service.description,
         includes_free_wash=service.includes_free_wash,
+        awards_loyalty_point=service.awards_loyalty_point,
         is_active=service.is_active
     )
     db.session.add(new_service)
