@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Back Button -->
+<div class="mb-6">
+    <a href="{{ url_for('customer.gift') }}"
+        class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold transition">
+        <i class="fas fa-arrow-right"></i>
+        رجوع
+    </a>
+</div>
+
+<div class="text-center mb-6">
+    <h2 class="text-2xl font-bold text-white mb-2">
+        <i class="fas fa-wand-magic-sparkles text-amber-400 ml-2"></i>
+        إهداء التلميع
+    </h2>
+    <p class="text-gray-400 text-sm">اختر باقة التلميع وأدخل بيانات المستلم</p>
+</div>
+
+<form method="POST" class="max-w-2xl mx-auto">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Packages Selection -->
+    <div class="bg-primary rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+        <h3 class="text-lg font-bold text-white mb-4">
+            <i class="fas fa-box-open ml-2 text-amber-400"></i>
+            اختر باقة التلميع
+        </h3>
+        <div class="grid grid-cols-1 gap-3">
+            {% for package in packages %}
+            <label class="cursor-pointer">
+                <input type="radio" name="package_id" value="{{ package.id }}" required class="peer hidden">
+                <div
+                    class="peer-checked:border-amber-500 peer-checked:bg-amber-500/10 border-2 border-gray-600 rounded-lg p-4 transition-all">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                        <div>
+                            <p class="text-white font-bold text-lg">{{ package.name_ar }}</p>
+                            {% if package.description %}
+                            <p class="text-gray-400 text-sm mt-1">{{ package.description }}</p>
+                            {% endif %}
+                            {% if package.wash_count %}
+                            <p class="text-gray-500 text-xs mt-2">{{ package.wash_count }} خدمة</p>
+                            {% endif %}
+                        </div>
+                        <div class="sm:text-left">
+                            <p class="text-amber-400 font-bold text-xl">{{ package.price }} ريال</p>
+                        </div>
+                    </div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+
+        {% if not packages %}
+        <div class="text-center py-8">
+            <i class="fas fa-inbox text-4xl text-gray-500 mb-4"></i>
+            <p class="text-gray-400">لا توجد باقات تلميع متاحة حالياً</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Recipient Info -->
+    <div class="bg-primary rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+        <h3 class="text-lg font-bold text-white mb-4">
+            <i class="fas fa-user-friends ml-2 text-pink-400"></i>
+            معلومات المهدى له
+        </h3>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="recipient_name">
+                    اسم الشخص
+                </label>
+                <input type="text" id="recipient_name" name="recipient_name" required placeholder="مثال: محمد أحمد"
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-amber-400 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="recipient_phone">
+                    رقم الجوال (بدون صفر)
+                </label>
+                <div class="flex gap-2 items-center">
+                    <span class="text-white bg-gray-700 px-4 py-3 rounded-lg">+966</span>
+                    <input type="text" id="recipient_phone" name="recipient_phone" required pattern="[0-9]{9}"
+                        maxlength="9" placeholder="512345678"
+                        class="flex-1 min-w-0 bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-amber-400 focus:outline-none">
+                </div>
+                <p class="text-gray-400 text-xs mt-1">أدخل 9 أرقام بدون الصفر الأول</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipient Location -->
+    <div class="bg-primary rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+        <h3 class="text-lg font-bold text-white mb-4">
+            <i class="fas fa-map-marker-alt ml-2 text-amber-400"></i>
+            منطقة المستلم
+        </h3>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="city_id">
+                    المدينة
+                </label>
+                <select id="city_id" name="city_id" required
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-amber-400 focus:outline-none"
+                    onchange="loadNeighborhoods(this.value)">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="neighborhood_id">
+                    الحي
+                </label>
+                <select id="neighborhood_id" name="neighborhood_id" required
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-amber-400 focus:outline-none">
+                    <option value="">-- اختر المدينة أولاً --</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Button -->
+    <button type="submit" {% if not packages %}disabled{% endif %}
+        class="w-full bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-4 px-6 rounded-lg transition flex items-center justify-center gap-2">
+        <i class="fas fa-gift"></i>
+        إرسال الهدية
+    </button>
+</form>
+
+<script>
+    function loadNeighborhoods(cityId) {
+        const neighborhoodSelect = document.getElementById('neighborhood_id');
+        neighborhoodSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+
+        if (!cityId) {
+            neighborhoodSelect.innerHTML = '<option value="">-- اختر المدينة أولاً --</option>';
+            return;
+        }
+
+        fetch(`/customer/api/neighborhoods/${cityId}`)
+            .then(response => response.json())
+            .then(data => {
+                neighborhoodSelect.innerHTML = '<option value="">-- اختر الحي --</option>';
+                data.forEach(n => {
+                    neighborhoodSelect.innerHTML += `<option value="${n.id}" class="bg-darkbg text-white">${n.name}</option>`;
+                });
+            })
+            .catch(() => {
+                neighborhoodSelect.innerHTML = '<option value="">خطأ في التحميل</option>';
+            });
+    }
+</script>
+{% endblock %}

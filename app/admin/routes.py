@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -1687,12 +1687,14 @@ def packages():
     
     for package in packages:
         subs_count = Subscription.query.filter_by(package_id=package.id).count()
+        polishing_count = PolishingOrder.query.filter_by(package_id=package.id).count()
         # Estimate revenue since actual paid amount not stored
         rev = subs_count * (package.price or 0.0)
         
         packages_data.append({
             'package': package,
             'subs_count': subs_count,
+            'polishing_count': polishing_count,
             'revenue': rev
         })
         total_subscriptions += subs_count
@@ -1774,17 +1776,18 @@ def add_package():
         package = SubscriptionPackage(
             name_ar=form.name_ar.data,
             name_en=form.name_en.data,
+            package_type=form.package_type.data,
             price=float(form.price.data),
             wash_count=int(form.wash_count.data),
             duration_days=int(form.duration_days.data),
             description=form.description.data,
-            is_active=True
+            is_active=form.is_active.data
         )
         db.session.add(package)
         db.session.commit()
         flash('تم إضافة الباقة بنجاح')
         return redirect(url_for('admin.packages'))
-    return render_template('admin/package_form.html', form=form, title='إضافة باقة اشتراك')
+    return render_template('admin/package_form.html', form=form, title='إضافة باقة')
 
 @bp.route('/packages/edit/<int:id>', methods=['GET', 'POST'])
 def edit_package(id):
@@ -1793,21 +1796,25 @@ def edit_package(id):
     if form.validate_on_submit():
         package.name_ar = form.name_ar.data
         package.name_en = form.name_en.data
+        package.package_type = form.package_type.data
         package.price = float(form.price.data)
         package.wash_count = int(form.wash_count.data)
         package.duration_days = int(form.duration_days.data)
         package.description = form.description.data
+        package.is_active = form.is_active.data
         db.session.commit()
         flash('تم تعديل الباقة')
         return redirect(url_for('admin.packages'))
     elif request.method == 'GET':
         form.name_ar.data = package.name_ar
         form.name_en.data = package.name_en
+        form.package_type.data = package.package_type or 'subscription'
         form.price.data = str(package.price)
         form.wash_count.data = str(package.wash_count)
         form.duration_days.data = str(package.duration_days)
         form.description.data = package.description
-    return render_template('admin/package_form.html', form=form, title='تعديل باقة اشتراك')
+        form.is_active.data = package.is_active
+    return render_template('admin/package_form.html', form=form, title='تعديل باقة')
 
 @bp.route('/packages/delete/<int:id>', methods=['POST'])
 def delete_package(id):
@@ -1883,7 +1890,7 @@ def subscriptions():
     
     employees = User.query.filter_by(role='employee', is_on_break=False).all()
     customers = User.query.filter_by(role='customer').all()
-    packages = SubscriptionPackage.query.filter_by(is_active=True).all()
+    packages = SubscriptionPackage.query.filter_by(is_active=True, package_type='subscription').all()
     
     return render_template('admin/subscriptions.html',
                           subscriptions=subscriptions_result,
@@ -1927,7 +1934,7 @@ def create_subscription():
             return redirect(url_for('admin.subscriptions'))
     
     package = SubscriptionPackage.query.get(package_id)
-    if not package:
+    if not package or package.package_type != 'subscription':
         flash('الباقة غير موجودة')
         return redirect(url_for('admin.subscriptions'))
 
@@ -2061,6 +2068,91 @@ def whatsapp_customer(id):
     
     return redirect(whatsapp_url)
 
+# --- Polishing Requests Management ---
+@bp.route('/polishing-orders')
+@login_required
+def polishing_orders():
+    status = request.args.get('status', 'pending')
+    search_query = request.args.get('search', '').strip()
+
+    orders_query = PolishingOrder.query
+
+    if status != 'all':
+        orders_query = orders_query.filter_by(status=status)
+
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = []
+        if current_user.supervisor_neighborhoods:
+            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+
+        if current_user.supervisor_cities:
+            for city in current_user.supervisor_cities:
+                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+
+        if supervisor_neighborhood_ids:
+            orders_query = orders_query.filter(PolishingOrder.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            orders_query = orders_query.filter_by(id=-1)
+
+    if search_query:
+        orders_query = orders_query.join(User, User.id == PolishingOrder.customer_id).filter(
+            (User.username.contains(search_query)) |
+            (User.phone.contains(search_query))
+        )
+
+    page = request.args.get('page', 1, type=int)
+    pagination = orders_query.order_by(PolishingOrder.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
+    orders = pagination.items
+
+    pending_count = PolishingOrder.query.filter_by(status='pending').count()
+    accepted_count = PolishingOrder.query.filter_by(status='accepted').count()
+    completed_count = PolishingOrder.query.filter_by(status='completed').count()
+    rejected_count = PolishingOrder.query.filter_by(status='rejected').count()
+
+    return render_template(
+        'admin/polishing_orders.html',
+        orders=orders,
+        current_status=status,
+        search_query=search_query,
+        pending_count=pending_count,
+        accepted_count=accepted_count,
+        completed_count=completed_count,
+        rejected_count=rejected_count,
+        pagination=pagination
+    )
+
+@bp.route('/polishing-orders/<int:id>/accept', methods=['POST'])
+def accept_polishing_order(id):
+    order = PolishingOrder.query.get_or_404(id)
+    order.status = 'accepted'
+    db.session.commit()
+    flash('تم قبول طلب التلميع', 'success')
+    return redirect(request.referrer or url_for('admin.polishing_orders', status='accepted'))
+
+@bp.route('/polishing-orders/<int:id>/complete', methods=['POST'])
+def complete_polishing_order(id):
+    order = PolishingOrder.query.get_or_404(id)
+    order.status = 'completed'
+    db.session.commit()
+    flash('تم إكمال طلب التلميع', 'success')
+    return redirect(request.referrer or url_for('admin.polishing_orders', status='completed'))
+
+@bp.route('/polishing-orders/<int:id>/reject', methods=['POST'])
+def reject_polishing_order(id):
+    order = PolishingOrder.query.get_or_404(id)
+    order.status = 'rejected'
+    db.session.commit()
+    flash('تم رفض طلب التلميع', 'success')
+    return redirect(request.referrer or url_for('admin.polishing_orders', status='rejected'))
+
+@bp.route('/polishing-orders/<int:id>/delete', methods=['POST'])
+def delete_polishing_order(id):
+    order = PolishingOrder.query.get_or_404(id)
+    db.session.delete(order)
+    db.session.commit()
+    flash('تم حذف طلب التلميع', 'success')
+    return redirect(request.referrer or url_for('admin.polishing_orders'))
+
 # API endpoint for getting employees by neighborhood
 @bp.route('/api/employees-by-neighborhood/<int:neighborhood_id>')
 def employees_by_neighborhood(neighborhood_id):
@@ -2076,6 +2168,189 @@ def employees_by_neighborhood(neighborhood_id):
     return jsonify([{'id': emp.id, 'username': emp.username} for emp in employees])
 
 # --- Booking Management ---
+BOOKING_NEXT_STATUS = {
+    'assigned': 'en_route',
+    'en_route': 'arrived',
+    'arrived': 'in_progress',
+    'in_progress': 'completed',
+}
+
+BOOKING_STATUS_LABELS = {
+    'assigned': 'تم التعيين',
+    'en_route': 'في الطريق',
+    'arrived': 'وصل الموظف',
+    'in_progress': 'جاري العمل',
+    'completed': 'مكتمل',
+}
+
+
+def _booking_service_display_name(booking):
+    if booking.subscription_id and booking.subscription and booking.subscription.package:
+        return booking.subscription.package.name_ar
+
+    first_item = booking.items.first()
+    if first_item and first_item.service:
+        return first_item.service.name_ar
+
+    if booking.service:
+        return booking.service.name_ar
+
+    return 'الخدمة'
+
+
+def _booking_awards_loyalty_point(booking):
+    items = booking.items.all()
+    if items:
+        return any(
+            item.service and item.service.awards_loyalty_point is not False
+            for item in items
+        )
+
+    return bool(booking.service and booking.service.awards_loyalty_point is not False)
+
+
+def _apply_booking_completion_effects(booking):
+    from app.models import ReferralRecord
+
+    if not booking.customer:
+        return 'تم إكمال الخدمة بنجاح'
+
+    message = 'تم إكمال الخدمة بنجاح'
+
+    if not booking.subscription_id and not booking.used_free_wash:
+        if _booking_awards_loyalty_point(booking):
+            if booking.customer.add_loyalty_point():
+                message = 'تم إكمال الخدمة. وصل العميل للحد المطلوب وحصل على غسلة مجانية!'
+            else:
+                message = 'تم إكمال الخدمة وإضافة نقطة ولاء للعميل'
+        else:
+            message = 'تم إكمال الخدمة بدون إضافة نقطة ولاء'
+
+    first_completed_count = Booking.query.filter_by(
+        customer_id=booking.customer_id,
+        status='completed'
+    ).count()
+
+    if first_completed_count <= 1:
+        if booking.customer.used_influencer_code_id:
+            if booking.customer.add_loyalty_point():
+                db.session.add(Notification(
+                    user_id=booking.customer_id,
+                    title='حصلت على غسلة مجانية!',
+                    message='لقد حصلت على غسلة مجانية جديدة!',
+                    created_at=datetime.utcnow()
+                ))
+            else:
+                db.session.add(Notification(
+                    user_id=booking.customer_id,
+                    title='نقطة إضافية',
+                    message='حصلت على نقطة إضافية لتسجيلك باستخدام كود مؤثر!',
+                    created_at=datetime.utcnow()
+                ))
+
+        referral_record = ReferralRecord.query.filter_by(
+            referred_user_id=booking.customer_id,
+            first_wash_completed=False
+        ).first()
+
+        if referral_record:
+            referral_record.first_wash_completed = True
+            referral_record.completed_at = datetime.utcnow()
+
+            site_settings = SiteSettings.get_settings()
+            target = site_settings.referral_target_count or 10
+            completed_referrals = ReferralRecord.query.filter_by(
+                referrer_id=referral_record.referrer_id,
+                first_wash_completed=True
+            ).count()
+
+            if completed_referrals > 0 and completed_referrals % target == 0:
+                referrer = User.query.get(referral_record.referrer_id)
+                if referrer:
+                    referrer.free_washes = (referrer.free_washes or 0) + 1
+                    db.session.add(Notification(
+                        user_id=referrer.id,
+                        title='حصلت على غسلة مجانية!',
+                        message=f'مبروك! أكمل {target} من أصدقائك المحالين غسلتهم الأولى. تمت إضافة غسلة مجانية لحسابك!',
+                        created_at=datetime.utcnow()
+                    ))
+
+    for booking_product in booking.products:
+        product = booking_product.product
+        if product and product.stock_quantity is not None:
+            product.stock_quantity -= booking_product.quantity
+            if product.stock_quantity < 0:
+                product.stock_quantity = 0
+
+    return message
+
+
+def _send_booking_status_notification(booking, status):
+    if not booking.customer:
+        return
+
+    from app.notifications import send_push_notification
+
+    service_name = _booking_service_display_name(booking)
+    status_messages = {
+        'en_route': {
+            'title': 'الموظف في الطريق',
+            'body': f'موظفنا في الطريق إليك! سيصل قريباً لحجزك #{booking.id}'
+        },
+        'arrived': {
+            'title': 'وصل الموظف',
+            'body': f'وصل موظفنا إلى موقعك للحجز #{booking.id}'
+        },
+        'in_progress': {
+            'title': 'جاري العمل',
+            'body': f'بدأ موظفنا بتقديم خدمة {service_name} للحجز #{booking.id}'
+        }
+    }
+
+    if status not in status_messages:
+        return
+
+    send_push_notification(booking.customer, {
+        "title": status_messages[status]['title'],
+        "body": status_messages[status]['body'],
+        "icon": "/static/images/logo.png",
+        "badge": "/static/images/logo.png",
+        "url": "/customer/bookings",
+        "data": {
+            "booking_id": booking.id,
+            "status": status
+        }
+    })
+
+
+def _send_booking_rating_request(booking):
+    if not booking.customer:
+        return
+
+    try:
+        from app.notifications import send_push_notification
+
+        notification = Notification(
+            user_id=booking.customer_id,
+            title='تم الانتهاء من الغسيل!',
+            message='نأمل أن تكون راضياً عن خدمتنا. يرجى تقييم تجربتك.',
+            created_at=datetime.utcnow()
+        )
+        db.session.add(notification)
+        db.session.commit()
+
+        send_push_notification(
+            booking.customer,
+            {
+                "title": 'تم الانتهاء من الغسيل!',
+                "body": 'نأمل أن تكون راضياً عن خدمتنا. يرجى تقييم تجربتك.',
+                "url": url_for('customer.rate_booking', booking_id=booking.id, _external=True)
+            }
+        )
+    except Exception as e:
+        print(f"Error sending rating notification: {e}")
+
+
 @bp.route('/bookings')
 def bookings():
     import json
@@ -2941,6 +3216,48 @@ def reassign_booking(id):
     db.session.commit()
     flash('تم إعادة إسناد الحجز بنجاح')
     return redirect(url_for('admin.bookings'))
+
+@bp.route('/bookings/<int:id>/advance-status', methods=['POST'])
+def advance_booking_status(id):
+    from app.utils.timezone import get_saudi_time
+
+    booking = Booking.query.get_or_404(id)
+    next_status = BOOKING_NEXT_STATUS.get(booking.status)
+
+    if not next_status:
+        flash('لا توجد خطوة تالية لهذا الحجز', 'warning')
+        return redirect(request.referrer or url_for('admin.bookings'))
+
+    if not booking.employee_id:
+        flash('يجب إسناد الحجز لموظف قبل تغيير خطوات الخدمة', 'error')
+        return redirect(request.referrer or url_for('admin.bookings'))
+
+    now = get_saudi_time().replace(tzinfo=None)
+    booking.status = next_status
+
+    if next_status == 'in_progress' and not booking.started_at:
+        booking.started_at = now
+
+    completion_message = None
+    if next_status == 'completed':
+        if not booking.started_at:
+            booking.started_at = now
+        booking.completed_at = now
+        completion_message = _apply_booking_completion_effects(booking)
+
+    db.session.commit()
+
+    if next_status in ['en_route', 'arrived', 'in_progress']:
+        try:
+            _send_booking_status_notification(booking, next_status)
+        except Exception as e:
+            print(f"Error sending status notification: {e}")
+    elif next_status == 'completed':
+        _send_booking_rating_request(booking)
+
+    label = BOOKING_STATUS_LABELS.get(next_status, next_status)
+    flash(completion_message or f'تم نقل الحجز إلى خطوة: {label}', 'success')
+    return redirect(request.referrer or url_for('admin.bookings'))
 
 @bp.route('/bookings/<int:id>/cancel', methods=['POST'])
 def cancel_booking(id):

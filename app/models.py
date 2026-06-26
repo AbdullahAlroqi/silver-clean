@@ -381,6 +381,7 @@ class SubscriptionPackage(db.Model):
     wash_count = db.Column(db.Integer)
     duration_days = db.Column(db.Integer)
     description = db.Column(db.String(255))
+    package_type = db.Column(db.String(20), default='subscription')  # subscription, polishing
     is_active = db.Column(db.Boolean, default=True)
 
 class Subscription(db.Model):
@@ -402,6 +403,22 @@ class Subscription(db.Model):
     package = db.relationship('SubscriptionPackage')
     neighborhood = db.relationship('Neighborhood')
     vehicle = db.relationship('Vehicle')
+
+class PolishingOrder(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    vehicle_id = db.Column(db.Integer, db.ForeignKey('vehicle.id'), nullable=True)
+    neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True)
+    package_id = db.Column(db.Integer, db.ForeignKey('subscription_package.id'), nullable=True)
+    preferred_time = db.Column(db.String(20), nullable=True)
+    status = db.Column(db.String(20), default='pending')  # pending, accepted, completed, rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    customer = db.relationship('User', backref=db.backref('polishing_orders', lazy='dynamic'))
+    vehicle = db.relationship('Vehicle')
+    neighborhood = db.relationship('Neighborhood')
+    package = db.relationship('SubscriptionPackage')
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)

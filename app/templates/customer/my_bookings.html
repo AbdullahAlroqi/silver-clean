@@ -1,47 +1,64 @@
 {% extends "customer/base.html" %}
 
 {% block content %}
+<style>
+    @media (max-width: 640px) {
+        .booking-actions > * {
+            width: 100%;
+        }
+
+        .booking-actions a,
+        .booking-actions button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+        }
+    }
+</style>
+
 <div class="max-w-6xl mx-auto">
-    <div class="mb-6">
+    <div class="mb-5">
         <h2 class="text-2xl font-bold text-white">حجوزاتي</h2>
+        <p class="text-sm text-gray-400 mt-1">تابع المواعيد والحالة والتفاصيل من مكان واحد</p>
     </div>
 
     {% if bookings %}
     <div class="grid gap-4">
         {% for booking in bookings %}
-        <div class="bg-primary p-6 rounded-lg shadow-lg border-r-4 
+        <article class="bg-primary p-4 sm:p-6 rounded-2xl shadow-lg border-r-4 
                 {% if booking.status == 'completed' %}border-green-500
                 {% elif booking.status == 'cancelled' %}border-red-500
                 {% elif booking.status == 'in_progress' %}border-blue-500
                 {% else %}border-accent{% endif %}">
 
-            <div class="flex justify-between items-start mb-4">
-                <div class="flex-1">
-                    <h3 class="text-xl font-bold text-white mb-2">
+            <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-5">
+                <div class="min-w-0 flex-1">
+                    <h3 class="text-lg sm:text-xl font-bold text-white mb-3 flex flex-wrap items-center gap-2">
                         <i class="fas fa-receipt text-accent mr-2"></i>
-                        طلب رقم #{{ booking.id }}
+                        <span>طلب رقم #{{ booking.id }}</span>
                         {% if booking.is_multi_vehicle %}
-                        <span class="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full mr-2">طلب متعدد المركبات</span>
+                        <span class="text-xs bg-accent/20 text-accent px-2 py-1 rounded-full">طلب متعدد المركبات</span>
                         {% endif %}
                     </h3>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div class="text-gray-300">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                        <div class="bg-darkbg/60 rounded-xl px-3 py-3 text-gray-300">
                             <i class="fas fa-calendar-alt text-accent mr-2 w-5"></i>
                             <strong>التاريخ:</strong> {{ booking.date.strftime('%Y-%m-%d') }}
                         </div>
-                        <div class="text-gray-300">
+                        <div class="bg-darkbg/60 rounded-xl px-3 py-3 text-gray-300">
                             <i class="fas fa-clock text-accent mr-2 w-5"></i>
                             <strong>الوقت:</strong> {{ booking.time.strftime('%H:%M') }}
                         </div>
                         {% if booking.employee %}
-                        <div class="text-gray-300">
+                        <div class="bg-darkbg/60 rounded-xl px-3 py-3 text-gray-300">
                             <i class="fas fa-user-tie text-accent mr-2 w-5"></i>
                             <strong>الموظف:</strong> {{ booking.employee.username }}
                         </div>
                         {% endif %}
                         {% if booking.neighborhood %}
-                        <div class="text-gray-300">
+                        <div class="bg-darkbg/60 rounded-xl px-3 py-3 text-gray-300">
                             <i class="fas fa-map-marker-alt text-accent mr-2 w-5"></i>
                             <strong>العنوان:</strong> {{ booking.neighborhood.city.name_ar }} - {{ booking.neighborhood.name_ar }}
                         </div>
@@ -55,8 +72,8 @@
                         </p>
                         <div class="grid grid-cols-1 gap-3">
                             {% for item in booking.items %}
-                            <div class="bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
-                                <div>
+                            <div class="bg-gray-800/50 p-3 rounded-xl border border-gray-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                                <div class="min-w-0">
                                     <div class="font-bold text-white">{{ item.vehicle.brand }} - {{ item.vehicle.plate_number }}</div>
                                     <div class="text-sm text-gray-400">
                                         {% if booking.subscription_id and booking.subscription %}
@@ -66,7 +83,7 @@
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div class="text-accent font-bold">
+                                <div class="text-accent font-bold sm:text-left">
                                     {% if booking.subscription_id %}
                                         0 ريال (مشمول)
                                     {% elif booking.used_free_wash %}
@@ -78,8 +95,8 @@
                             </div>
                             {% else %}
                             {# Fallback for legacy bookings #}
-                            <div class="bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
-                                <div>
+                            <div class="bg-gray-800/50 p-3 rounded-xl border border-gray-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                                <div class="min-w-0">
                                     <div class="font-bold text-white">{{ booking.vehicle.brand }} - {{ booking.vehicle.plate_number }}</div>
                                     <div class="text-sm text-gray-400">
                                         {% if booking.subscription_id and booking.subscription %}
@@ -89,7 +106,7 @@
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div class="text-accent font-bold">
+                                <div class="text-accent font-bold sm:text-left">
                                     {% if booking.subscription_id %}
                                         0 ريال (مشمول)
                                     {% elif booking.used_free_wash %}
@@ -125,11 +142,11 @@
                     {% endif %}
 
                     <!-- Total Summary -->
-                    <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="p-3 sm:p-4 bg-gray-800 rounded-xl">
                         <div class="space-y-2 text-sm">
-                            <div class="flex justify-between text-gray-300">
+                            <div class="flex justify-between gap-3 text-gray-300">
                                 <span><i class="fas fa-spray-can text-accent mr-2"></i>إجمالي الخدمات:</span>
-                                <span class="font-bold">
+                                <span class="font-bold text-left">
                                     {% if booking.subscription_id %}
                                     <span class="text-blue-400">مشمول بالاشتراك</span>
                                     {% elif booking.used_free_wash and not booking.is_multi_vehicle %}
@@ -149,25 +166,25 @@
                             {% endfor %}
 
                             {% if products_total.value > 0 %}
-                            <div class="flex justify-between text-gray-300">
+                            <div class="flex justify-between gap-3 text-gray-300">
                                 <span><i class="fas fa-shopping-cart mr-2"></i>إجمالي المنتجات:</span>
-                                <span class="font-bold">{{ products_total.value }} ريال</span>
+                                <span class="font-bold text-left">{{ products_total.value }} ريال</span>
                             </div>
                             {% endif %}
                             
                             {% if booking.discount_code or booking.used_free_wash %}
-                            <div class="flex justify-between text-green-400 border-t border-gray-700 pt-2">
+                            <div class="flex justify-between gap-3 text-green-400 border-t border-gray-700 pt-2">
                                 <span><i class="fas fa-tag mr-2"></i>إجمالي التوفير:</span>
                                 {% set total_raw = 0 %}
                                 {% for itm in booking.items %}{% set total_raw = total_raw + itm.total_item_price %}{% endfor %}
                                 {% if total_raw == 0 %}{% set total_raw = (booking.custom_service_price or booking.service.price) %}{% endif %}
-                                <span class="font-bold">- {{ "%.1f"|format((total_raw + products_total.value) - booking.total_price) }} ريال</span>
+                                <span class="font-bold text-left">- {{ "%.1f"|format((total_raw + products_total.value) - booking.total_price) }} ريال</span>
                             </div>
                             {% endif %}
 
-                            <div class="flex justify-between text-accent font-bold text-lg border-t border-gray-700 pt-2 mt-2">
+                            <div class="flex flex-col sm:flex-row sm:justify-between gap-1 text-accent font-bold text-base sm:text-lg border-t border-gray-700 pt-2 mt-2">
                                 <span>المبلغ الإجمالي للاستحقاق:</span>
-                                <span>{{ "%.1f"|format(booking.total_price) }} ريال</span>
+                                <span class="sm:text-left">{{ "%.1f"|format(booking.total_price) }} ريال</span>
                             </div>
                         </div>
                     </div>
@@ -181,7 +198,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {% for bp in booking.products %}
                             {% set item_price = bp.unit_price if bp.unit_price is not none else bp.product.price %}
-                            <div class="text-sm text-gray-300 bg-gray-800 p-2 rounded">
+                            <div class="text-sm text-gray-300 bg-gray-800 p-3 rounded-xl">
                                 • {{ bp.product.name_ar }} <span class="text-gray-400">(× {{ bp.quantity }})</span> -
                                 <span class="text-accent font-bold">{{ item_price * bp.quantity }} ريال</span>
                             </div>
@@ -191,8 +208,8 @@
                     {% endif %}
                 </div>
 
-                <div class="mr-4 text-center">
-                    <span class="inline-block px-4 py-2 rounded-lg text-sm font-bold
+                <aside class="w-full lg:w-56 lg:mr-4 text-center">
+                    <span class="inline-flex items-center justify-center w-full px-4 py-2 rounded-xl text-sm font-bold
                             {% if booking.status == 'pending' %}bg-yellow-600 text-white
                             {% elif booking.status == 'assigned' %}bg-blue-600 text-white
                             {% elif booking.status == 'en_route' %}bg-purple-600 text-white
@@ -212,41 +229,94 @@
                     </span>
 
                     <!-- Action Buttons -->
-                    <div class="mt-3 flex flex-wrap justify-center gap-2">
+                    <div class="booking-actions mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-center lg:grid lg:grid-cols-1">
                         {% if booking.status in ['assigned', 'en_route', 'arrived'] %}
                         <a href="{{ url_for('customer.track_booking', booking_id=booking.id) }}"
-                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition">
                             <i class="fas fa-map-marker-alt mr-1"></i>تتبع الموظف
                         </a>
                         {% endif %}
 
+                        {% if booking.status in ['pending', 'assigned'] and booking.neighborhood_id %}
+                        {% set first_item = booking.items.first() %}
+                        <button type="button"
+                            onclick="showRescheduleModal(this)"
+                            data-id="{{ booking.id }}"
+                            data-date="{{ booking.date.strftime('%Y-%m-%d') }}"
+                            data-time="{{ booking.time.strftime('%H:%M') if booking.time else '' }}"
+                            data-neighborhood-id="{{ booking.neighborhood_id }}"
+                            data-service-id="{{ first_item.service_id if first_item else booking.service_id }}"
+                            data-duration="{{ booking.total_duration }}"
+                            data-vehicle-ids="{% for item in booking.items %}{{ item.vehicle_id }}{% if not loop.last %},{% endif %}{% else %}{{ booking.vehicle_id }}{% endfor %}"
+                            class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition">
+                            <i class="fas fa-calendar-alt mr-1"></i>إعادة الجدولة
+                        </button>
+                        {% endif %}
+
                         {% if booking.status not in ['completed', 'cancelled'] %}
                         <button type="button" onclick="showCancelModal({{ booking.id }})"
-                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition">
+                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition">
                             <i class="fas fa-times mr-1"></i>إلغاء الحجز
                         </button>
                         {% endif %}
                     </div>
-                </div>
+                </aside>
             </div>
-        </div>
+        </article>
         {% endfor %}
     </div>
     {% else %}
-    <div class="bg-primary p-12 rounded-lg shadow-lg text-center">
-        <i class="fas fa-calendar-times text-6xl text-gray-500 mb-4"></i>
-        <p class="text-xl text-gray-400 mb-6">لا توجد حجوزات</p>
+    <div class="bg-primary p-8 sm:p-12 rounded-2xl shadow-lg text-center">
+        <i class="fas fa-calendar-times text-5xl sm:text-6xl text-gray-500 mb-4"></i>
+        <p class="text-lg sm:text-xl text-gray-400 mb-6">لا توجد حجوزات</p>
         <a href="{{ url_for('customer.book') }}"
-            class="inline-block bg-accent hover:bg-blue-600 text-white px-8 py-3 rounded-lg font-bold transition">
+            class="inline-flex items-center justify-center bg-accent hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-bold transition">
             <i class="fas fa-plus mr-2"></i>احجز الآن
         </a>
     </div>
     {% endif %}
 </div>
 
+<!-- Reschedule Booking Modal -->
+<div id="rescheduleModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-primary p-4 sm:p-6 rounded-2xl max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+        <h3 class="text-xl font-bold text-white mb-4">
+            <i class="fas fa-calendar-alt text-amber-500 mr-2"></i>إعادة جدولة الحجز
+        </h3>
+        <p class="text-gray-300 mb-4">اختر تاريخ ووقت جديدين للحجز:</p>
+        <form id="rescheduleForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-4">
+                <label class="block text-sm text-gray-300 mb-2">التاريخ الجديد</label>
+                <input type="date" name="date" id="rescheduleDate" required
+                    class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm text-gray-300 mb-2">الوقت المتاح</label>
+                <select name="time" id="rescheduleTime" required
+                    class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-accent">
+                    <option value="">اختر التاريخ أولاً</option>
+                </select>
+                <p id="rescheduleHelp" class="text-gray-400 text-xs mt-2">سيتم عرض الأوقات المتاحة حسب مدة الخدمة والموظفين المتاحين.</p>
+            </div>
+            <p id="rescheduleError" class="text-red-500 text-sm mb-4 hidden">يجب اختيار تاريخ ووقت جديد</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button type="submit"
+                    class="bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold transition">
+                    <i class="fas fa-check mr-2"></i>حفظ الموعد
+                </button>
+                <button type="button" onclick="closeRescheduleModal()"
+                    class="bg-gray-600 hover:bg-gray-500 text-white py-3 rounded-lg font-bold transition">
+                    إلغاء
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Cancel Booking Modal -->
 <div id="cancelModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div class="bg-primary p-6 rounded-lg max-w-md w-full shadow-2xl">
+    <div class="bg-primary p-4 sm:p-6 rounded-2xl max-w-md w-full shadow-2xl">
         <h3 class="text-xl font-bold text-white mb-4">
             <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>إلغاء الحجز
         </h3>
@@ -257,13 +327,13 @@
                 class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent mb-4"
                 rows="3"></textarea>
             <p id="cancelError" class="text-red-500 text-sm mb-4 hidden">يجب إدخال سبب الإلغاء</p>
-            <div class="flex gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button type="submit" id="confirmCancelBtn"
-                    class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-bold transition">
+                    class="bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-bold transition">
                     <i class="fas fa-times mr-2"></i>تأكيد الإلغاء
                 </button>
                 <button type="button" onclick="closeCancelModal()"
-                    class="flex-1 bg-gray-600 hover:bg-gray-500 text-white py-3 rounded-lg font-bold transition">
+                    class="bg-gray-600 hover:bg-gray-500 text-white py-3 rounded-lg font-bold transition">
                     إلغاء
                 </button>
             </div>
@@ -272,6 +342,119 @@
 </div>
 
 <script>
+    let activeRescheduleBooking = null;
+    const bookingDaysLimit = {{ site_settings.booking_days_limit if site_settings.booking_days_limit is not none else 7 }};
+
+    function showRescheduleModal(button) {
+        const modal = document.getElementById('rescheduleModal');
+        const form = document.getElementById('rescheduleForm');
+        const dateInput = document.getElementById('rescheduleDate');
+        const timeSelect = document.getElementById('rescheduleTime');
+        const error = document.getElementById('rescheduleError');
+
+        activeRescheduleBooking = {
+            id: button.dataset.id,
+            date: button.dataset.date,
+            time: button.dataset.time,
+            neighborhoodId: button.dataset.neighborhoodId,
+            serviceId: button.dataset.serviceId,
+            duration: button.dataset.duration,
+            vehicleIds: (button.dataset.vehicleIds || '').split(',').filter(Boolean)
+        };
+
+        form.action = `/customer/bookings/reschedule/${activeRescheduleBooking.id}`;
+        dateInput.value = activeRescheduleBooking.date;
+        timeSelect.innerHTML = '<option value="">جاري تحميل الأوقات...</option>';
+        error.classList.add('hidden');
+
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+        if (bookingDaysLimit > 0) {
+            const maxDate = new Date();
+            maxDate.setDate(maxDate.getDate() + bookingDaysLimit);
+            dateInput.max = maxDate.toISOString().split('T')[0];
+        } else {
+            dateInput.removeAttribute('max');
+        }
+
+        modal.classList.remove('hidden');
+        loadRescheduleTimes();
+    }
+
+    function closeRescheduleModal() {
+        document.getElementById('rescheduleModal').classList.add('hidden');
+        activeRescheduleBooking = null;
+    }
+
+    function loadRescheduleTimes() {
+        if (!activeRescheduleBooking) return;
+
+        const dateInput = document.getElementById('rescheduleDate');
+        const timeSelect = document.getElementById('rescheduleTime');
+        const selectedDate = dateInput.value;
+
+        timeSelect.innerHTML = '<option value="">جاري تحميل الأوقات...</option>';
+        if (!selectedDate) {
+            timeSelect.innerHTML = '<option value="">اختر التاريخ أولاً</option>';
+            return;
+        }
+
+        const params = new URLSearchParams({
+            date: selectedDate,
+            neighborhood_id: activeRescheduleBooking.neighborhoodId,
+            service_id: activeRescheduleBooking.serviceId,
+            duration: activeRescheduleBooking.duration,
+            type: 'service',
+            exclude_booking_id: activeRescheduleBooking.id
+        });
+
+        activeRescheduleBooking.vehicleIds.forEach(vehicleId => {
+            params.append('vehicle_ids[]', vehicleId);
+        });
+
+        fetch('/customer/api/available-times?' + params)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    timeSelect.innerHTML = `<option value="">${data.error}</option>`;
+                    return;
+                }
+
+                const times = Array.isArray(data) ? data : (data.available_times || []);
+                if (times.length === 0) {
+                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة لهذا التاريخ</option>';
+                    return;
+                }
+
+                timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+                times.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    if (selectedDate === activeRescheduleBooking.date && time === activeRescheduleBooking.time) {
+                        option.selected = true;
+                    }
+                    timeSelect.appendChild(option);
+                });
+            })
+            .catch(() => {
+                timeSelect.innerHTML = '<option value="">حدث خطأ في تحميل الأوقات</option>';
+            });
+    }
+
+    document.getElementById('rescheduleDate').addEventListener('change', loadRescheduleTimes);
+
+    document.getElementById('rescheduleForm').addEventListener('submit', function (e) {
+        const date = document.getElementById('rescheduleDate').value;
+        const time = document.getElementById('rescheduleTime').value;
+        const error = document.getElementById('rescheduleError');
+
+        if (!date || !time) {
+            e.preventDefault();
+            error.classList.remove('hidden');
+        }
+    });
+
     function showCancelModal(bookingId) {
         const modal = document.getElementById('cancelModal');
         const form = document.getElementById('cancelForm');
@@ -304,6 +487,12 @@
     document.getElementById('cancelModal').addEventListener('click', function (e) {
         if (e.target === this) {
             closeCancelModal();
+        }
+    });
+
+    document.getElementById('rescheduleModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeRescheduleModal();
         }
     });
 </script>

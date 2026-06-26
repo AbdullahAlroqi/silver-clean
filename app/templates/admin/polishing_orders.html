@@ -1,0 +1,136 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h2 class="text-2xl font-bold text-white">طلبات التلميع</h2>
+</div>
+
+<div class="mb-4">
+    <form method="get" class="flex gap-2">
+        <input type="hidden" name="status" value="{{ current_status }}">
+        <input type="text" name="search" value="{{ search_query or '' }}" placeholder="البحث باسم العميل أو الجوال..."
+            class="flex-1 bg-darkbg border border-gray-600 rounded px-4 py-2 text-white">
+        <button type="submit" class="bg-accent hover:bg-blue-600 text-white px-6 py-2 rounded">بحث</button>
+        {% if search_query %}
+        <a href="{{ url_for('admin.polishing_orders', status=current_status) }}"
+            class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded">إلغاء</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="mb-6 flex gap-2 border-b border-gray-700 overflow-x-auto">
+    <a href="{{ url_for('admin.polishing_orders', status='pending') }}"
+        class="px-4 py-2 {% if current_status == 'pending' %}bg-accent text-white{% else %}text-gray-400{% endif %} rounded-t">المعلقة
+        ({{ pending_count }})</a>
+    <a href="{{ url_for('admin.polishing_orders', status='accepted') }}"
+        class="px-4 py-2 {% if current_status == 'accepted' %}bg-green-600 text-white{% else %}text-gray-400{% endif %} rounded-t">المقبولة
+        ({{ accepted_count }})</a>
+    <a href="{{ url_for('admin.polishing_orders', status='completed') }}"
+        class="px-4 py-2 {% if current_status == 'completed' %}bg-blue-600 text-white{% else %}text-gray-400{% endif %} rounded-t">المكتملة
+        ({{ completed_count }})</a>
+    <a href="{{ url_for('admin.polishing_orders', status='rejected') }}"
+        class="px-4 py-2 {% if current_status == 'rejected' %}bg-red-600 text-white{% else %}text-gray-400{% endif %} rounded-t">المرفوضة
+        ({{ rejected_count }})</a>
+</div>
+
+<div class="bg-primary rounded-lg shadow-lg overflow-x-auto">
+    <table class="w-full text-right">
+        <thead class="bg-gray-800">
+            <tr>
+                <th class="p-4">#</th>
+                <th class="p-4">العميل</th>
+                <th class="p-4">المركبة</th>
+                <th class="p-4">الباقة</th>
+                <th class="p-4">المنطقة</th>
+                <th class="p-4">الوقت المفضل</th>
+                <th class="p-4">الحالة</th>
+                <th class="p-4">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr class="border-b border-gray-700 hover:bg-gray-700">
+                <td class="p-4">#{{ order.id }}</td>
+                <td class="p-4">
+                    <div class="font-bold">{{ order.customer.username }}</div>
+                    <div class="text-xs text-gray-400">{{ order.customer.phone }}</div>
+                </td>
+                <td class="p-4">
+                    {% if order.vehicle %}
+                    <div>{{ order.vehicle.brand }}</div>
+                    <div class="text-xs text-gray-400">{{ order.vehicle.plate_number }}</div>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="p-4">
+                    <div class="font-bold text-amber-300">{{ order.package.name_ar if order.package else '-' }}</div>
+                    <div class="text-xs text-gray-400">{{ order.package.price if order.package else 0 }} ريال</div>
+                </td>
+                <td class="p-4">
+                    {% if order.neighborhood %}
+                    <div>{{ order.neighborhood.city.name_ar }}</div>
+                    <div class="text-xs text-gray-400">{{ order.neighborhood.name_ar }}</div>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="p-4">
+                    {% set time_map = {'morning': 'صباحاً', 'afternoon': 'ظهراً', 'evening': 'مساءً', 'flexible': 'في أي وقت'} %}
+                    {{ time_map.get(order.preferred_time, order.preferred_time or '-') }}
+                </td>
+                <td class="p-4">
+                    <span class="px-2 py-1 rounded text-xs
+                        {% if order.status == 'pending' %}bg-yellow-600
+                        {% elif order.status == 'accepted' %}bg-green-600
+                        {% elif order.status == 'completed' %}bg-blue-600
+                        {% else %}bg-red-600{% endif %}">
+                        {% if order.status == 'pending' %}معلق
+                        {% elif order.status == 'accepted' %}مقبول
+                        {% elif order.status == 'completed' %}مكتمل
+                        {% elif order.status == 'rejected' %}مرفوض
+                        {% else %}{{ order.status }}{% endif %}
+                    </span>
+                </td>
+                <td class="p-4">
+                    <div class="flex gap-2">
+                        {% if order.status == 'pending' %}
+                        <form action="{{ url_for('admin.accept_polishing_order', id=order.id) }}" method="post" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="text-green-400 hover:text-green-300" title="قبول"><i class="fas fa-check"></i></button>
+                        </form>
+                        <form action="{{ url_for('admin.reject_polishing_order', id=order.id) }}" method="post" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="text-red-400 hover:text-red-300" title="رفض" onclick="return confirm('رفض الطلب؟')"><i class="fas fa-times"></i></button>
+                        </form>
+                        {% elif order.status == 'accepted' %}
+                        <form action="{{ url_for('admin.complete_polishing_order', id=order.id) }}" method="post" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="text-blue-400 hover:text-blue-300" title="إكمال"><i class="fas fa-check-double"></i></button>
+                        </form>
+                        {% endif %}
+                        {% set phone = order.customer.phone %}
+                        {% if phone and phone.startswith('0') %}
+                        {% set phone = '+966' ~ phone[1:] %}
+                        {% endif %}
+                        <a href="https://wa.me/{{ phone }}" target="_blank" class="text-green-500" title="واتساب">
+                            <i class="fab fa-whatsapp"></i>
+                        </a>
+                        <form action="{{ url_for('admin.delete_polishing_order', id=order.id) }}" method="post" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="text-red-500 hover:text-red-400" title="حذف" onclick="return confirm('حذف الطلب؟')"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" class="p-8 text-center text-gray-500">لا توجد طلبات تلميع</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% include "admin/_pagination.html" %}
+{% endblock %}

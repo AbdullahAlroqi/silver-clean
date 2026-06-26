@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('customer.index') }}"
+            class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold transition">
+            <i class="fas fa-arrow-right"></i>
+            رجوع
+        </a>
+    </div>
+
+    <div class="mb-6">
+        <h2 class="text-3xl font-bold text-white mb-2">كرر آخر حجز</h2>
+        <p class="text-gray-400">اختر التاريخ والوقت وطريقة الدفع والمنتجات الإضافية فقط</p>
+    </div>
+
+    <div class="bg-primary rounded-2xl p-5 sm:p-6 shadow-lg border border-gray-700 mb-6">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                <i class="fas fa-redo-alt text-cyan-300 text-xl"></i>
+            </div>
+            <div>
+                <p class="text-gray-400 text-sm">سيتم تكرار بيانات الحجز رقم</p>
+                <p class="text-white font-bold">#{{ source_booking.id }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            <div class="bg-darkbg rounded-xl p-3">
+                <p class="text-xs text-gray-500 mb-1">الموقع</p>
+                <p class="text-white font-bold">
+                    {{ source_booking.neighborhood.city.name_ar }} - {{ source_booking.neighborhood.name_ar }}
+                </p>
+            </div>
+            <div class="bg-darkbg rounded-xl p-3">
+                <p class="text-xs text-gray-500 mb-1">عدد المركبات</p>
+                <p class="text-white font-bold">{{ repeat_prefill['items']|length }}</p>
+            </div>
+        </div>
+
+        <div class="space-y-3">
+            {% for item in source_booking.items %}
+            <div class="bg-darkbg/70 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <p class="text-white font-bold">{{ item.vehicle.brand }} - {{ item.vehicle.plate_number }}</p>
+                    <p class="text-gray-400 text-sm">{{ item.service.name_ar }}</p>
+                </div>
+                <p class="text-accent font-bold">{{ item.total_item_price }} ريال</p>
+            </div>
+            {% else %}
+            <div class="bg-darkbg/70 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <p class="text-white font-bold">{{ source_booking.vehicle.brand }} - {{ source_booking.vehicle.plate_number }}</p>
+                    <p class="text-gray-400 text-sm">{{ source_booking.service.name_ar }}</p>
+                </div>
+                <p class="text-accent font-bold">{{ source_booking.custom_service_price or source_booking.service.price }} ريال</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <form method="POST" class="space-y-6" id="repeatBookingForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="source_booking_id" value="{{ source_booking.id }}">
+
+        <div class="bg-primary rounded-2xl p-5 sm:p-6 shadow-lg border border-gray-700">
+            <h3 class="text-xl font-bold text-white mb-4">
+                <i class="fas fa-calendar-alt text-accent ml-2"></i>
+                الموعد الجديد
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm text-gray-300 mb-2">التاريخ</label>
+                    <input type="date" name="date" id="repeatDate" required
+                        class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-300 mb-2">الوقت المتاح</label>
+                    <select name="time" id="repeatTime" required
+                        class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent">
+                        <option value="">اختر التاريخ أولاً</option>
+                    </select>
+                </div>
+            </div>
+            <p id="repeatTimeHelp" class="text-gray-400 text-xs mt-3">
+                سيتم عرض الأوقات المتاحة حسب مدة الخدمات والموقع السابق.
+            </p>
+        </div>
+
+        <div class="bg-primary rounded-2xl p-5 sm:p-6 shadow-lg border border-gray-700">
+            <h3 class="text-xl font-bold text-white mb-4">
+                <i class="fas fa-credit-card text-blue-400 ml-2"></i>
+                طريقة الدفع
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="cursor-pointer">
+                    <input type="radio" name="payment_method" value="cash" class="peer sr-only"
+                        {% if repeat_prefill['payment_method'] != 'card' %}checked{% endif %}>
+                    <div class="bg-darkbg border border-gray-600 rounded-xl p-4 peer-checked:border-accent peer-checked:bg-accent/10 transition">
+                        <i class="fas fa-money-bill-wave text-green-400 ml-2"></i>
+                        <span class="font-bold text-white">كاش</span>
+                    </div>
+                </label>
+                <label class="cursor-pointer">
+                    <input type="radio" name="payment_method" value="card" class="peer sr-only"
+                        {% if repeat_prefill['payment_method'] == 'card' %}checked{% endif %}>
+                    <div class="bg-darkbg border border-gray-600 rounded-xl p-4 peer-checked:border-accent peer-checked:bg-accent/10 transition">
+                        <i class="fas fa-credit-card text-blue-400 ml-2"></i>
+                        <span class="font-bold text-white">شبكة / مدى</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div class="bg-primary rounded-2xl p-5 sm:p-6 shadow-lg border border-gray-700">
+            <h3 class="text-xl font-bold text-white mb-2">
+                <i class="fas fa-shopping-cart text-green-400 ml-2"></i>
+                منتجات إضافية
+            </h3>
+            <p class="text-gray-400 text-sm mb-4">اختياري</p>
+            <div id="products-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <p class="text-gray-500 text-center sm:col-span-2">جاري تحميل المنتجات...</p>
+            </div>
+        </div>
+
+        <button type="submit"
+            class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition">
+            <i class="fas fa-check ml-2"></i>
+            تأكيد الحجز
+        </button>
+    </form>
+</div>
+
+<script>
+    const repeatPrefill = {{ repeat_prefill | tojson | safe }};
+    const bookingDaysLimit = {{ site_settings.booking_days_limit if site_settings.booking_days_limit is not none else 7 }};
+    const dateInput = document.getElementById('repeatDate');
+    const timeSelect = document.getElementById('repeatTime');
+    const productsContainer = document.getElementById('products-container');
+
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.min = today;
+    if (bookingDaysLimit > 0) {
+        const maxDate = new Date();
+        maxDate.setDate(maxDate.getDate() + bookingDaysLimit);
+        dateInput.max = maxDate.toISOString().split('T')[0];
+    }
+
+    function loadAvailableTimes() {
+        const date = dateInput.value;
+        timeSelect.innerHTML = '<option value="">جاري تحميل الأوقات...</option>';
+
+        if (!date) {
+            timeSelect.innerHTML = '<option value="">اختر التاريخ أولاً</option>';
+            return;
+        }
+
+        const params = new URLSearchParams({
+            date,
+            neighborhood_id: repeatPrefill.neighborhood_id,
+            service_id: repeatPrefill.items[0].service_id,
+            duration: repeatPrefill.items.reduce((total, item) => total + (item.duration || 60), 0),
+            type: 'service'
+        });
+
+        repeatPrefill.items.forEach(item => {
+            params.append('vehicle_ids[]', item.vehicle_id);
+        });
+
+        fetch('/customer/api/available-times?' + params)
+            .then(response => response.json())
+            .then(data => {
+                const times = Array.isArray(data) ? data : (data.available_times || []);
+                if (data.error) {
+                    timeSelect.innerHTML = `<option value="">${data.error}</option>`;
+                    return;
+                }
+                if (!times.length) {
+                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة لهذا التاريخ</option>';
+                    return;
+                }
+                timeSelect.innerHTML = '<option value="">اختر الوقت</option>';
+                times.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    option.className = 'bg-darkbg text-white';
+                    timeSelect.appendChild(option);
+                });
+            })
+            .catch(() => {
+                timeSelect.innerHTML = '<option value="">حدث خطأ في تحميل الأوقات</option>';
+            });
+    }
+
+    function renderProducts(products) {
+        if (!products.length) {
+            productsContainer.innerHTML = '<p class="text-gray-500 text-center sm:col-span-2">لا توجد منتجات متاحة لهذا الموقع</p>';
+            return;
+        }
+
+        productsContainer.innerHTML = '';
+        products.forEach(product => {
+            const card = document.createElement('div');
+            card.className = 'bg-darkbg p-4 rounded-xl border border-gray-700';
+            card.innerHTML = `
+                ${product.image_url
+                    ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-16 h-16 object-cover rounded-lg mb-3">`
+                    : '<div class="w-16 h-16 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500"></i></div>'}
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <h4 class="font-bold text-white">${product.name_ar}</h4>
+                    <span class="text-accent font-bold whitespace-nowrap">${product.price} ريال</span>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <label class="flex items-center gap-2 text-gray-300 cursor-pointer">
+                        <input type="checkbox" name="product_${product.id}" value="${product.id}" class="w-5 h-5">
+                        إضافة
+                    </label>
+                    <input type="number" name="quantity_${product.id}" min="1" value="1" disabled
+                        class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm">
+                </div>
+            `;
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            const qty = card.querySelector('input[type="number"]');
+            checkbox.addEventListener('change', () => {
+                qty.disabled = !checkbox.checked;
+            });
+            productsContainer.appendChild(card);
+        });
+    }
+
+    function loadProducts() {
+        fetch('/customer/api/products?neighborhood_id=' + repeatPrefill.neighborhood_id)
+            .then(response => response.json())
+            .then(renderProducts)
+            .catch(() => {
+                productsContainer.innerHTML = '<p class="text-red-400 text-center sm:col-span-2">حدث خطأ في تحميل المنتجات</p>';
+            });
+    }
+
+    dateInput.addEventListener('change', loadAvailableTimes);
+    loadProducts();
+</script>
+{% endblock %}

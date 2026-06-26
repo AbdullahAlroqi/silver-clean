@@ -27,14 +27,14 @@
                 <div id="step2-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     2</div>
-                <p class="text-xs text-gray-400">الخدمة والسيارات</p>
+                <p class="text-xs text-gray-400">الخدمة  و الوقت</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line2"></div>
             <div class="flex-1 text-center">
                 <div id="step3-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     3</div>
-                <p class="text-xs text-gray-400">الوقت والمنتجات</p>
+                <p class="text-xs text-gray-400"> المنتجات و الدفع</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line3"></div>
             <div class="flex-1 text-center">
@@ -113,7 +113,7 @@
                 </div>
             </div>
 
-            <!-- Step 2: Service, Vehicle & Payment -->
+            <!-- Step 2: Service, Vehicle & Time -->
             <div id="step2" class="step-content hidden">
                 <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
                     <i class="fas fa-car ml-3"></i>
@@ -156,6 +156,46 @@
                         إضافة سيارة أخرى لهذا الطلب
                     </button>
                 </div>
+                <!-- Available Times Section -->
+                <div class="mt-6 border-t border-gray-700 pt-6">
+                    <h4 class="text-lg font-bold text-white mb-4 flex items-center">
+                        <i class="fas fa-clock ml-2 text-accent"></i>
+                        أوقات متاحة
+                    </h4>
+                    <div class="p-6 bg-darkbg rounded-xl border border-blue-500/50">
+                        <label class="block text-sm font-medium text-gray-300 mb-4 font-bold text-accent text-lg">
+                            حدد الوقت المتاح لهذا الحجز
+                        </label>
+                        <select name="time" id="time-select"
+                            class="w-full bg-primary border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent font-bold text-center text-lg"
+                            required>
+                            <option value="">جاري تحميل الأوقات المتاحة...</option>
+                        </select>
+                        <p class="text-gray-400 text-xs mt-3 text-center">
+                            <i class="fas fa-info-circle ml-1"></i> يتم عرض الأوقات التي تسمح بمدة العمل المطلوبة لجميع السيارات المختارة.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-between">
+                    <button type="button" onclick="prevStep(1)"
+                        class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        <i class="fas fa-arrow-right mr-2"></i> السابق
+                    </button>
+                    <button type="button" onclick="nextStep(3)"
+                        class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
+                        التالي <i class="fas fa-arrow-left mr-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: Payment, Offers & Products -->
+            <div id="step3" class="step-content hidden">
+                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
+                    <i class="fas fa-credit-card ml-3 text-blue-500"></i>
+                    الدفع والعروض والمنتجات الإضافية
+                </h3>
+
                 <!-- Payment Method Section -->
                 <div class="mt-6 border-t border-gray-700 pt-6">
                     <h4 class="text-lg font-bold text-white mb-4">طريقة الدفع</h4>
@@ -227,40 +267,6 @@
                     <p class="text-yellow-400 text-sm mt-4 flex items-center gap-2">
                         <i class="fas fa-info-circle"></i>
                         لا يمكن استخدام غسلة مجانية وكود خصم معاً
-                    </p>
-                </div>
-
-                <div class="mt-6 flex justify-between">
-                    <button type="button" onclick="prevStep(1)"
-                        class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
-                        <i class="fas fa-arrow-right mr-2"></i> السابق
-                    </button>
-                    <button type="button" onclick="nextStep(3)"
-                        class="bg-accent hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition">
-                        التالي <i class="fas fa-arrow-left mr-2"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Step 3: Products (Renamed & Simplified) -->
-            <div id="step3" class="step-content hidden">
-                <h3 class="text-2xl font-bold text-accent mb-6 flex items-center">
-                    <i class="fas fa-shopping-cart ml-3 text-green-500"></i>
-                    منتجات إضافية وأوقات متاحة
-                </h3>
-
-                <!-- Time Selection (Moved from Step 2) -->
-                <div class="mt-6 mb-8 p-6 bg-darkbg rounded-xl border border-blue-500/50">
-                    <label class="block text-sm font-medium text-gray-300 mb-4 font-bold text-accent text-lg">
-                        <i class="fas fa-clock ml-1"></i> حدد الوقت المتاح لهذا الحجز
-                    </label>
-                    <select name="time" id="time-select"
-                        class="w-full bg-primary border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-accent font-bold text-center text-lg"
-                        required>
-                        <option value="">جاري تحميل الأوقات المتاحة...</option>
-                    </select>
-                    <p class="text-gray-400 text-xs mt-3 text-center">
-                        <i class="fas fa-info-circle ml-1"></i> يتم عرض الأوقات التي تسمح بمدة العمل المطلوبة لجميع السيارات المختارة.
                     </p>
                 </div>
 
@@ -434,10 +440,8 @@
         currentStep = step;
 
         if (step === 4) updateOrderReview();
-        if (step === 3) {
-            loadAvailableTimes();
-            loadProducts();
-        }
+        if (step === 2 && !document.getElementById('time-select').value) loadAvailableTimes();
+        if (step === 3) loadProducts();
     }
 
     function nextStep(step) {
@@ -478,7 +482,6 @@
                 alert('الرجاء اختيار المركبة والخدمة لكل الصفوف المضافة');
                 return;
             }
-        } else if (currentStep === 3) {
             const time = document.getElementById('time-select').value;
             if (!time) {
                 alert('الرجاء اختيار الوقت المتاح للمتابعة');
@@ -964,13 +967,21 @@
         });
     }
 
-    if (dateInput) dateInput.addEventListener('change', () => {
-        loadAvailableTimes();
-        // Also refresh service options if vehicle is already selected because prices might be date-dependent (seasons)
-        document.querySelectorAll('.vehicle-row').forEach(row => {
+    if (dateInput) dateInput.addEventListener('change', async () => {
+        // Refresh service options if vehicle is already selected because prices might be date-dependent (seasons)
+        for (const row of document.querySelectorAll('.vehicle-row')) {
             const vSelect = row.querySelector('.vehicle-select');
-            if (vSelect.value) handleVehicleChange(vSelect);
-        });
+            const sSelect = row.querySelector('.service-select');
+            const selectedService = sSelect.value;
+            if (vSelect.value) {
+                await handleVehicleChange(vSelect);
+                if (selectedService && Array.from(sSelect.options).some(option => option.value === selectedService)) {
+                    sSelect.value = selectedService;
+                    handleServiceChange(sSelect);
+                }
+            }
+        }
+        loadAvailableTimes();
     });
 
     if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);

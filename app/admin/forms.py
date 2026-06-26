@@ -53,6 +53,7 @@ class NeighborhoodForm(FlaskForm):
 class SubscriptionPackageForm(FlaskForm):
     name_ar = StringField('الاسم بالعربية', validators=[DataRequired()])
     name_en = StringField('Name (English)', validators=[DataRequired()])
+    package_type = SelectField('نوع الباقة', choices=[('subscription', 'اشتراكات'), ('polishing', 'تلميع')], default='subscription')
     price = StringField('السعر', validators=[DataRequired()])
     wash_count = StringField('عدد الغسلات', validators=[DataRequired()])
     duration_days = StringField('مدة الاشتراك (بالأيام)', validators=[DataRequired()])

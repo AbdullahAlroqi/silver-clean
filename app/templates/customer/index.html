@@ -75,6 +75,34 @@
     </a>
 </div>
 
+<!-- Quick Repeat Booking -->
+{% if repeatable_booking %}
+<div class="mb-6">
+    <a href="{{ url_for('customer.repeat_last_booking') }}"
+        class="block bg-gradient-to-r from-cyan-600/25 to-blue-600/20 border border-cyan-500/30 rounded-2xl p-4 transition-transform hover:scale-[1.02]">
+        <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4 min-w-0">
+                <div class="w-14 h-14 bg-cyan-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-redo-alt text-cyan-300 text-2xl"></i>
+                </div>
+                <div class="min-w-0">
+                    <h3 class="text-white font-bold text-lg">كرر آخر حجز</h3>
+                    <p class="text-gray-400 text-xs truncate">
+                        {{ repeatable_booking.service.name_ar if repeatable_booking.service else 'حجز سابق' }}
+                        {% if repeatable_booking.vehicle %}
+                        - {{ repeatable_booking.vehicle.brand }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="w-9 h-9 bg-cyan-600/40 rounded-full flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-chevron-left text-cyan-200"></i>
+            </div>
+        </div>
+    </a>
+</div>
+{% endif %}
+
 <!-- Service Selection -->
 <div class="mb-6">
     <h3 class="text-lg font-bold text-white mb-4 text-right">اختر الخدمة</h3>
@@ -93,47 +121,20 @@
             <div class="w-16 h-16 mx-auto mb-3 bg-purple-500/20 rounded-full flex items-center justify-center">
                 <i class="fas fa-crown text-purple-400 text-2xl"></i>
             </div>
-            <h4 class="font-bold text-white mb-1">الاشتراكات و التلميع</h4>
+            <h4 class="font-bold text-white mb-1">الاشتراكات</h4>
             <p class="text-xs text-gray-400">وفر مع الباقات</p>
         </a>
-    </div>
-</div>
 
-<!-- Subscription Packages Preview -->
-{% if packages %}
-<div class="mb-6">
-    <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold text-white text-right">أنواع الباقات</h3>
-        <a href="{{ url_for('customer.subscribe_flow') }}" class="text-accent text-sm">عرض الكل</a>
-    </div>
-    <div class="space-y-3">
-        {% for package in packages %}
-        <a href="{{ url_for('customer.subscribe_details', package_id=package.id) }}"
-            class="block bg-primary rounded-xl p-4 border border-gray-700 hover:border-accent transition">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h4 class="font-bold text-white">{{ package.name_ar }}</h4>
-                    <p class="text-sm text-gray-400">
-                        <span>نوع الغسيل: عادي</span>
-                    </p>
-                    <p class="text-xs text-gray-500 mt-1">
-                        <i class="fas fa-clock ml-1"></i>
-                        مدة الاشتراك: {{ package.duration_days // 30 }} شهور
-                        <span class="mx-2">|</span>
-                        <i class="fas fa-car-side ml-1"></i>
-                        عدد الغسلات: {{ package.wash_count }}
-                    </p>
-                </div>
-                <div class="text-left">
-                    <p class="text-xl font-bold text-accent">{{ package.price|int }}</p>
-                    <p class="text-xs text-gray-400">ريال</p>
-                </div>
+        <!-- Polishing -->
+        <a href="{{ url_for('customer.polishing_packages') }}" class="service-card col-span-2 p-4 rounded-2xl text-center">
+            <div class="w-16 h-16 mx-auto mb-3 bg-amber-500/20 rounded-full flex items-center justify-center">
+                <i class="fas fa-wand-magic-sparkles text-amber-400 text-2xl"></i>
             </div>
+            <h4 class="font-bold text-white mb-1">التلميع</h4>
+            <p class="text-xs text-gray-400">اختر باقة تلميع مناسبة لسيارتك</p>
         </a>
-        {% endfor %}
     </div>
 </div>
-{% endif %}
 
 <!-- Upcoming Bookings -->
 {% if upcoming_bookings %}

@@ -309,6 +309,17 @@
                             <i class="fas fa-user-plus"></i>
                         </button>
                         {% endif %}
+                        {% if booking.status in ['assigned', 'en_route', 'arrived', 'in_progress'] %}
+                        <form action="{{ url_for('admin.advance_booking_status', id=booking.id) }}" method="post"
+                            class="inline" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="text-green-400 hover:text-green-300"
+                                onclick="return confirm('سيتم نقل الحجز للخطوة التالية. هل تريد المتابعة؟')"
+                                title="{{ 'إنهاء الخدمة' if booking.status == 'in_progress' else 'نقل للخطوة التالية' }}">
+                                <i class="fas {{ 'fa-check-circle' if booking.status == 'in_progress' else 'fa-step-forward' }}"></i>
+                            </button>
+                        </form>
+                        {% endif %}
                         <form action="{{ url_for('admin.delete_booking', id=booking.id) }}" method="post"
                             onsubmit="return confirm('هل أنت متأكد من حذف هذا الحجز نهائياً؟')" style="display:inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

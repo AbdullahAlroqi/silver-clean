@@ -84,12 +84,22 @@
         </div>
 
         <!-- Gift Details -->
+        {% if order.gift_type == 'wash' %}
+            {% set gift_label = 'غسلة' %}
+            {% set gift_icon = 'fa-car-side' %}
+        {% elif order.gift_type == 'polishing' %}
+            {% set gift_label = 'تلميع' %}
+            {% set gift_icon = 'fa-wand-magic-sparkles' %}
+        {% else %}
+            {% set gift_label = 'اشتراك' %}
+            {% set gift_icon = 'fa-tags' %}
+        {% endif %}
         <div class="flex items-start gap-3 bg-accent/5 p-3 rounded-lg border border-accent/10">
             <div class="bg-accent/20 p-2 rounded-lg">
-                <i class="fas {% if order.gift_type == 'wash' %}fa-car-wash{% else %}fa-tags{% endif %} text-accent"></i>
+                <i class="fas {{ gift_icon }} text-accent"></i>
             </div>
             <div>
-                <span class="text-[10px] text-accent uppercase font-bold">نوع الهدية: {{ 'غسلة' if order.gift_type == 'wash' else 'اشتراك' }}</span>
+                <span class="text-[10px] text-accent uppercase font-bold">نوع الهدية: {{ gift_label }}</span>
                 <div class="font-bold text-sm">
                     {% if order.gift_type == 'wash' %}
                         {{ order.service.name_ar if order.service else 'Service N/A' }}

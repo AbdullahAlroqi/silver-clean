@@ -33,12 +33,14 @@
         }
 
         .sidebar {
-            transition: all 0.3s;
+            transition: transform 0.25s ease, width 0.25s ease;
+            z-index: 50;
         }
 
         .content {
             transition: all 0.3s;
             width: 100%;
+            min-width: 0;
         }
 
         .sidebar-link:hover {
@@ -66,13 +68,157 @@
         .sidebar::-webkit-scrollbar-thumb:hover {
             background: #3b82f6;
         }
+
+        .admin-sidebar-overlay,
+        .admin-bottom-nav {
+            display: none;
+        }
+
+        @media (max-width: 767px) {
+            body.admin-sidebar-open {
+                overflow: hidden;
+            }
+
+            .admin-shell {
+                height: 100dvh;
+            }
+
+            .sidebar {
+                position: fixed;
+                top: 0;
+                right: 0;
+                width: min(82vw, 20rem);
+                transform: translateX(105%);
+                box-shadow: -16px 0 36px rgba(0, 0, 0, 0.35);
+                border-left: 1px solid rgba(255, 255, 255, 0.08);
+            }
+
+            body.admin-sidebar-open .sidebar {
+                transform: translateX(0);
+            }
+
+            .admin-sidebar-overlay {
+                display: block;
+                position: fixed;
+                inset: 0;
+                z-index: 40;
+                opacity: 0;
+                pointer-events: none;
+                background: rgba(0, 0, 0, 0.55);
+                border: 0;
+                transition: opacity 0.2s ease;
+            }
+
+            body.admin-sidebar-open .admin-sidebar-overlay {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .admin-topbar {
+                position: sticky;
+                top: 0;
+                z-index: 30;
+            }
+
+            .admin-page-title {
+                max-width: calc(100vw - 9.5rem);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                font-size: 1rem;
+            }
+
+            .admin-user-name {
+                display: inline-block;
+                max-width: 5.75rem;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                vertical-align: middle;
+                white-space: nowrap;
+            }
+
+            .admin-main {
+                padding: 1rem;
+                padding-bottom: 6.25rem;
+            }
+
+            .sidebar-link {
+                min-height: 48px;
+            }
+
+            .admin-main .overflow-x-auto {
+                -webkit-overflow-scrolling: touch;
+                margin-inline: -0.5rem;
+                padding-inline: 0.5rem;
+            }
+
+            .admin-main table {
+                min-width: 720px;
+            }
+
+            .admin-main input,
+            .admin-main select,
+            .admin-main textarea {
+                font-size: 16px;
+            }
+
+            .admin-main button,
+            .admin-main a,
+            .admin-main input[type="submit"] {
+                touch-action: manipulation;
+            }
+
+            .admin-bottom-nav {
+                position: fixed;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                z-index: 35;
+                display: grid;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 0.25rem;
+                padding: 0.5rem 0.45rem calc(0.5rem + env(safe-area-inset-bottom));
+                background: rgba(48, 48, 48, 0.96);
+                border-top: 1px solid rgba(255, 255, 255, 0.08);
+                backdrop-filter: blur(12px);
+            }
+
+            .admin-bottom-nav a {
+                display: flex;
+                min-width: 0;
+                min-height: 52px;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.25rem;
+                border-radius: 0.5rem;
+                color: #d1d5db;
+                font-size: 0.72rem;
+                line-height: 1.15;
+            }
+
+            .admin-bottom-nav i {
+                font-size: 1rem;
+            }
+
+            .admin-bottom-nav a.active {
+                background: rgba(77, 168, 218, 0.18);
+                color: #fff;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .sidebar {
+                transform: none;
+            }
+        }
     </style>
 </head>
 
 <body class="bg-darkbg text-white">
-    <div class="flex h-screen overflow-hidden">
+    <div class="admin-shell flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <div class="sidebar bg-primary text-white w-64 flex-shrink-0 h-screen overflow-y-auto">
+        <div id="adminSidebar" class="sidebar bg-primary text-white w-64 flex-shrink-0 h-screen overflow-y-auto">
             <div class="p-4 border-b border-gray-700">
                 <h1 class="text-2xl font-bold text-center">لوحة التحكم</h1>
             </div>
@@ -122,6 +268,11 @@
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-clipboard-list ml-3"></i>
                         <span>الاشتراكات</span>
+                    </a>
+                    <a href="{{ url_for('admin.polishing_orders') }}"
+                        class="flex items-center px-6 py-3 text-amber-300 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-wand-magic-sparkles ml-3"></i>
+                        <span>طلبات التلميع</span>
                     </a>
 
                     {% if current_user.role == 'admin' %}
@@ -219,24 +370,25 @@
                 </div>
             </nav>
         </div>
+        <button id="sidebarOverlay" type="button" class="admin-sidebar-overlay" aria-label="إغلاق القائمة"></button>
 
         <!-- Main Content -->
         <div class="content overflow-y-auto flex-1">
             <!-- Top Navigation -->
-            <header class="bg-primary shadow-sm border-b border-gray-700">
+            <header class="admin-topbar bg-primary shadow-sm border-b border-gray-700">
                 <div class="flex items-center justify-between p-4">
                     <div class="flex items-center">
-                        <button id="sidebarToggle" class="text-gray-300 focus:outline-none hover:text-white">
+                        <button id="sidebarToggle" type="button" class="text-gray-300 focus:outline-none hover:text-white" aria-label="فتح القائمة" aria-controls="adminSidebar" aria-expanded="false">
                             <i class="fas fa-bars text-xl"></i>
                         </button>
-                        <h2 class="text-xl font-semibold text-white mr-4">
+                        <h2 class="admin-page-title text-xl font-semibold text-white mr-4">
                             {% block header %}{% endblock %}
                         </h2>
                     </div>
                     <div class="flex items-center">
                         <div class="relative">
                             <button id="userMenuButton" class="flex items-center focus:outline-none">
-                                <span class="mr-2 text-sm text-white">{{ current_user.username }}</span>
+                                <span class="admin-user-name mr-2 text-sm text-white">{{ current_user.username }}</span>
                                 <i class="fas fa-chevron-down text-gray-300 text-xs"></i>
                             </button>
                             <!-- Dropdown menu -->
@@ -257,7 +409,7 @@
             </header>
 
             <!-- Page Content -->
-            <main class="p-6">
+            <main class="admin-main p-6">
                 <!-- Flash Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -275,26 +427,65 @@
         </div>
     </div>
 
+    <nav class="admin-bottom-nav" aria-label="تنقل سريع">
+        <a href="{{ url_for('admin.index') }}" class="{% if request.endpoint == 'admin.index' %}active{% endif %}">
+            <i class="fas fa-home"></i>
+            <span>الرئيسية</span>
+        </a>
+        <a href="{{ url_for('admin.bookings') }}" class="{% if request.endpoint == 'admin.bookings' %}active{% endif %}">
+            <i class="far fa-calendar-alt"></i>
+            <span>الحجوزات</span>
+        </a>
+        <a href="{{ url_for('admin.subscriptions') }}" class="{% if request.endpoint == 'admin.subscriptions' %}active{% endif %}">
+            <i class="fas fa-clipboard-list"></i>
+            <span>الاشتراكات</span>
+        </a>
+        <a href="{{ url_for('admin.polishing_orders') }}" class="{% if request.endpoint == 'admin.polishing_orders' %}active{% endif %}">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <span>التلميع</span>
+        </a>
+        <a href="{{ url_for('admin.reports') }}" class="{% if request.endpoint == 'admin.reports' %}active{% endif %}">
+            <i class="fas fa-chart-line"></i>
+            <span>التقارير</span>
+        </a>
+    </nav>
+
     <!-- JavaScript -->
     <script>
-        // Toggle sidebar on mobile
-        document.getElementById('sidebarToggle').addEventListener('click', function () {
-            document.querySelector('.sidebar').classList.toggle('hidden');
-            document.querySelector('.content').classList.toggle('ml-0');
-            document.querySelector('.content').classList.toggle('md:ml-64');
+        const sidebar = document.getElementById('adminSidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function setSidebarOpen(isOpen) {
+            document.body.classList.toggle('admin-sidebar-open', isOpen);
+            sidebarToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+
+        sidebarToggle.addEventListener('click', function () {
+            setSidebarOpen(!document.body.classList.contains('admin-sidebar-open'));
         });
 
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function (event) {
-            const sidebar = document.querySelector('.sidebar');
-            const sidebarToggle = document.getElementById('sidebarToggle');
+        sidebarOverlay.addEventListener('click', function () {
+            setSidebarOpen(false);
+        });
 
-            if (window.innerWidth < 768 &&
-                !sidebar.contains(event.target) &&
-                !sidebarToggle.contains(event.target)) {
-                sidebar.classList.add('hidden');
-                document.querySelector('.content').classList.remove('ml-0');
-                document.querySelector('.content').classList.add('md:ml-64');
+        sidebar.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (window.innerWidth < 768) {
+                    setSidebarOpen(false);
+                }
+            });
+        });
+
+        window.addEventListener('resize', function () {
+            if (window.innerWidth >= 768) {
+                setSidebarOpen(false);
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                setSidebarOpen(false);
             }
         });
 

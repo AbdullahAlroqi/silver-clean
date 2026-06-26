@@ -6,8 +6,153 @@ from app.customer.forms import VehicleForm, BookingForm, EditProfileForm, Change
 from app.models import (
     Vehicle, Service, Booking, City, Neighborhood, VehicleSize, SiteSettings, 
     BookingItem, DiscountCode, Season, CityServicePrice, 
-    CityProductPrice, CityPackagePrice
+    CityProductPrice, CityPackagePrice, PolishingOrder
 )
+
+def _get_repeatable_booking():
+    return current_user.bookings.filter(
+        Booking.status != 'cancelled'
+    ).order_by(
+        Booking.created_at.desc(),
+        Booking.id.desc()
+    ).first()
+
+def _build_repeat_booking_prefill(booking):
+    if not booking or booking.customer_id != current_user.id or booking.status == 'cancelled':
+        return None
+
+    items = []
+    booking_items = booking.items.order_by(BookingItem.id.asc()).all()
+    if booking_items:
+        for item in booking_items:
+            if item.vehicle and item.vehicle.user_id == current_user.id and item.service and item.service.is_active:
+                items.append({
+                    'vehicle_id': item.vehicle_id,
+                    'service_id': item.service_id,
+                    'duration': item.service.duration if item.service and item.service.duration else 60
+                })
+    elif booking.vehicle and booking.vehicle.user_id == current_user.id and booking.service and booking.service.is_active:
+        items.append({
+            'vehicle_id': booking.vehicle_id,
+            'service_id': booking.service_id,
+            'duration': booking.service.duration if booking.service and booking.service.duration else 60
+        })
+
+    if not items:
+        return None
+
+    if not booking.neighborhood or not booking.neighborhood.is_active:
+        return None
+    if not booking.neighborhood.city or not booking.neighborhood.city.is_active:
+        return None
+
+    products = []
+    for booking_product in booking.products:
+        if booking_product.product and booking_product.product.is_active:
+            products.append({
+                'id': booking_product.product_id,
+                'quantity': booking_product.quantity or 1
+            })
+
+    return {
+        'source_booking_id': booking.id,
+        'city_id': booking.neighborhood.city_id if booking.neighborhood else None,
+        'neighborhood_id': booking.neighborhood_id,
+        'location_lat': booking.location_lat,
+        'location_lng': booking.location_lng,
+        'payment_method': booking.payment_method if booking.payment_method in ['cash', 'card'] else 'cash',
+        'items': items,
+        'products': products
+    }
+
+def _find_employee_for_repeated_booking(neighborhood, vehicle_ids, booking_date, booking_time, total_duration_minutes):
+    from datetime import datetime, timedelta
+
+    employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
+    if not employees:
+        return None, None, None, 'لا يوجد موظفون متاحون لهذا الحي'
+
+    customer_active_booking = Booking.query.filter(
+        Booking.customer_id == current_user.id,
+        Booking.date == booking_date,
+        Booking.status.notin_(['cancelled', 'completed']),
+        Booking.employee_id.isnot(None)
+    ).first()
+    if customer_active_booking:
+        employees.sort(key=lambda employee: employee.id != customer_active_booking.employee_id)
+
+    preferred_employee_id = None
+    for vehicle_id in vehicle_ids:
+        active_booking = BookingItem.query.join(Booking).filter(
+            BookingItem.vehicle_id == vehicle_id,
+            Booking.date == booking_date,
+            Booking.status.notin_(['cancelled', 'completed'])
+        ).first()
+        if active_booking:
+            vehicle = active_booking.vehicle
+            return None, None, None, f'المركبة {vehicle.brand} ({vehicle.plate_number}) لديها حجز نشط في هذا اليوم'
+
+        previous_item = BookingItem.query.join(Booking).filter(
+            BookingItem.vehicle_id == vehicle_id,
+            Booking.date == booking_date,
+            Booking.status.notin_(['cancelled'])
+        ).first()
+        if previous_item and previous_item.booking.employee_id:
+            preferred_employee_id = previous_item.booking.employee_id
+            break
+
+    if preferred_employee_id:
+        employees = [employee for employee in employees if employee.id == preferred_employee_id]
+        if not employees:
+            return None, None, None, 'الموظف المسؤول عن هذه المركبة غير متاح في هذا الوقت'
+
+    next_date = booking_date + timedelta(days=1)
+    customer_conflicts = Booking.query.filter(
+        Booking.customer_id == current_user.id,
+        Booking.date.in_([booking_date, next_date]),
+        Booking.status.notin_(['cancelled', 'completed'])
+    ).all()
+
+    booking_datetime = datetime.combine(booking_date, booking_time)
+
+    for employee in employees:
+        schedules = employee.schedules.filter_by(day_of_week=booking_date.weekday(), is_active=True).all()
+        if not schedules:
+            continue
+
+        for schedule in schedules:
+            schedule_start = datetime.combine(booking_date, schedule.start_time)
+            schedule_end = datetime.combine(booking_date, schedule.end_time)
+            is_night_shift = schedule.end_time <= schedule.start_time
+            if is_night_shift:
+                schedule_end += timedelta(days=1)
+
+            actual_start = booking_datetime
+            if is_night_shift and booking_time < schedule.start_time:
+                actual_start = booking_datetime + timedelta(days=1)
+
+            actual_end = actual_start + timedelta(minutes=total_duration_minutes)
+            if actual_start < schedule_start or actual_end > schedule_end:
+                continue
+
+            employee_conflicts = Booking.query.filter(
+                Booking.employee_id == employee.id,
+                Booking.date.in_([booking_date, next_date]),
+                ~Booking.status.in_(['completed', 'cancelled'])
+            ).all()
+
+            has_conflict = False
+            for existing_booking in employee_conflicts + customer_conflicts:
+                existing_start = datetime.combine(existing_booking.date, existing_booking.time)
+                existing_end = existing_start + timedelta(minutes=existing_booking.total_duration)
+                if actual_start < existing_end and actual_end > existing_start:
+                    has_conflict = True
+                    break
+
+            if not has_conflict:
+                return employee, actual_start.date(), actual_start.time(), None
+
+    return None, None, None, 'لا يوجد موظف متاح في الموعد المختار'
 
 def check_expired_bookings():
     """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
@@ -68,9 +213,10 @@ def before_request():
 
 @bp.route('/')
 def index():
-    from app.models import Announcement, SubscriptionPackage, SiteSettings
+    from app.models import Announcement, SiteSettings
     
     upcoming_bookings = current_user.bookings.filter(~Booking.status.in_(['completed', 'cancelled'])).all()
+    repeatable_booking = _get_repeatable_booking()
     
     # Check for unrated completed bookings
     unrated_booking = Booking.query.filter(
@@ -81,9 +227,6 @@ def index():
     
     # Get active announcements for carousel
     announcements = Announcement.query.filter_by(is_active=True).order_by(Announcement.order.asc()).all()
-    
-    # Get active subscription packages
-    packages = SubscriptionPackage.query.filter_by(is_active=True).limit(3).all()
     
     # Get services for service selection
     services = Service.query.filter_by(is_active=True).all()
@@ -109,13 +252,13 @@ def index():
                          upcoming_bookings=upcoming_bookings,
                          unrated_booking=unrated_booking,
                          announcements=announcements,
-                         packages=packages,
                          services=services,
                          loyalty_threshold=loyalty_threshold,
                          referral_records=referral_records,
                          referral_completed=referral_completed,
                          current_cycle_completed=current_cycle_completed,
-                         referral_target=referral_target)
+                         referral_target=referral_target,
+                         repeatable_booking=repeatable_booking)
 
 @bp.route('/bookings')
 def my_bookings():
@@ -229,6 +372,199 @@ def cancel_booking(booking_id):
     flash('تم إلغاء الحجز بنجاح', 'success')
     return redirect(url_for('customer.my_bookings'))
 
+def _booking_vehicle_ids(booking):
+    vehicle_ids = [item.vehicle_id for item in booking.items.all()]
+    if not vehicle_ids and booking.vehicle_id:
+        vehicle_ids = [booking.vehicle_id]
+    return vehicle_ids
+
+def _find_employee_for_reschedule(booking, booking_date, booking_time):
+    from datetime import datetime, timedelta
+    from app.models import User
+    from app.utils.timezone import get_saudi_time
+
+    if not booking.neighborhood:
+        return None, None, None, 'لا يمكن إعادة جدولة حجز بدون حي محدد'
+
+    vehicle_ids = _booking_vehicle_ids(booking)
+    duration_minutes = booking.total_duration
+    booking_datetime = datetime.combine(booking_date, booking_time)
+
+    now = get_saudi_time().replace(tzinfo=None)
+
+    active_vehicle_booking = BookingItem.query.join(Booking).filter(
+        BookingItem.vehicle_id.in_(vehicle_ids),
+        Booking.date == booking_date,
+        Booking.status.notin_(['cancelled', 'completed']),
+        Booking.id != booking.id
+    ).first()
+    if active_vehicle_booking:
+        return None, None, None, f'إحدى المركبات لديها حجز فعال في هذا اليوم رقم ({active_vehicle_booking.booking_id})'
+
+    employees = booking.neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
+    if booking.employee_id:
+        employees.sort(key=lambda employee: employee.id != booking.employee_id)
+
+    preferred_employee_id = None
+    for vehicle_id in vehicle_ids:
+        previous_item = BookingItem.query.join(Booking).filter(
+            BookingItem.vehicle_id == vehicle_id,
+            Booking.date == booking_date,
+            Booking.status.notin_(['cancelled']),
+            Booking.id != booking.id
+        ).first()
+        if previous_item and previous_item.booking.employee_id:
+            preferred_employee_id = previous_item.booking.employee_id
+            break
+
+    if preferred_employee_id:
+        employees = [employee for employee in employees if employee.id == preferred_employee_id]
+
+    if not employees:
+        return None, None, None, 'لا يوجد موظفون متاحون لهذا الحي'
+
+    customer_conflicts = Booking.query.filter(
+        Booking.customer_id == current_user.id,
+        Booking.date.in_([booking_date, booking_date + timedelta(days=1)]),
+        Booking.status.notin_(['cancelled', 'completed']),
+        Booking.id != booking.id
+    ).all()
+
+    vehicle_conflicts = BookingItem.query.join(Booking).filter(
+        BookingItem.vehicle_id.in_(vehicle_ids),
+        Booking.date.in_([booking_date, booking_date + timedelta(days=1)]),
+        Booking.status.notin_(['cancelled']),
+        Booking.id != booking.id
+    ).all()
+
+    for employee in employees:
+        schedules = employee.schedules.filter_by(day_of_week=booking_date.weekday(), is_active=True).all()
+        if not schedules:
+            continue
+
+        for schedule in schedules:
+            schedule_start = datetime.combine(booking_date, schedule.start_time)
+            schedule_end = datetime.combine(booking_date, schedule.end_time)
+            is_night_shift = schedule.end_time <= schedule.start_time
+            if is_night_shift:
+                schedule_end += timedelta(days=1)
+
+            actual_start = booking_datetime
+            if is_night_shift and booking_time < schedule.start_time:
+                actual_start = booking_datetime + timedelta(days=1)
+
+            actual_end = actual_start + timedelta(minutes=duration_minutes)
+            if actual_start <= now:
+                continue
+
+            if actual_start < schedule_start or actual_end > schedule_end:
+                continue
+
+            employee_conflicts = Booking.query.filter(
+                Booking.employee_id == employee.id,
+                Booking.date.in_([booking_date, booking_date + timedelta(days=1)]),
+                ~Booking.status.in_(['completed', 'cancelled']),
+                Booking.id != booking.id
+            ).all()
+
+            has_conflict = False
+            for existing_booking in employee_conflicts + customer_conflicts:
+                existing_start = datetime.combine(existing_booking.date, existing_booking.time)
+                existing_end = existing_start + timedelta(minutes=existing_booking.total_duration)
+                if actual_start < existing_end and actual_end > existing_start:
+                    has_conflict = True
+                    break
+
+            if has_conflict:
+                continue
+
+            for item in vehicle_conflicts:
+                existing_booking = item.booking
+                existing_start = datetime.combine(existing_booking.date, existing_booking.time)
+                existing_end = existing_start + timedelta(minutes=existing_booking.total_duration)
+                if actual_start < existing_end and actual_end > existing_start:
+                    has_conflict = True
+                    break
+
+            if not has_conflict:
+                return employee, actual_start.date(), actual_start.time(), None
+
+    return None, None, None, 'لا يوجد موظف متاح في الموعد المختار'
+
+@bp.route('/bookings/reschedule/<int:booking_id>', methods=['POST'])
+def reschedule_booking(booking_id):
+    from datetime import datetime, timedelta
+    from app.utils.timezone import get_saudi_date
+
+    booking = Booking.query.get_or_404(booking_id)
+    if booking.customer_id != current_user.id:
+        flash('غير مصرح لك بتعديل هذا الحجز', 'error')
+        return redirect(url_for('customer.my_bookings'))
+
+    if booking.status not in ['pending', 'assigned']:
+        flash('يمكن إعادة جدولة الحجوزات التي لم يبدأ تنفيذها فقط', 'error')
+        return redirect(url_for('customer.my_bookings'))
+
+    date_str = request.form.get('date')
+    time_str = request.form.get('time')
+    if not date_str or not time_str:
+        flash('الرجاء اختيار التاريخ والوقت الجديد', 'error')
+        return redirect(url_for('customer.my_bookings'))
+
+    try:
+        new_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        new_time = datetime.strptime(time_str, '%H:%M').time()
+    except ValueError:
+        flash('التاريخ أو الوقت غير صالح', 'error')
+        return redirect(url_for('customer.my_bookings'))
+
+    today = get_saudi_date()
+    if new_date < today:
+        flash('لا يمكن اختيار تاريخ سابق', 'error')
+        return redirect(url_for('customer.my_bookings'))
+
+    settings = SiteSettings.get_settings()
+    limit = settings.subscription_days_limit if booking.subscription_id else settings.booking_days_limit
+    if limit is None:
+        limit = 7
+    if limit == 0:
+        flash('إعادة الجدولة غير متاحة حالياً', 'error')
+        return redirect(url_for('customer.my_bookings'))
+    if new_date > today + timedelta(days=limit):
+        flash(f'إعادة الجدولة متاحة فقط لمدة {limit} أيام قادمة', 'error')
+        return redirect(url_for('customer.my_bookings'))
+
+    employee, actual_date, actual_time, error = _find_employee_for_reschedule(booking, new_date, new_time)
+    if error or not employee:
+        flash(error or 'لا يوجد موعد متاح في الوقت المختار', 'error')
+        return redirect(url_for('customer.my_bookings'))
+
+    old_employee_id = booking.employee_id
+    booking.date = actual_date
+    booking.time = actual_time
+    booking.employee_id = employee.id
+    if booking.status == 'pending':
+        booking.status = 'assigned'
+
+    db.session.commit()
+
+    try:
+        from app.notifications import send_push_notification
+        notification_data = {
+            "title": "تمت إعادة جدولة حجز",
+            "body": f"تمت إعادة جدولة الحجز #{booking.id}\nالعميل: {current_user.username}\nالموعد الجديد: {booking.date} {booking.time.strftime('%H:%M')}",
+            "icon": "/static/images/logo.png",
+            "badge": "/static/images/logo.png",
+            "url": "/employee/bookings/active",
+            "data": {"booking_id": booking.id, "old_employee_id": old_employee_id}
+        }
+        send_push_notification(employee, notification_data)
+    except Exception as e:
+        print(f"Failed to send reschedule notification: {e}")
+
+    flash('تمت إعادة جدولة الحجز بنجاح', 'success')
+    return redirect(url_for('customer.my_bookings'))
+
 @bp.route('/api/neighborhood/<int:id>/boundary')
 def get_neighborhood_boundary(id):
     """API Endpoint to fetch a neighborhood's boundary for the customer map picker."""
@@ -294,6 +630,228 @@ def delete_vehicle(id):
     return redirect(url_for('customer.vehicles'))
 
 # --- Booking System ---
+@bp.route('/book/repeat-last', methods=['GET', 'POST'])
+def repeat_last_booking():
+    from datetime import datetime, timedelta
+    from app.models import BookingProduct, Product
+    from app.utils.timezone import get_saudi_date
+
+    source_booking = None
+    if request.method == 'POST':
+        source_booking_id = request.form.get('source_booking_id', type=int)
+        if source_booking_id:
+            source_booking = Booking.query.filter_by(
+                id=source_booking_id,
+                customer_id=current_user.id
+            ).first()
+    else:
+        source_booking = _get_repeatable_booking()
+
+    if not source_booking:
+        flash('لا يوجد حجز سابق يمكن تكراره', 'warning')
+        return redirect(url_for('customer.index'))
+
+    repeat_prefill = _build_repeat_booking_prefill(source_booking)
+    if not repeat_prefill:
+        flash('تعذر تجهيز آخر حجز لأن بعض بياناته لم تعد متاحة', 'warning')
+        return redirect(url_for('customer.index'))
+
+    settings = SiteSettings.get_settings()
+    if request.method == 'POST':
+        date_str = request.form.get('date')
+        time_str = request.form.get('time')
+        payment_method = request.form.get('payment_method', 'cash')
+        if payment_method not in ['cash', 'card']:
+            payment_method = 'cash'
+
+        try:
+            booking_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            booking_time = datetime.strptime(time_str, '%H:%M').time()
+        except (TypeError, ValueError):
+            flash('الرجاء اختيار تاريخ ووقت صحيحين', 'error')
+            return redirect(url_for('customer.repeat_last_booking'))
+
+        today = get_saudi_date()
+        if booking_date < today:
+            flash('لا يمكن اختيار تاريخ سابق', 'error')
+            return redirect(url_for('customer.repeat_last_booking'))
+
+        limit = settings.booking_days_limit if settings.booking_days_limit is not None else 7
+        if limit == 0:
+            flash('الحجز متوقف حالياً للكشف والصيانة', 'error')
+            return redirect(url_for('customer.index'))
+        if booking_date > today + timedelta(days=limit):
+            flash(f'عذراً، الحجز متاح فقط لمدة {limit} أيام قادمة', 'error')
+            return redirect(url_for('customer.repeat_last_booking'))
+
+        neighborhood = source_booking.neighborhood
+        if not neighborhood or not neighborhood.is_active:
+            flash('الحي السابق لم يعد متاحاً', 'error')
+            return redirect(url_for('customer.index'))
+
+        try:
+            lat = float(repeat_prefill['location_lat'])
+            lng = float(repeat_prefill['location_lng'])
+            if not neighborhood.contains_point(lat, lng):
+                flash('موقع الحجز السابق لم يعد داخل نطاق الحي، الرجاء إنشاء حجز جديد', 'error')
+                return redirect(url_for('customer.book'))
+        except (TypeError, ValueError):
+            flash('موقع الحجز السابق غير صالح، الرجاء إنشاء حجز جديد', 'error')
+            return redirect(url_for('customer.book'))
+
+        order_items = []
+        total_duration_minutes = 0
+        for item in repeat_prefill['items']:
+            vehicle = Vehicle.query.get(item['vehicle_id'])
+            service = Service.query.get(item['service_id'])
+            if not vehicle or vehicle.user_id != current_user.id:
+                flash('إحدى مركبات الحجز السابق لم تعد متاحة', 'error')
+                return redirect(url_for('customer.index'))
+            if not service or not service.is_active:
+                flash('إحدى خدمات الحجز السابق لم تعد متاحة', 'error')
+                return redirect(url_for('customer.index'))
+
+            order_items.append({'vehicle': vehicle, 'service': service})
+            total_duration_minutes += service.duration if service.duration else 60
+
+        vehicle_ids = [item['vehicle'].id for item in order_items]
+        available_employee, actual_date, actual_time, employee_error = _find_employee_for_repeated_booking(
+            neighborhood,
+            vehicle_ids,
+            booking_date,
+            booking_time,
+            total_duration_minutes
+        )
+        if employee_error or not available_employee:
+            flash(employee_error or 'لا يوجد موظف متاح في الموعد المختار', 'error')
+            return redirect(url_for('customer.repeat_last_booking'))
+
+        active_season = Season.query.filter(
+            Season.is_active == True,
+            Season.start_date <= booking_date,
+            Season.end_date >= booking_date
+        ).first()
+
+        first_item = order_items[0]
+        booking = Booking(
+            customer_id=current_user.id,
+            employee_id=available_employee.id,
+            vehicle_id=first_item['vehicle'].id,
+            service_id=first_item['service'].id,
+            neighborhood_id=neighborhood.id,
+            location_lat=lat,
+            location_lng=lng,
+            date=actual_date,
+            time=actual_time,
+            status='assigned',
+            is_multi_vehicle=len(order_items) > 1,
+            payment_method=payment_method,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(booking)
+        db.session.flush()
+
+        total_items_price = 0
+        for idx, item in enumerate(order_items):
+            vehicle = item['vehicle']
+            service = item['service']
+            item_service_price = service.price
+            size_adj = 0.0
+
+            city_size_price = CityServicePrice.query.filter_by(
+                city_id=neighborhood.city_id,
+                service_id=service.id,
+                vehicle_size_id=vehicle.vehicle_size_id
+            ).first()
+            if city_size_price:
+                item_service_price = city_size_price.price
+            elif vehicle.size:
+                size_adj = vehicle.size.price_adjustment
+
+            if active_season:
+                seasonal_price = active_season.service_prices.filter_by(service_id=service.id).first()
+                if seasonal_price:
+                    item_service_price = seasonal_price.price
+
+            item_total = (item_service_price or 0) + (size_adj or 0)
+            total_items_price += item_total
+
+            db.session.add(BookingItem(
+                booking_id=booking.id,
+                vehicle_id=vehicle.id,
+                service_id=service.id,
+                quantity=1,
+                service_price=item_service_price,
+                size_price_adjustment=size_adj,
+                total_item_price=item_total
+            ))
+
+            if idx == 0:
+                booking.custom_service_price = item_service_price
+                booking.vehicle_size_price = size_adj
+
+        total_products_price = 0
+        for key in request.form.keys():
+            if not key.startswith('product_') or not request.form.get(key):
+                continue
+
+            product_id = request.form.get(key, type=int)
+            quantity = request.form.get(f'quantity_{product_id}', 1, type=int) or 1
+            if quantity < 1:
+                quantity = 1
+
+            product = Product.query.get(product_id)
+            if not product or not product.is_active:
+                continue
+
+            unit_price = product.price
+            city_product_price = CityProductPrice.query.filter_by(
+                city_id=neighborhood.city_id,
+                product_id=product.id
+            ).first()
+            if city_product_price:
+                unit_price = city_product_price.price
+
+            if active_season:
+                seasonal_product_price = active_season.product_prices.filter_by(product_id=product.id).first()
+                if seasonal_product_price:
+                    unit_price = seasonal_product_price.price
+
+            total_products_price += (unit_price or 0) * quantity
+            db.session.add(BookingProduct(
+                booking_id=booking.id,
+                product_id=product.id,
+                quantity=quantity,
+                unit_price=unit_price
+            ))
+
+        booking.total_price = total_items_price + total_products_price
+        db.session.commit()
+
+        try:
+            from app.notifications import send_push_notification
+            notification_data = {
+                "title": "حجز جديد تم تعيينه لك 🆕",
+                "body": f"تم تعيين حجز جديد #{booking.id}\nالعميل: {current_user.username}\nالخدمة: {booking.service.name_ar}\nالموعد: {booking.date} {booking.time.strftime('%H:%M')}",
+                "icon": "/static/images/logo.png",
+                "badge": "/static/images/logo.png",
+                "url": "/employee/bookings/active",
+                "data": {"booking_id": booking.id}
+            }
+            send_push_notification(available_employee, notification_data)
+        except Exception:
+            pass
+
+        flash('تم تكرار الحجز بنجاح!')
+        return redirect(url_for('customer.booking_success'))
+
+    return render_template(
+        'customer/repeat_booking.html',
+        source_booking=source_booking,
+        repeat_prefill=repeat_prefill,
+        site_settings=settings
+    )
+
 @bp.route('/book', methods=['GET', 'POST'])
 def book():
     # Check if user has vehicles
@@ -805,7 +1363,13 @@ def book():
             return redirect(url_for('customer.booking_success'))
 
     settings = SiteSettings.get_settings()
-    return render_template('customer/booking_form.html', form=form, service_eligibility=service_eligibility, service_durations=service_durations, site_settings=settings)
+    return render_template(
+        'customer/booking_form.html',
+        form=form,
+        service_eligibility=service_eligibility,
+        service_durations=service_durations,
+        site_settings=settings
+    )
 
 @bp.route('/api/vehicle/<int:vehicle_id>/size-price')
 def get_vehicle_size_price(vehicle_id):
@@ -969,6 +1533,7 @@ def get_available_times():
     date_str = request.args.get('date')
     neighborhood_id = request.args.get('neighborhood_id', type=int)
     service_id = request.args.get('service_id', type=int)
+    exclude_booking_id = request.args.get('exclude_booking_id', type=int)
     
     if not all([date_str, neighborhood_id, service_id]):
         return jsonify([])
@@ -1025,11 +1590,14 @@ def get_available_times():
     
     # 1. Strict Single-Active-Booking Rule: Check for active bookings today
     if vehicle_ids:
-        active_booking = BookingItem.query.join(Booking).filter(
+        active_booking_query = BookingItem.query.join(Booking).filter(
             BookingItem.vehicle_id.in_(vehicle_ids),
             Booking.date == booking_date,
             Booking.status.notin_(['cancelled', 'completed'])
-        ).first()
+        )
+        if exclude_booking_id:
+            active_booking_query = active_booking_query.filter(Booking.id != exclude_booking_id)
+        active_booking = active_booking_query.first()
         if active_booking:
             # If any vehicle has an active booking today, no additional bookings allowed
             return jsonify({
@@ -1041,11 +1609,14 @@ def get_available_times():
     preferred_employee_id = None
     if vehicle_ids:
         for v_id in vehicle_ids:
-            prev_item = BookingItem.query.join(Booking).filter(
+            prev_item_query = BookingItem.query.join(Booking).filter(
                 BookingItem.vehicle_id == v_id,
                 Booking.date == booking_date,
                 Booking.status.notin_(['cancelled'])
-            ).first()
+            )
+            if exclude_booking_id:
+                prev_item_query = prev_item_query.filter(Booking.id != exclude_booking_id)
+            prev_item = prev_item_query.first()
             if prev_item and prev_item.booking.employee_id:
                 preferred_employee_id = prev_item.booking.employee_id
                 break
@@ -1064,16 +1635,22 @@ def get_available_times():
             Booking.customer_id == current_user.id,
             Booking.date == booking_date,
             Booking.status.notin_(['cancelled', 'completed'])
-        ).all()
+        )
+        if exclude_booking_id:
+            customer_other_bookings = customer_other_bookings.filter(Booking.id != exclude_booking_id)
+        customer_other_bookings = customer_other_bookings.all()
 
     # 4. Vehicle conflicts (kept for temporal overlap check of COMPLETED/Other bookings, though Rule #1 handles active)
     vehicle_conflicts = []
     if vehicle_ids:
-        vehicle_conflicts = BookingItem.query.join(Booking).filter(
+        vehicle_conflicts_query = BookingItem.query.join(Booking).filter(
             BookingItem.vehicle_id.in_(vehicle_ids),
             Booking.date == booking_date,
             Booking.status.notin_(['cancelled'])
-        ).all()
+        )
+        if exclude_booking_id:
+            vehicle_conflicts_query = vehicle_conflicts_query.filter(Booking.id != exclude_booking_id)
+        vehicle_conflicts = vehicle_conflicts_query.all()
     
     # Collect all available slots from all employees
     # Format: (display_time_str, actual_datetime)
@@ -1095,11 +1672,14 @@ def get_available_times():
         # Get all existing bookings for this employee on this date AND next date (for night shifts)
         # Check for any booking that is NOT completed or cancelled (clearer and future-proof)
         next_date = booking_date + timedelta(days=1)
-        conflicts = Booking.query.filter(
+        conflicts_query = Booking.query.filter(
             Booking.employee_id == employee.id,
             Booking.date.in_([booking_date, next_date]),
             ~Booking.status.in_(['completed', 'cancelled'])
-        ).all()
+        )
+        if exclude_booking_id:
+            conflicts_query = conflicts_query.filter(Booking.id != exclude_booking_id)
+        conflicts = conflicts_query.all()
         
         # Process each shift
         for schedule in employee_schedules:
@@ -1218,7 +1798,7 @@ def subscribe_flow():
         flash('يجب إضافة مركبة قبل الاشتراك', 'warning')
         return redirect(url_for('customer.add_vehicle'))
     
-    packages = SubscriptionPackage.query.filter_by(is_active=True).all()
+    packages = SubscriptionPackage.query.filter_by(is_active=True, package_type='subscription').all()
     
     # Get all active/pending subscriptions for this user
     active_subs = Subscription.query.filter(
@@ -1247,6 +1827,9 @@ def subscribe_flow():
 def subscribe_details(package_id):
     """Select vehicle and preferred time"""
     package = SubscriptionPackage.query.get_or_404(package_id)
+    if package.package_type != 'subscription':
+        flash('هذه الباقة غير متاحة للاشتراكات', 'error')
+        return redirect(url_for('customer.subscribe_flow'))
     
     # Get all active/pending subscriptions
     active_subs = Subscription.query.filter(
@@ -1305,6 +1888,81 @@ def subscribe_details(package_id):
                          package=package, 
                          vehicles=available_vehicles,
                          cities=cities)
+
+@bp.route('/polishing')
+def polishing_packages():
+    """Show available polishing packages"""
+    user_vehicles = current_user.vehicles.all()
+    if not user_vehicles:
+        flash('يجب إضافة مركبة قبل طلب التلميع', 'warning')
+        return redirect(url_for('customer.add_vehicle'))
+
+    packages = SubscriptionPackage.query.filter_by(is_active=True, package_type='polishing').all()
+    return render_template('customer/polishing_packages.html', packages=packages)
+
+@bp.route('/polishing/<int:package_id>/request', methods=['GET', 'POST'])
+def request_polishing(package_id):
+    """Create a polishing request from a polishing package"""
+    package = SubscriptionPackage.query.get_or_404(package_id)
+    if package.package_type != 'polishing':
+        flash('هذه الباقة غير متاحة للتلميع', 'error')
+        return redirect(url_for('customer.polishing_packages'))
+
+    vehicles = current_user.vehicles.all()
+    if not vehicles:
+        flash('يجب إضافة مركبة قبل طلب التلميع', 'warning')
+        return redirect(url_for('customer.add_vehicle'))
+
+    cities = City.query.filter_by(is_active=True).all()
+
+    if request.method == 'POST':
+        vehicle_id = request.form.get('vehicle_id', type=int)
+        neighborhood_id = request.form.get('neighborhood_id', type=int)
+        preferred_time = request.form.get('preferred_time') or 'flexible'
+
+        if not all([vehicle_id, neighborhood_id]):
+            flash('الرجاء اختيار السيارة والمنطقة', 'error')
+            return redirect(url_for('customer.request_polishing', package_id=package_id))
+
+        vehicle = Vehicle.query.get(vehicle_id)
+        if not vehicle or vehicle.user_id != current_user.id:
+            flash('المركبة غير صالحة', 'error')
+            return redirect(url_for('customer.request_polishing', package_id=package_id))
+
+        neighborhood = Neighborhood.query.get(neighborhood_id)
+        if not neighborhood:
+            flash('الحي غير موجود', 'error')
+            return redirect(url_for('customer.request_polishing', package_id=package_id))
+
+        existing = PolishingOrder.query.filter(
+            PolishingOrder.customer_id == current_user.id,
+            PolishingOrder.vehicle_id == vehicle_id,
+            PolishingOrder.status.in_(['pending', 'accepted'])
+        ).first()
+        if existing:
+            flash('لديك طلب تلميع قائم لهذه المركبة بالفعل', 'warning')
+            return redirect(url_for('customer.index'))
+
+        order = PolishingOrder(
+            customer_id=current_user.id,
+            vehicle_id=vehicle_id,
+            neighborhood_id=neighborhood_id,
+            package_id=package.id,
+            preferred_time=preferred_time,
+            status='pending'
+        )
+        db.session.add(order)
+        db.session.commit()
+
+        flash('تم إرسال طلب التلميع بنجاح، سيتم التواصل معك قريباً', 'success')
+        return redirect(url_for('customer.index'))
+
+    return render_template(
+        'customer/polishing_request.html',
+        package=package,
+        vehicles=vehicles,
+        cities=cities
+    )
 
 @bp.route('/subscription/<int:subscription_id>/book', methods=['GET', 'POST'])
 @login_required
@@ -1775,7 +2433,7 @@ def api_prices():
 
 @bp.route('/gift')
 def gift():
-    """Main gift page with two options"""
+    """Main gift page with gift options"""
     return render_template('customer/gift.html')
 
 
@@ -1839,7 +2497,7 @@ def gift_subscription():
     """Gift a subscription package"""
     from app.models import SubscriptionPackage, GiftOrder
     
-    packages = SubscriptionPackage.query.filter_by(is_active=True).all()
+    packages = SubscriptionPackage.query.filter_by(is_active=True, package_type='subscription').all()
     
     if request.method == 'POST':
         package_id = request.form.get('package_id')
@@ -1869,6 +2527,55 @@ def gift_subscription():
         return redirect(url_for('customer.gift_success'))
     
     return render_template('customer/gift_subscription.html', packages=packages)
+
+
+@bp.route('/gift/polishing', methods=['GET', 'POST'])
+def gift_polishing():
+    """Gift a polishing package"""
+    from app.models import SubscriptionPackage, GiftOrder, City, Neighborhood
+
+    packages = SubscriptionPackage.query.filter_by(is_active=True, package_type='polishing').all()
+    cities = City.query.filter_by(is_active=True).all()
+
+    if request.method == 'POST':
+        package_id = request.form.get('package_id', type=int)
+        recipient_name = request.form.get('recipient_name')
+        recipient_phone = request.form.get('recipient_phone')
+        city_id = request.form.get('city_id', type=int)
+        neighborhood_id = request.form.get('neighborhood_id', type=int)
+
+        package = SubscriptionPackage.query.get(package_id) if package_id else None
+        if not package or package.package_type != 'polishing' or not package.is_active:
+            flash('الرجاء اختيار باقة تلميع صحيحة', 'error')
+            return render_template('customer/gift_polishing.html', packages=packages, cities=cities)
+
+        if not recipient_phone or len(recipient_phone) != 9 or not recipient_phone.isdigit():
+            flash('الرجاء إدخال رقم جوال صحيح (9 أرقام بدون صفر)', 'error')
+            return render_template('customer/gift_polishing.html', packages=packages, cities=cities)
+
+        neighborhood = Neighborhood.query.get(neighborhood_id) if neighborhood_id else None
+        if not city_id or not neighborhood or neighborhood.city_id != city_id:
+            flash('الرجاء اختيار مدينة وحي صحيحين', 'error')
+            return render_template('customer/gift_polishing.html', packages=packages, cities=cities)
+
+        formatted_phone = '+966' + recipient_phone
+
+        gift_order = GiftOrder(
+            sender_id=current_user.id,
+            recipient_name=recipient_name,
+            recipient_phone=formatted_phone,
+            city_id=city_id,
+            neighborhood_id=neighborhood_id,
+            gift_type='polishing',
+            package_id=package.id,
+            status='pending'
+        )
+        db.session.add(gift_order)
+        db.session.commit()
+
+        return redirect(url_for('customer.gift_success'))
+
+    return render_template('customer/gift_polishing.html', packages=packages, cities=cities)
 
 
 @bp.route('/gift/success')

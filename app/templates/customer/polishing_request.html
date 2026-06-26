@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-white mb-2">طلب التلميع</h2>
+    <p class="text-gray-400">اختر السيارة والمنطقة المناسبة</p>
+</div>
+
+<div class="bg-amber-900 bg-opacity-30 border border-amber-600 rounded-lg p-6 mb-6">
+    <div class="flex justify-between items-center mb-3">
+        <h3 class="text-xl font-bold text-white">{{ package.name_ar }}</h3>
+        <span id="package_price_display" class="text-2xl font-bold text-amber-300">{{ package.price }} ريال</span>
+    </div>
+    {% if package.description %}
+    <p class="text-sm text-gray-300">{{ package.description }}</p>
+    {% endif %}
+</div>
+
+<form method="POST" class="space-y-6">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-white mb-4">
+            <i class="fas fa-car ml-2 text-accent"></i>اختر السيارة
+        </h3>
+
+        <div class="space-y-3">
+            {% for vehicle in vehicles %}
+            <label class="flex items-center p-4 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition">
+                <input type="radio" name="vehicle_id" value="{{ vehicle.id }}" required
+                    class="ml-3 w-5 h-5 text-amber-600">
+                <div class="flex-1">
+                    <p class="font-bold text-white">{{ vehicle.brand }}</p>
+                    <p class="text-sm text-gray-400">{{ vehicle.plate_number }}</p>
+                </div>
+                <i class="fas fa-car text-gray-500 text-2xl"></i>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-white mb-4">
+            <i class="fas fa-map-marker-alt ml-2 text-accent"></i>اختر المنطقة
+        </h3>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">المدينة</label>
+                <select id="city_select" name="city_id" required
+                    class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-amber-600">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">الحي</label>
+                <select id="neighborhood_select" name="neighborhood_id" required
+                    class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-amber-600">
+                    <option value="">-- اختر المدينة أولاً --</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-primary rounded-lg p-6 shadow-lg">
+        <h3 class="text-lg font-bold text-white mb-4">
+            <i class="fas fa-clock ml-2 text-accent"></i>الوقت المفضل
+        </h3>
+        <div class="grid grid-cols-2 gap-3">
+            <label class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-transparent">
+                <input type="radio" name="preferred_time" value="morning" class="ml-2">
+                <div class="flex-1">
+                    <span class="text-white">صباحاً</span>
+                    <p class="text-xs text-gray-400">8 AM - 12 PM</p>
+                </div>
+            </label>
+            <label class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-transparent">
+                <input type="radio" name="preferred_time" value="afternoon" class="ml-2">
+                <div class="flex-1">
+                    <span class="text-white">ظهراً</span>
+                    <p class="text-xs text-gray-400">12 PM - 4 PM</p>
+                </div>
+            </label>
+            <label class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-transparent">
+                <input type="radio" name="preferred_time" value="evening" class="ml-2">
+                <div class="flex-1">
+                    <span class="text-white">مساءً</span>
+                    <p class="text-xs text-gray-400">4 PM - 8 PM</p>
+                </div>
+            </label>
+            <label class="time-option flex items-center p-3 bg-darkbg rounded-lg cursor-pointer hover:bg-gray-700 transition border-2 border-accent">
+                <input type="radio" name="preferred_time" value="flexible" class="ml-2" checked>
+                <div class="flex-1">
+                    <span class="text-white">في أي وقت</span>
+                    <p class="text-xs text-gray-400">مرن</p>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <div class="flex gap-3">
+        <button type="submit"
+            class="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-4 rounded-lg font-bold transition">
+            <i class="fas fa-check ml-2"></i>إرسال طلب التلميع
+        </button>
+        <a href="{{ url_for('customer.polishing_packages') }}"
+            class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-4 rounded-lg font-bold transition">
+            إلغاء
+        </a>
+    </div>
+</form>
+
+<script>
+    document.getElementById('city_select').addEventListener('change', function () {
+        const cityId = this.value;
+        const packageId = {{ package.id }};
+        const neighborhoodSelect = document.getElementById('neighborhood_select');
+        const priceDisplay = document.getElementById('package_price_display');
+
+        neighborhoodSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+
+        if (!cityId) {
+            neighborhoodSelect.innerHTML = '<option value="">-- اختر المدينة أولاً --</option>';
+            priceDisplay.textContent = '{{ package.price }} ريال';
+            return;
+        }
+
+        fetch(`/customer/api/neighborhoods/${cityId}`)
+            .then(response => response.json())
+            .then(neighborhoods => {
+                neighborhoodSelect.innerHTML = '<option value="">-- اختر الحي --</option>';
+                neighborhoods.forEach(n => {
+                    const option = document.createElement('option');
+                    option.value = n.id;
+                    option.textContent = n.name;
+                    option.className = "bg-darkbg text-white";
+                    neighborhoodSelect.appendChild(option);
+                });
+            });
+
+        priceDisplay.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        fetch(`/customer/api/package-price/${packageId}/${cityId}`)
+            .then(response => response.json())
+            .then(data => {
+                priceDisplay.textContent = data.price + ' ريال';
+            }).catch(() => {
+                priceDisplay.textContent = '{{ package.price }} ريال';
+            });
+    });
+
+    document.querySelectorAll('.time-option input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            document.querySelectorAll('.time-option').forEach(label => {
+                label.classList.remove('border-accent');
+                label.classList.add('border-transparent');
+            });
+            if (this.checked) {
+                this.closest('.time-option').classList.remove('border-transparent');
+                this.closest('.time-option').classList.add('border-accent');
+            }
+        });
+    });
+</script>
+{% endblock %}

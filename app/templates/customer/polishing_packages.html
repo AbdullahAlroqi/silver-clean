@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{{ url_for('customer.index') }}"
+        class="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-bold transition">
+        <i class="fas fa-arrow-right"></i>
+        رجوع
+    </a>
+</div>
+
+<div class="mb-6">
+    <h2 class="text-2xl font-bold text-white mb-2">التلميع</h2>
+    <p class="text-gray-400">اختر باقة التلميع المناسبة لسيارتك</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    {% for package in packages %}
+    <div class="bg-primary rounded-lg shadow-lg overflow-hidden border border-gray-700">
+        <div class="bg-gradient-to-r from-amber-600 to-yellow-700 p-6">
+            <h3 class="text-2xl font-bold text-white mb-2">{{ package.name_ar }}</h3>
+            <p class="text-amber-100 text-sm">{{ package.name_en }}</p>
+        </div>
+        <div class="p-6">
+            <div class="text-center mb-6">
+                <p class="text-4xl font-bold text-white mb-2">{{ package.price }} <span
+                        class="text-lg text-gray-400">ريال</span></p>
+                <p class="text-gray-400">{{ package.duration_days }} يوم</p>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                {% if package.wash_count %}
+                <div class="flex items-center text-gray-300">
+                    <i class="fas fa-check-circle text-green-500 ml-2"></i>
+                    <span>{{ package.wash_count }} خدمة</span>
+                </div>
+                {% endif %}
+                {% if package.description %}
+                <div class="flex items-start text-gray-300">
+                    <i class="fas fa-info-circle text-blue-500 ml-2 mt-1"></i>
+                    <span class="text-sm">{{ package.description }}</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <a href="{{ url_for('customer.request_polishing', package_id=package.id) }}"
+                class="block w-full bg-amber-600 hover:bg-amber-700 text-white text-center py-3 rounded-lg font-bold transition">
+                طلب هذه الباقة
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-span-2 text-center py-12 bg-primary rounded-lg border border-gray-700">
+        <i class="fas fa-wand-magic-sparkles text-4xl text-gray-500 mb-4"></i>
+        <p class="text-gray-500">لا توجد باقات تلميع متاحة حالياً</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
