@@ -9,6 +9,17 @@
     </a>
 </div>
 
+<div class="flex flex-wrap gap-2 mb-6 border-b border-gray-700">
+    <button type="button" id="subscriptionsPackagesTabButton" onclick="switchPackagesTab('subscription')"
+        class="px-4 py-3 text-sm font-bold border-b-2 transition">
+        <i class="fas fa-repeat ml-1"></i>&#1575;&#1604;&#1575;&#1588;&#1578;&#1585;&#1575;&#1603;&#1575;&#1578;
+    </button>
+    <button type="button" id="polishingPackagesTabButton" onclick="switchPackagesTab('polishing')"
+        class="px-4 py-3 text-sm font-bold border-b-2 transition">
+        <i class="fas fa-spray-can-sparkles ml-1"></i>&#1575;&#1604;&#1578;&#1604;&#1605;&#1610;&#1593;
+    </button>
+</div>
+
 <!-- Global Stats Summary -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
     <div class="bg-primary p-4 rounded-lg border border-gray-700 shadow flex items-center gap-4">
@@ -34,7 +45,7 @@
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for item in packages %}
     {% set package = item.package %}
-    <div class="bg-primary rounded-lg shadow-lg overflow-hidden border border-gray-700 relative">
+    <div class="package-card bg-primary rounded-lg shadow-lg overflow-hidden border border-gray-700 relative" data-package-type="{{ package.package_type or 'subscription' }}">
         {% if not package.is_active %}
         <div class="absolute top-0 right-0 bg-red-600 text-white text-xs px-2 py-1 rounded-bl">غير مفعل</div>
         {% endif %}
@@ -99,6 +110,9 @@
         لا يوجد باقات اشتراك مضافة حالياً.
     </div>
     {% endfor %}
+    <div id="emptyPackagesTabMessage" class="hidden col-span-full text-center text-gray-500 py-8">
+        &#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1576;&#1575;&#1602;&#1575;&#1578; &#1601;&#1610; &#1607;&#1584;&#1575; &#1575;&#1604;&#1578;&#1576;&#1608;&#1610;&#1576;.
+    </div>
 </div>
 
 <!-- Assign Package to City Modal -->
@@ -153,6 +167,35 @@
 
 {% block scripts %}
 <script>
+    function switchPackagesTab(tabName) {
+        const isPolishing = tabName === 'polishing';
+        const subscriptionsButton = document.getElementById('subscriptionsPackagesTabButton');
+        const polishingButton = document.getElementById('polishingPackagesTabButton');
+        const cards = Array.from(document.querySelectorAll('.package-card'));
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            const cardType = card.dataset.packageType === 'polishing' ? 'polishing' : 'subscription';
+            const shouldShow = cardType === tabName;
+            card.classList.toggle('hidden', !shouldShow);
+            if (shouldShow) {
+                visibleCount += 1;
+            }
+        });
+
+        subscriptionsButton.className = !isPolishing
+            ? 'px-4 py-3 text-sm font-bold border-b-2 transition border-accent text-white'
+            : 'px-4 py-3 text-sm font-bold border-b-2 transition border-transparent text-gray-400 hover:text-white';
+        polishingButton.className = isPolishing
+            ? 'px-4 py-3 text-sm font-bold border-b-2 transition border-accent text-white'
+            : 'px-4 py-3 text-sm font-bold border-b-2 transition border-transparent text-gray-400 hover:text-white';
+
+        document.getElementById('emptyPackagesTabMessage').classList.toggle('hidden', visibleCount > 0);
+        if (window.location.hash !== `#${tabName}`) {
+            history.replaceState(null, '', `#${tabName}`);
+        }
+    }
+
     function openAssignCityModal(packageId, packageName) {
         document.getElementById('assignPackageId').value = packageId;
         document.getElementById('assignPackageName').textContent = packageName;
@@ -242,5 +285,7 @@
             }
         });
     });
+
+    switchPackagesTab(window.location.hash === '#polishing' ? 'polishing' : 'subscription');
 </script>
 {% endblock %}

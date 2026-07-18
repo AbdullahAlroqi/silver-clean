@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -16,6 +16,96 @@ import json
 def before_request():
     if not current_user.is_authenticated or current_user.role not in ['admin', 'supervisor']:
         return redirect(url_for('auth.login'))
+
+def _supervisor_neighborhood_ids(user=None):
+    user = user or current_user
+    if not user.is_authenticated or user.role != 'supervisor':
+        return None
+
+    neighborhood_ids = set()
+    for neighborhood in user.supervisor_neighborhoods:
+        neighborhood_ids.add(neighborhood.id)
+    for city in user.supervisor_cities:
+        neighborhood_ids.update(n.id for n in city.neighborhoods)
+    return list(neighborhood_ids)
+
+def _apply_neighborhood_scope(query, model):
+    neighborhood_ids = _supervisor_neighborhood_ids()
+    if neighborhood_ids is None:
+        return query
+    if neighborhood_ids:
+        return query.filter(model.neighborhood_id.in_(neighborhood_ids))
+    return query.filter(model.id == -1)
+
+def _scoped_employee_query(include_break=False):
+    query = User.query.filter_by(role='employee')
+    neighborhood_ids = _supervisor_neighborhood_ids()
+    if neighborhood_ids is not None:
+        if neighborhood_ids:
+            query = query.join(User.neighborhoods).filter(Neighborhood.id.in_(neighborhood_ids)).distinct()
+        else:
+            query = query.filter(User.id == -1)
+    if not include_break:
+        query = query.filter(User.is_on_break == False)
+    return query
+
+def _is_employee_on_break(employee, target_date=None, target_time=None):
+    if not employee or not employee.is_on_break:
+        return False
+    if employee.break_type == 'date':
+        return bool(target_date and employee.break_date == target_date)
+    if employee.break_type == 'time':
+        if not target_time or not employee.break_start_time or not employee.break_end_time:
+            return False
+        if employee.break_start_time <= employee.break_end_time:
+            return employee.break_start_time <= target_time <= employee.break_end_time
+        return target_time >= employee.break_start_time or target_time <= employee.break_end_time
+    return True
+
+def _employee_has_scope_access(employee):
+    neighborhood_ids = _supervisor_neighborhood_ids()
+    if neighborhood_ids is None:
+        return True
+    return bool(set(n.id for n in employee.neighborhoods).intersection(neighborhood_ids))
+
+def _booking_has_scope_access(booking):
+    neighborhood_ids = _supervisor_neighborhood_ids()
+    if neighborhood_ids is None:
+        return True
+    return bool(booking and booking.neighborhood_id in neighborhood_ids)
+
+def _supervisor_city_ids(neighborhood_ids=None):
+    neighborhood_ids = _supervisor_neighborhood_ids() if neighborhood_ids is None else neighborhood_ids
+    if neighborhood_ids is None:
+        return None
+    city_ids = {city.id for city in current_user.supervisor_cities}
+    if not neighborhood_ids:
+        return list(city_ids)
+    rows = Neighborhood.query.filter(Neighborhood.id.in_(neighborhood_ids)).all()
+    city_ids.update(row.city_id for row in rows)
+    return list(city_ids)
+
+def _warehouse_has_scope_access(warehouse):
+    neighborhood_ids = _supervisor_neighborhood_ids()
+    if neighborhood_ids is None:
+        return True
+    if not warehouse or not warehouse.is_active:
+        return False
+
+    allowed_neighborhood_ids = set(neighborhood_ids)
+    warehouse_neighborhood_ids = {n.id for n in warehouse.neighborhoods}
+    if warehouse_neighborhood_ids:
+        return bool(warehouse_neighborhood_ids.intersection(allowed_neighborhood_ids))
+
+    allowed_city_ids = set(_supervisor_city_ids(neighborhood_ids))
+    warehouse_city_ids = {c.id for c in warehouse.cities}
+    return bool(warehouse_city_ids.intersection(allowed_city_ids))
+
+def _scoped_warehouses():
+    warehouses = Warehouse.query.filter_by(is_active=True).order_by(Warehouse.id.desc()).all()
+    if current_user.role == 'supervisor':
+        warehouses = [warehouse for warehouse in warehouses if _warehouse_has_scope_access(warehouse)]
+    return warehouses
 
 @bp.route('/')
 def index():
@@ -269,6 +359,16 @@ def employees():
     else:
         query = query.filter(User.role.in_(['employee', 'supervisor']))
 
+    if current_user.role == 'supervisor':
+        if role_filter == 'supervisor':
+            query = query.filter(User.id == -1)
+        else:
+            neighborhood_ids = _supervisor_neighborhood_ids()
+            if neighborhood_ids:
+                query = query.join(User.neighborhoods).filter(Neighborhood.id.in_(neighborhood_ids)).distinct()
+            else:
+                query = query.filter(User.id == -1)
+
     if search_query:
         query = query.filter(
             or_(
@@ -281,9 +381,14 @@ def employees():
     pagination = query.order_by(User.id.desc()).paginate(page=page, per_page=50, error_out=False)
     employees = pagination.items
     # Counters for tabs
-    all_count = User.query.filter(User.role.in_(['employee', 'supervisor'])).count()
-    employee_count = User.query.filter_by(role='employee').count()
-    supervisor_count = User.query.filter_by(role='supervisor').count()
+    if current_user.role == 'supervisor':
+        employee_count = _scoped_employee_query(include_break=True).count()
+        all_count = employee_count
+        supervisor_count = 0
+    else:
+        all_count = User.query.filter(User.role.in_(['employee', 'supervisor'])).count()
+        employee_count = User.query.filter_by(role='employee').count()
+        supervisor_count = User.query.filter_by(role='supervisor').count()
 
     return render_template(
         'admin/employees.html',
@@ -547,7 +652,38 @@ def toggle_employee_break(id):
         flash('خيار الراحة متاح للموظفين فقط', 'error')
         return redirect(request.referrer or url_for('admin.employees'))
 
-    employee.is_on_break = not bool(employee.is_on_break)
+    if current_user.role == 'supervisor' and not _employee_has_scope_access(employee):
+        flash('Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ù„ØªØ¹Ø¯ÙŠÙ„ Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆØ¸Ù', 'error')
+        return redirect(request.referrer or url_for('admin.employees'))
+
+    break_type = request.form.get('break_type')
+    if employee.is_on_break and not break_type:
+        employee.is_on_break = False
+        employee.break_type = None
+        employee.break_date = None
+        employee.break_start_time = None
+        employee.break_end_time = None
+    else:
+        employee.is_on_break = True
+        employee.break_type = break_type if break_type in ['date', 'time', 'full_day'] else 'full_day'
+        employee.break_date = None
+        employee.break_start_time = None
+        employee.break_end_time = None
+
+        if employee.break_type == 'date':
+            date_str = request.form.get('break_date')
+            if date_str:
+                employee.break_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            else:
+                employee.break_type = 'full_day'
+        elif employee.break_type == 'time':
+            start_str = request.form.get('break_start_time')
+            end_str = request.form.get('break_end_time')
+            if start_str and end_str:
+                employee.break_start_time = datetime.strptime(start_str, '%H:%M').time()
+                employee.break_end_time = datetime.strptime(end_str, '%H:%M').time()
+            else:
+                employee.break_type = 'full_day'
     db.session.commit()
     flash('تم تفعيل الراحة للموظف' if employee.is_on_break else 'تم إيقاف الراحة للموظف', 'success')
     return redirect(request.referrer or url_for('admin.employees'))
@@ -638,6 +774,9 @@ def delete_employee(id):
 @bp.route('/employees/<int:id>/stats')
 def employee_stats(id):
     employee = User.query.get_or_404(id)
+    if current_user.role == 'supervisor' and (employee.role != 'employee' or not _employee_has_scope_access(employee)):
+        flash('Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ù„Ø¹Ø±Ø¶ Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆØ¸Ù', 'error')
+        return redirect(url_for('admin.employees'))
     
     # Get date filters from query params
     from_date_str = request.args.get('from_date')
@@ -773,6 +912,13 @@ def employee_stats(id):
 def customers():
     search_query = request.args.get('q', '').strip()
     query = User.query.filter_by(role='customer')
+
+    neighborhood_ids = _supervisor_neighborhood_ids()
+    if neighborhood_ids is not None:
+        if neighborhood_ids:
+            query = query.join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(neighborhood_ids)).distinct()
+        else:
+            query = query.filter(User.id == -1)
     
     if search_query:
         query = query.filter(
@@ -1019,9 +1165,19 @@ def ratings():
     to_date_str = request.args.get('to_date', '')
     
     query = Booking.query.filter(Booking.rating.isnot(None)).order_by(Booking.rating_date.desc())
+    employees_query = _scoped_employee_query(include_break=True)
+    scoped_employee_ids = None
+
+    if current_user.role == 'supervisor':
+        scoped_employee_ids = [employee.id for employee in employees_query.all()]
+        query = query.filter(Booking.employee_id.in_(scoped_employee_ids)) if scoped_employee_ids else query.filter(Booking.id == -1)
     
     if employee_id:
-        query = query.filter(Booking.employee_id == int(employee_id))
+        employee_id_int = int(employee_id)
+        if scoped_employee_ids is not None and employee_id_int not in scoped_employee_ids:
+            query = query.filter(Booking.id == -1)
+        else:
+            query = query.filter(Booking.employee_id == employee_id_int)
     
     # Date range filter
     if from_date_str:
@@ -1041,7 +1197,7 @@ def ratings():
     page = request.args.get('page', 1, type=int)
     pagination = query.order_by(Booking.rating_date.desc() if hasattr(Booking, 'rating_date') else Booking.id.desc()).paginate(page=page, per_page=50, error_out=False)
     ratings = pagination.items
-    employees = User.query.filter_by(role='employee').all()
+    employees = employees_query.all()
     
     return render_template('admin/ratings.html', ratings=ratings, employees=employees, pagination=pagination)
 
@@ -1262,27 +1418,41 @@ def products():
     pagination = Product.query.order_by(Product.id.asc()).paginate(page=page, per_page=50, error_out=False)
     all_products = pagination.items
     products_data = []
+    supervisor_neighborhood_ids_for_products = _supervisor_neighborhood_ids()
+    allowed_warehouse_ids_for_products = None
+    if current_user.role == 'supervisor':
+        allowed_warehouse_ids_for_products = [warehouse.id for warehouse in _scoped_warehouses()]
     
     # Calculate global total revenue across ALL products
-    total_sales_revenue = db.session.query(
+    total_sales_revenue_query = db.session.query(
         func.sum(
             BookingProduct.quantity * func.coalesce(BookingProduct.unit_price, Product.price)
         )
     ).join(Booking, BookingProduct.booking_id == Booking.id)\
      .join(Product, BookingProduct.product_id == Product.id)\
-     .filter(Booking.status == 'completed').scalar() or 0
+     .filter(Booking.status == 'completed')
+    if supervisor_neighborhood_ids_for_products is not None:
+        total_sales_revenue_query = total_sales_revenue_query.filter(
+            Booking.neighborhood_id.in_(supervisor_neighborhood_ids_for_products)
+        ) if supervisor_neighborhood_ids_for_products else total_sales_revenue_query.filter(Booking.id == -1)
+    total_sales_revenue = total_sales_revenue_query.scalar() or 0
     
     for product in all_products:
         # Get total quantity sold (only for completed bookings)
-        sold_quantity = db.session.query(func.sum(BookingProduct.quantity))\
+        sold_quantity_query = db.session.query(func.sum(BookingProduct.quantity))\
             .join(Booking, BookingProduct.booking_id == Booking.id)\
             .filter(
                 BookingProduct.product_id == product.id,
                 Booking.status == 'completed'
-            ).scalar() or 0
+            )
+        if supervisor_neighborhood_ids_for_products is not None:
+            sold_quantity_query = sold_quantity_query.filter(
+                Booking.neighborhood_id.in_(supervisor_neighborhood_ids_for_products)
+            ) if supervisor_neighborhood_ids_for_products else sold_quantity_query.filter(Booking.id == -1)
+        sold_quantity = sold_quantity_query.scalar() or 0
         
         # Calculate revenue using unit_price if available, else product.price
-        revenue = db.session.query(
+        revenue_query = db.session.query(
             func.sum(
                 BookingProduct.quantity * func.coalesce(BookingProduct.unit_price, Product.price)
             )
@@ -1291,8 +1461,23 @@ def products():
          .filter(
             BookingProduct.product_id == product.id,
             Booking.status == 'completed'
-        ).scalar() or 0
+        )
+        if supervisor_neighborhood_ids_for_products is not None:
+            revenue_query = revenue_query.filter(
+                Booking.neighborhood_id.in_(supervisor_neighborhood_ids_for_products)
+            ) if supervisor_neighborhood_ids_for_products else revenue_query.filter(Booking.id == -1)
+        revenue = revenue_query.scalar() or 0
         
+        warehouse_stock_query = db.session.query(func.sum(ProductStock.quantity)).filter(
+            ProductStock.product_id == product.id,
+            ProductStock.warehouse_id.isnot(None)
+        )
+        if allowed_warehouse_ids_for_products is not None:
+            warehouse_stock_query = warehouse_stock_query.filter(
+                ProductStock.warehouse_id.in_(allowed_warehouse_ids_for_products)
+            ) if allowed_warehouse_ids_for_products else warehouse_stock_query.filter(ProductStock.id == -1)
+        warehouse_stock = warehouse_stock_query.scalar()
+        display_stock = warehouse_stock if warehouse_stock is not None else (0 if current_user.role == 'supervisor' else product.stock_quantity)
         # total_sales_revenue is now calculated globally above the loop
 
         
@@ -1300,7 +1485,7 @@ def products():
             'product': product,
             'sold_quantity': sold_quantity,
             'revenue': revenue,
-            'stock': product.stock_quantity
+            'stock': display_stock
         })
     
     # Get cities for location stock management
@@ -1334,8 +1519,15 @@ def products():
             'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods]
         } for c in cities])
     
+    warehouses = _scoped_warehouses()
+    all_neighborhoods_query = Neighborhood.query.join(City).filter(Neighborhood.is_active == True)
+    supervisor_neighborhood_ids = _supervisor_neighborhood_ids()
+    if supervisor_neighborhood_ids is not None:
+        all_neighborhoods_query = all_neighborhoods_query.filter(Neighborhood.id.in_(supervisor_neighborhood_ids)) if supervisor_neighborhood_ids else all_neighborhoods_query.filter(Neighborhood.id == -1)
+    all_neighborhoods = all_neighborhoods_query.order_by(City.name_ar, Neighborhood.name_ar).all()
     return render_template('admin/products.html', products=products_data, 
-                           total_sales_revenue=total_sales_revenue, cities=cities, cities_json=cities_json, pagination=pagination)
+                           total_sales_revenue=total_sales_revenue, cities=cities, cities_json=cities_json,
+                           warehouses=warehouses, all_neighborhoods=all_neighborhoods, pagination=pagination)
 
 @bp.route('/products/update_stock/<int:product_id>', methods=['POST'])
 def update_stock(product_id):
@@ -1346,9 +1538,35 @@ def update_stock(product_id):
     stock = request.form.get('stock', 0, type=int)
     city_id = request.form.get('city_id', type=int)
     neighborhood_id = request.form.get('neighborhood_id', type=int)
+    warehouse_id = request.form.get('warehouse_id', type=int)
+    price = request.form.get('price', type=float)
     
-    if city_id:
-        # Location-based stock update
+    if warehouse_id:
+        warehouse = Warehouse.query.get(warehouse_id)
+        if not _warehouse_has_scope_access(warehouse):
+            flash('\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u062a\u0639\u062f\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639', 'error')
+            return redirect(url_for('admin.products'))
+
+        existing = ProductStock.query.filter_by(
+            product_id=product_id,
+            warehouse_id=warehouse_id
+        ).first()
+        
+        if existing:
+            existing.quantity = stock
+            existing.price = price
+        else:
+            new_stock = ProductStock(
+                product_id=product_id,
+                warehouse_id=warehouse_id,
+                quantity=stock,
+                price=price
+            )
+            db.session.add(new_stock)
+        
+        flash('\u062a\u0645 \u062a\u062d\u062f\u064a\u062b \u0645\u062e\u0632\u0648\u0646 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639')
+    elif city_id:
+        # Legacy location-based stock update
         existing = ProductStock.query.filter_by(
             product_id=product_id,
             city_id=city_id,
@@ -1381,6 +1599,9 @@ def get_location_stock(product_id):
     from app.models import ProductStock
     
     stocks = ProductStock.query.filter_by(product_id=product_id).all()
+    if current_user.role == 'supervisor':
+        allowed_warehouse_ids = {warehouse.id for warehouse in _scoped_warehouses()}
+        stocks = [stock for stock in stocks if stock.warehouse_id in allowed_warehouse_ids]
     result = []
     
     for s in stocks:
@@ -1390,10 +1611,120 @@ def get_location_stock(product_id):
             'city_name': s.city.name_ar if s.city else '',
             'neighborhood_id': s.neighborhood_id,
             'neighborhood_name': s.neighborhood.name_ar if s.neighborhood else 'كل الأحياء',
-            'quantity': s.quantity
+            'warehouse_id': s.warehouse_id,
+            'warehouse_name': s.warehouse.name_ar if s.warehouse else '',
+            'quantity': s.quantity,
+            'price': s.price
         })
     
     return jsonify(result)
+
+@bp.route('/warehouses/add', methods=['POST'])
+def add_warehouse():
+    name_ar = request.form.get('name_ar', '').strip()
+    name_en = request.form.get('name_en', '').strip()
+    city_ids = request.form.getlist('city_ids')
+    neighborhood_ids = request.form.getlist('neighborhood_ids')
+
+    if not name_ar:
+        flash('\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639 \u0645\u0637\u0644\u0648\u0628', 'error')
+        return redirect(url_for('admin.products'))
+
+    if not name_ar:
+        flash('Ø§Ø³Ù… Ø§Ù„Ù…Ø³ØªÙˆØ¯Ø¹ Ù…Ø·Ù„ÙˆØ¨', 'error')
+        return redirect(url_for('admin.products'))
+
+    supervisor_neighborhood_ids = _supervisor_neighborhood_ids()
+    if supervisor_neighborhood_ids is not None:
+        allowed_neighborhood_ids = set(supervisor_neighborhood_ids)
+        allowed_city_ids = set(_supervisor_city_ids(supervisor_neighborhood_ids))
+        city_ids = [cid for cid in city_ids if int(cid) in allowed_city_ids]
+        neighborhood_ids = [nid for nid in neighborhood_ids if int(nid) in allowed_neighborhood_ids]
+        if not city_ids and not neighborhood_ids:
+            flash('\u064a\u062c\u0628 \u0631\u0628\u0637 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639 \u0628\u0645\u062f\u064a\u0646\u0629 \u0623\u0648 \u062d\u064a \u0636\u0645\u0646 \u0646\u0637\u0627\u0642\u0643', 'error')
+            return redirect(url_for('admin.products'))
+
+    warehouse = Warehouse(name_ar=name_ar, name_en=name_en or None, is_active=True)
+    for city_id in city_ids:
+        city = City.query.get(int(city_id))
+        if city:
+            warehouse.cities.append(city)
+    for neighborhood_id in neighborhood_ids:
+        neighborhood = Neighborhood.query.get(int(neighborhood_id))
+        if neighborhood:
+            warehouse.neighborhoods.append(neighborhood)
+
+    db.session.add(warehouse)
+    db.session.commit()
+    flash('\u062a\u0645\u062a \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639 \u0628\u0646\u062c\u0627\u062d', 'success')
+    return redirect(url_for('admin.products'))
+    db.session.commit()
+    flash('ØªÙ…Øª Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ù…Ø³ØªÙˆØ¯Ø¹ Ø¨Ù†Ø¬Ø§Ø­', 'success')
+    return redirect(url_for('admin.products'))
+
+@bp.route('/warehouses/<int:id>/edit', methods=['POST'])
+def edit_warehouse(id):
+    warehouse = Warehouse.query.get_or_404(id)
+    if not _warehouse_has_scope_access(warehouse):
+        flash('\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u062a\u0639\u062f\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639', 'error')
+        return redirect(url_for('admin.products'))
+
+    name_ar = request.form.get('name_ar', '').strip()
+    name_en = request.form.get('name_en', '').strip()
+    city_ids = request.form.getlist('city_ids')
+    neighborhood_ids = request.form.getlist('neighborhood_ids')
+
+    if not name_ar:
+        flash('\u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639 \u0645\u0637\u0644\u0648\u0628', 'error')
+        return redirect(url_for('admin.products'))
+
+    supervisor_neighborhood_ids = _supervisor_neighborhood_ids()
+    if supervisor_neighborhood_ids is not None:
+        allowed_neighborhood_ids = set(supervisor_neighborhood_ids)
+        allowed_city_ids = set(_supervisor_city_ids(supervisor_neighborhood_ids))
+        city_ids = [cid for cid in city_ids if int(cid) in allowed_city_ids]
+        neighborhood_ids = [nid for nid in neighborhood_ids if int(nid) in allowed_neighborhood_ids]
+        if not city_ids and not neighborhood_ids:
+            flash('\u064a\u062c\u0628 \u0631\u0628\u0637 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639 \u0628\u0645\u062f\u064a\u0646\u0629 \u0623\u0648 \u062d\u064a \u0636\u0645\u0646 \u0646\u0637\u0627\u0642\u0643', 'error')
+            return redirect(url_for('admin.products'))
+
+    warehouse.name_ar = name_ar
+    warehouse.name_en = name_en or None
+    warehouse.cities = []
+    warehouse.neighborhoods = []
+
+    for city_id in city_ids:
+        city = City.query.get(int(city_id))
+        if city:
+            warehouse.cities.append(city)
+    for neighborhood_id in neighborhood_ids:
+        neighborhood = Neighborhood.query.get(int(neighborhood_id))
+        if neighborhood:
+            warehouse.neighborhoods.append(neighborhood)
+
+    db.session.commit()
+    flash('\u062a\u0645 \u062a\u0639\u062f\u064a\u0644 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639 \u0628\u0646\u062c\u0627\u062d', 'success')
+    return redirect(url_for('admin.products'))
+
+@bp.route('/warehouses/<int:id>/delete', methods=['POST'])
+def delete_warehouse(id):
+    from app.models import ProductStock
+
+    warehouse = Warehouse.query.get_or_404(id)
+    if not _warehouse_has_scope_access(warehouse):
+        flash('\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u062d\u0630\u0641 \u0647\u0630\u0627 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639', 'error')
+        return redirect(url_for('admin.products'))
+
+    ProductStock.query.filter_by(warehouse_id=warehouse.id).delete(synchronize_session=False)
+    warehouse.cities = []
+    warehouse.neighborhoods = []
+    db.session.delete(warehouse)
+    db.session.commit()
+    flash('\u062a\u0645 \u062d\u0630\u0641 \u0627\u0644\u0645\u0633\u062a\u0648\u062f\u0639 \u0648\u0628\u064a\u0627\u0646\u0627\u062a\u0647', 'success')
+    return redirect(url_for('admin.products'))
+    db.session.commit()
+    flash('ØªÙ… Ø¥ÙŠÙ‚Ø§Ù Ø§Ù„Ù…Ø³ØªÙˆØ¯Ø¹', 'success')
+    return redirect(url_for('admin.products'))
 
 @bp.route('/products/add', methods=['GET', 'POST'])
 def add_product():
@@ -1549,18 +1880,26 @@ def delete_product(id):
 @bp.route('/products/stats/<int:id>')
 def product_stats(id):
     from sqlalchemy import func
+    from app.models import ProductStock
+
     product = Product.query.get_or_404(id)
+    supervisor_neighborhood_ids = _supervisor_neighborhood_ids()
     
     # Calculate total sold quantity
-    sold_quantity = db.session.query(func.sum(BookingProduct.quantity))\
+    sold_quantity_query = db.session.query(func.sum(BookingProduct.quantity))\
         .join(Booking, BookingProduct.booking_id == Booking.id)\
         .filter(
             BookingProduct.product_id == product.id,
             Booking.status == 'completed'
-        ).scalar() or 0
+        )
+    if supervisor_neighborhood_ids is not None:
+        sold_quantity_query = sold_quantity_query.filter(
+            Booking.neighborhood_id.in_(supervisor_neighborhood_ids)
+        ) if supervisor_neighborhood_ids else sold_quantity_query.filter(Booking.id == -1)
+    sold_quantity = sold_quantity_query.scalar() or 0
         
     # Calculate total revenue using unit_price if available, else product.price
-    total_revenue = db.session.query(
+    total_revenue_query = db.session.query(
         func.sum(
             BookingProduct.quantity * func.coalesce(BookingProduct.unit_price, Product.price)
         )
@@ -1569,16 +1908,38 @@ def product_stats(id):
      .filter(
         BookingProduct.product_id == product.id,
         Booking.status == 'completed'
-    ).scalar() or 0
+    )
+    if supervisor_neighborhood_ids is not None:
+        total_revenue_query = total_revenue_query.filter(
+            Booking.neighborhood_id.in_(supervisor_neighborhood_ids)
+        ) if supervisor_neighborhood_ids else total_revenue_query.filter(Booking.id == -1)
+    total_revenue = total_revenue_query.scalar() or 0
+
+    current_stock_query = db.session.query(func.sum(ProductStock.quantity)).filter(
+        ProductStock.product_id == product.id,
+        ProductStock.warehouse_id.isnot(None)
+    )
+    if current_user.role == 'supervisor':
+        allowed_warehouse_ids = [warehouse.id for warehouse in _scoped_warehouses()]
+        current_stock_query = current_stock_query.filter(
+            ProductStock.warehouse_id.in_(allowed_warehouse_ids)
+        ) if allowed_warehouse_ids else current_stock_query.filter(ProductStock.id == -1)
+    current_stock = current_stock_query.scalar()
+    if current_stock is None:
+        current_stock = 0 if current_user.role == 'supervisor' else product.stock_quantity
     
     # Get recent bookings for this product
-    recent_bookings = db.session.query(Booking, BookingProduct.quantity, BookingProduct.unit_price)\
+    recent_bookings_query = db.session.query(Booking, BookingProduct.quantity, BookingProduct.unit_price)\
         .join(BookingProduct, Booking.id == BookingProduct.booking_id)\
         .filter(BookingProduct.product_id == product.id)\
-        .order_by(Booking.date.desc(), Booking.time.desc())\
-        .limit(20).all()
+        .order_by(Booking.date.desc(), Booking.time.desc())
+    if supervisor_neighborhood_ids is not None:
+        recent_bookings_query = recent_bookings_query.filter(
+            Booking.neighborhood_id.in_(supervisor_neighborhood_ids)
+        ) if supervisor_neighborhood_ids else recent_bookings_query.filter(Booking.id == -1)
+    recent_bookings = recent_bookings_query.limit(20).all()
         
-    return render_template('admin/product_stats.html', product=product, sold_quantity=sold_quantity, total_revenue=total_revenue, recent_bookings=recent_bookings)
+    return render_template('admin/product_stats.html', product=product, sold_quantity=sold_quantity, total_revenue=total_revenue, current_stock=current_stock, recent_bookings=recent_bookings)
 
 
 
@@ -1838,14 +2199,17 @@ def subscriptions():
     if status != 'all':
         subscriptions_query = subscriptions_query.filter_by(status=status)
         
+    supervisor_neighborhood_ids = []
+    supervisor_city_ids = set()
     # Filter for supervisors
     if current_user.role == 'supervisor':
-        supervisor_neighborhood_ids = []
         if current_user.supervisor_neighborhoods:
             supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
+            supervisor_city_ids.update(n.city_id for n in current_user.supervisor_neighborhoods)
         
         if current_user.supervisor_cities:
             for city in current_user.supervisor_cities:
+                supervisor_city_ids.add(city.id)
                 supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
         
         if supervisor_neighborhood_ids:
@@ -1865,10 +2229,13 @@ def subscriptions():
     subscriptions_result = pagination.items
     
     # Get counts for tabs
-    pending_count = Subscription.query.filter_by(status='pending').count()
-    active_count = Subscription.query.filter_by(status='active').count()
-    rejected_count = Subscription.query.filter_by(status='rejected').count()
-    expired_count = Subscription.query.filter_by(status='expired').count()
+    counts_query = Subscription.query
+    if current_user.role == 'supervisor':
+        counts_query = counts_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids)) if supervisor_neighborhood_ids else counts_query.filter(Subscription.id == -1)
+    pending_count = counts_query.filter_by(status='pending').count()
+    active_count = counts_query.filter_by(status='active').count()
+    rejected_count = counts_query.filter_by(status='rejected').count()
+    expired_count = counts_query.filter_by(status='expired').count()
     
     # Prepare JSON data for JavaScript
     subs_json = json.dumps([{
@@ -1881,15 +2248,21 @@ def subscriptions():
         'end_date': s.end_date.isoformat() if s.end_date else None
     } for s in subscriptions_result])
     
-    cities = City.query.all()
+    if current_user.role == 'supervisor':
+        cities = City.query.filter(City.id.in_(supervisor_city_ids)).all() if supervisor_city_ids else []
+    else:
+        cities = City.query.all()
     cities_json = json.dumps([{
         'id': c.id,
         'name_ar': c.name_ar,
-        'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods]
+        'neighborhoods': [{'id': n.id, 'name_ar': n.name_ar} for n in c.neighborhoods if current_user.role != 'supervisor' or n.id in supervisor_neighborhood_ids]
     } for c in cities])
     
-    employees = User.query.filter_by(role='employee', is_on_break=False).all()
-    customers = User.query.filter_by(role='customer').all()
+    employees = [emp for emp in _scoped_employee_query(include_break=True).all() if not _is_employee_on_break(emp)]
+    if current_user.role == 'supervisor':
+        customers = User.query.filter_by(role='customer').join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).distinct().all() if supervisor_neighborhood_ids else []
+    else:
+        customers = User.query.filter_by(role='customer').all()
     packages = SubscriptionPackage.query.filter_by(is_active=True, package_type='subscription').all()
     
     return render_template('admin/subscriptions.html',
@@ -1940,7 +2313,7 @@ def create_subscription():
 
     if employee_id:
         employee = User.query.get(int(employee_id))
-        if not employee or employee.role != 'employee' or employee.is_on_break:
+        if not employee or employee.role != 'employee' or _is_employee_on_break(employee):
             flash('لا يمكن إسناد الاشتراك لموظف في وضع الراحة', 'error')
             return redirect(url_for('admin.subscriptions'))
     
@@ -2161,9 +2534,9 @@ def employees_by_neighborhood(neighborhood_id):
     # Get employees assigned to this neighborhood
     employees = User.query.join(employee_neighborhoods).filter(
         employee_neighborhoods.c.neighborhood_id == neighborhood_id,
-        User.role == 'employee',
-        User.is_on_break == False
+        User.role == 'employee'
     ).all()
+    employees = [emp for emp in employees if not _is_employee_on_break(emp)]
     
     return jsonify([{'id': emp.id, 'username': emp.username} for emp in employees])
 
@@ -2455,13 +2828,13 @@ def bookings():
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
             employees = User.query.filter_by(role='employee').join(User.neighborhoods).filter(
-                Neighborhood.id.in_(supervisor_neighborhood_ids),
-                User.is_on_break == False
+                Neighborhood.id.in_(supervisor_neighborhood_ids)
             ).distinct().all()
         else:
             employees = []
     else:
-        employees = User.query.filter_by(role='employee', is_on_break=False).all()
+        employees = User.query.filter_by(role='employee').all()
+    employees = [emp for emp in employees if not _is_employee_on_break(emp)]
     
     customers = User.query.filter_by(role='customer').all()
     services_query = Service.query.all()
@@ -2488,9 +2861,15 @@ def bookings():
     
     # Get counts for status tabs
     current_statuses = ['pending', 'assigned', 'en_route', 'arrived', 'in_progress']
-    current_count = Booking.query.filter(Booking.status.in_(current_statuses)).count()
-    completed_count = Booking.query.filter_by(status='completed').count()
-    cancelled_count = Booking.query.filter_by(status='cancelled').count()
+    counts_query = Booking.query
+    if current_user.role == 'supervisor':
+        if supervisor_neighborhood_ids:
+            counts_query = counts_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            counts_query = counts_query.filter(Booking.id == -1)
+    current_count = counts_query.filter(Booking.status.in_(current_statuses)).count()
+    completed_count = counts_query.filter_by(status='completed').count()
+    cancelled_count = counts_query.filter_by(status='cancelled').count()
     
     return render_template('admin/bookings.html', bookings=bookings_list, employees=employees, 
                            status_filter=status_filter, employee_filter=employee_filter,
@@ -2512,9 +2891,13 @@ def create_booking():
     time_str = request.form.get('time')
     discount = float(request.form.get('discount', 0))
 
+    booking_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    hour, minute = map(int, time_str.split(':'))
+    time_obj = dt_time(hour, minute)
+
     if employee_id:
         employee = User.query.get(int(employee_id))
-        if not employee or employee.role != 'employee' or employee.is_on_break:
+        if not employee or employee.role != 'employee' or _is_employee_on_break(employee, booking_date_obj, time_obj):
             flash('لا يمكن إسناد الحجز لموظف في وضع الراحة', 'error')
             return redirect(url_for('admin.bookings'))
     
@@ -2533,12 +2916,7 @@ def create_booking():
             flash('خطأ: لا يمكنك إضافة حجز خارج نطاق منطقتك المحددة', 'error')
             return redirect(url_for('admin.bookings'))
     
-    # Convert time string to time object
-    hour, minute = map(int, time_str.split(':'))
-    time_obj = dt_time(hour, minute)
-    
     # Calculate base service price (considering seasons)
-    booking_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
     service = Service.query.get(int(service_id))
     base_price = service.price if service else 0.0
     
@@ -2694,6 +3072,10 @@ def update_booking_totals(booking):
 @bp.route('/bookings/<int:id>/edit', methods=['POST'])
 def edit_booking(id):
     booking = Booking.query.get_or_404(id)
+    if not _booking_has_scope_access(booking):
+        flash('\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u062a\u0639\u062f\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062d\u062c\u0632', 'error')
+        return redirect(request.referrer or url_for('admin.bookings'))
+
     has_item_fields = any(
         key.startswith('item_service_price_')
         for key in request.form.keys()
@@ -2794,6 +3176,10 @@ def refund_product(id, product_id):
     from app.models import BookingProduct, Product
     
     booking = Booking.query.get_or_404(id)
+    if not _booking_has_scope_access(booking):
+        flash('\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u062a\u0639\u062f\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062d\u062c\u0632', 'error')
+        return redirect(request.referrer or url_for('admin.bookings'))
+
     product_link = BookingProduct.query.filter_by(booking_id=id, product_id=product_id).first()
     
     if product_link:
@@ -2817,6 +3203,10 @@ def add_booking_product(id):
     from app.models import BookingProduct, Product
     
     booking = Booking.query.get_or_404(id)
+    if not _booking_has_scope_access(booking):
+        flash('\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u062a\u0639\u062f\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062d\u062c\u0632', 'error')
+        return redirect(request.referrer or url_for('admin.bookings'))
+
     product_id = request.form.get('product_id')
     quantity = int(request.form.get('quantity', 1))
     
@@ -2873,6 +3263,9 @@ def get_available_products_api():
 @bp.route('/bookings/<int:id>/items')
 def get_booking_items_api(id):
     booking = Booking.query.get_or_404(id)
+    if not _booking_has_scope_access(booking):
+        return jsonify([]), 403
+
     items = []
 
     for item in booking.items.all():
@@ -2894,6 +3287,9 @@ def get_booking_items_api(id):
 @bp.route('/bookings/<int:id>/products')
 def get_booking_products_api(id):
     booking = Booking.query.get_or_404(id)
+    if not _booking_has_scope_access(booking):
+        return jsonify([]), 403
+
     products = []
     
     for item in booking.products:
@@ -2933,7 +3329,8 @@ def get_available_slots(employee_id, date):
     from app.utils.timezone import get_saudi_time
 
     employee = User.query.get(employee_id)
-    if not employee or employee.role != 'employee' or employee.is_on_break:
+    date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    if not employee or employee.role != 'employee' or _is_employee_on_break(employee, date_obj):
         return jsonify([])
     
     # Get service duration if provided
@@ -2945,7 +3342,6 @@ def get_available_slots(employee_id, date):
         if service and service.duration:
             booking_duration = service.duration
 
-    date_obj = datetime.strptime(date, '%Y-%m-%d').date()
     day_of_week = date_obj.weekday()
     
     schedules = EmployeeSchedule.query.filter_by(
@@ -3009,6 +3405,9 @@ def get_available_slots(employee_id, date):
                     slot_blocked = True
                     break
             
+            if _is_employee_on_break(employee, date_obj, current.time()):
+                slot_blocked = True
+
             if not slot_blocked:
                 # For admin, we use 30 min increments to allow more flexibility than customer side
                 slots.add(time_str)
@@ -3043,9 +3442,9 @@ def get_area_available_slots(neighborhood_id, date):
     # Get all employees in this neighborhood
     employees = User.query.join(employee_neighborhoods).filter(
         employee_neighborhoods.c.neighborhood_id == neighborhood_id,
-        User.role == 'employee',
-        User.is_on_break == False
+        User.role == 'employee'
     ).all()
+    employees = [emp for emp in employees if not _is_employee_on_break(emp, date_obj)]
     
     # Collect all available slots from all employees
     all_slots = set()
@@ -3101,6 +3500,9 @@ def get_area_available_slots(neighborhood_id, date):
                         slot_blocked = True
                         break
                 
+                if _is_employee_on_break(emp, date_obj, current.time()):
+                    slot_blocked = True
+
                 if not slot_blocked:
                     all_slots.add(time_str)
                 
@@ -3123,9 +3525,9 @@ def auto_assign_employee(neighborhood_id, date, time_str):
     # Get all employees in this neighborhood
     employees = User.query.join(employee_neighborhoods).filter(
         employee_neighborhoods.c.neighborhood_id == neighborhood_id,
-        User.role == 'employee',
-        User.is_on_break == False
+        User.role == 'employee'
     ).all()
+    employees = [emp for emp in employees if not _is_employee_on_break(emp, date_obj, time_obj)]
     
     available_employees = []
     for emp in employees:
@@ -3315,6 +3717,17 @@ def reports():
         to_date = datetime.now().date()
     else:
         to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+
+    supervisor_neighborhood_ids = _supervisor_neighborhood_ids() if current_user.role == 'supervisor' else None
+    supervisor_city_ids = set()
+    if supervisor_neighborhood_ids is not None and supervisor_neighborhood_ids:
+        supervisor_city_ids = {
+            n.city_id for n in Neighborhood.query.filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).all()
+        }
+        if neighborhood_id and neighborhood_id not in supervisor_neighborhood_ids:
+            neighborhood_id = None
+        if city_id and city_id not in supervisor_city_ids:
+            city_id = None
     
     # Base queries with date filter
     bookings_query = Booking.query.join(Neighborhood).filter(
@@ -3367,6 +3780,15 @@ def reports():
     if neighborhood_id:
         cash_bookings = cash_bookings.filter(Booking.neighborhood_id == neighborhood_id)
         card_bookings = card_bookings.filter(Booking.neighborhood_id == neighborhood_id)
+
+    if current_user.role == 'supervisor':
+        supervisor_neighborhood_ids = supervisor_neighborhood_ids or []
+        if supervisor_neighborhood_ids:
+            cash_bookings = cash_bookings.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+            card_bookings = card_bookings.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+        else:
+            cash_bookings = cash_bookings.filter(Booking.id == -1)
+            card_bookings = card_bookings.filter(Booking.id == -1)
         
     cash_count = cash_bookings.count()
     card_count = card_bookings.count()
@@ -3435,13 +3857,7 @@ def reports():
 
     # Filter for supervisor
     if current_user.role == 'supervisor':
-        supervisor_neighborhood_ids = []
-        if current_user.supervisor_neighborhoods:
-            supervisor_neighborhood_ids.extend([n.id for n in current_user.supervisor_neighborhoods])
-        
-        if current_user.supervisor_cities:
-            for city in current_user.supervisor_cities:
-                supervisor_neighborhood_ids.extend([n.id for n in city.neighborhoods])
+        supervisor_neighborhood_ids = supervisor_neighborhood_ids or []
         
         if supervisor_neighborhood_ids:
             bookings_query = bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
@@ -3639,10 +4055,16 @@ def reports():
         city_performance[c_name]['revenue'] += (c_rev or 0)
 
     # Fetch cities and neighborhoods for the filters
-    cities = City.query.filter_by(is_active=True).all()
+    if current_user.role == 'supervisor':
+        cities = City.query.filter(City.is_active == True, City.id.in_(supervisor_city_ids)).all() if supervisor_city_ids else []
+    else:
+        cities = City.query.filter_by(is_active=True).all()
     neighborhoods = []
     if city_id:
-        neighborhoods = Neighborhood.query.filter_by(city_id=city_id, is_active=True).all()
+        neighborhoods_query = Neighborhood.query.filter_by(city_id=city_id, is_active=True)
+        if current_user.role == 'supervisor':
+            neighborhoods_query = neighborhoods_query.filter(Neighborhood.id.in_(supervisor_neighborhood_ids)) if supervisor_neighborhood_ids else neighborhoods_query.filter(Neighborhood.id == -1)
+        neighborhoods = neighborhoods_query.all()
 
     return render_template('admin/reports.html', 
                            total_bookings=total_bookings,
@@ -4141,7 +4563,7 @@ def toggle_announcement(id):
 @bp.route('/employee-tracking')
 def employee_tracking():
     """Admin page to track employee locations on a map"""
-    employees = User.query.filter_by(role='employee').all()
+    employees = _scoped_employee_query(include_break=True).all()
     return render_template('admin/employee_tracking.html', employees=employees)
 
 
@@ -4150,7 +4572,13 @@ def get_employee_locations():
     """API endpoint to get all active employee locations with enhanced data"""
     from datetime import datetime, timedelta
     
-    locations = EmployeeLocation.query.filter_by(is_tracking=True).all()
+    locations_query = EmployeeLocation.query.filter_by(is_tracking=True)
+    neighborhood_ids = _supervisor_neighborhood_ids()
+    allowed_employee_ids = None
+    if neighborhood_ids is not None:
+        allowed_employee_ids = [emp.id for emp in _scoped_employee_query(include_break=True).all()]
+        locations_query = locations_query.filter(EmployeeLocation.employee_id.in_(allowed_employee_ids) if allowed_employee_ids else EmployeeLocation.employee_id == -1)
+    locations = locations_query.all()
     
     result = []
     for loc in locations:

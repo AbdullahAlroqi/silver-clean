@@ -4,22 +4,20 @@
 <div class="container mx-auto px-6 py-8">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h2 class="text-3xl font-bold text-white mb-2">إحصائيات المنتج: {{ product.name_ar }}</h2>
+            <h2 class="text-3xl font-bold text-white mb-2">&#1573;&#1581;&#1589;&#1575;&#1574;&#1610;&#1575;&#1578; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;: {{ product.name_ar }}</h2>
             <p class="text-gray-400">{{ product.name_en }}</p>
         </div>
-        <a href="{{ url_for('admin.products') }}"
+        <a href="{{ url_for('admin.products', _anchor='products') }}"
             class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition">
-            <i class="fas fa-arrow-right ml-2"></i> العودة للمنتجات
+            <i class="fas fa-arrow-right ml-2"></i>&#1575;&#1604;&#1593;&#1608;&#1583;&#1577; &#1604;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578;
         </a>
     </div>
 
-    <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Total Sold -->
         <div class="bg-primary rounded-lg shadow-lg p-6 border-r-4 border-blue-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-400 text-sm">إجمالي الكمية المباعة</p>
+                    <p class="text-gray-400 text-sm">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1603;&#1605;&#1610;&#1577; &#1575;&#1604;&#1605;&#1576;&#1575;&#1593;&#1577;</p>
                     <p class="text-3xl font-bold text-white mt-2">{{ sold_quantity }}</p>
                 </div>
                 <div class="bg-gray-700 p-3 rounded-full">
@@ -28,13 +26,12 @@
             </div>
         </div>
 
-        <!-- Total Revenue -->
         <div class="bg-primary rounded-lg shadow-lg p-6 border-r-4 border-green-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-400 text-sm">إجمالي الإيرادات</p>
+                    <p class="text-gray-400 text-sm">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1575;&#1604;&#1573;&#1610;&#1585;&#1575;&#1583;&#1575;&#1578;</p>
                     <p class="text-3xl font-bold text-white mt-2">{{ "%.2f"|format(total_revenue) }} <span
-                            class="text-sm text-green-500">ر.س</span></p>
+                            class="text-sm text-green-500">&#1585;.&#1587;</span></p>
                 </div>
                 <div class="bg-gray-700 p-3 rounded-full">
                     <i class="fas fa-money-bill-wave text-2xl text-green-500"></i>
@@ -42,12 +39,11 @@
             </div>
         </div>
 
-        <!-- Current Stock -->
         <div class="bg-primary rounded-lg shadow-lg p-6 border-r-4 border-yellow-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-gray-400 text-sm">المخزون الحالي</p>
-                    <p class="text-3xl font-bold text-white mt-2">{{ product.stock_quantity }}</p>
+                    <p class="text-gray-400 text-sm">&#1575;&#1604;&#1605;&#1582;&#1586;&#1608;&#1606; &#1575;&#1604;&#1581;&#1575;&#1604;&#1610;</p>
+                    <p class="text-3xl font-bold text-white mt-2">{{ current_stock }}</p>
                 </div>
                 <div class="bg-gray-700 p-3 rounded-full">
                     <i class="fas fa-boxes text-2xl text-yellow-500"></i>
@@ -56,28 +52,28 @@
         </div>
     </div>
 
-    <!-- Recent Bookings Table -->
     <div class="bg-primary rounded-lg shadow-lg overflow-hidden">
         <div class="p-6 border-b border-gray-700">
-            <h3 class="text-xl font-bold text-white">آخر الحجوزات التي تتضمن هذا المنتج</h3>
+            <h3 class="text-xl font-bold text-white">&#1570;&#1582;&#1585; &#1575;&#1604;&#1581;&#1580;&#1608;&#1586;&#1575;&#1578; &#1575;&#1604;&#1578;&#1610; &#1578;&#1578;&#1590;&#1605;&#1606; &#1607;&#1584;&#1575; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;</h3>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-right">
                 <thead class="bg-gray-800 text-gray-400">
                     <tr>
-                        <th class="p-4">رقم الحجز</th>
-                        <th class="p-4">العميل</th>
-                        <th class="p-4">التاريخ</th>
-                        <th class="p-4">الكمية</th>
-                        <th class="p-4">سعر البيع</th>
-                        <th class="p-4">الحالة</th>
+                        <th class="p-4">&#1585;&#1602;&#1605; &#1575;&#1604;&#1581;&#1580;&#1586;</th>
+                        <th class="p-4">&#1575;&#1604;&#1593;&#1605;&#1610;&#1604;</th>
+                        <th class="p-4">&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;</th>
+                        <th class="p-4">&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;</th>
+                        <th class="p-4">&#1587;&#1593;&#1585; &#1575;&#1604;&#1576;&#1610;&#1593;</th>
+                        <th class="p-4">&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;</th>
+                        <th class="p-4">&#1575;&#1604;&#1573;&#1580;&#1585;&#1575;&#1569;&#1575;&#1578;</th>
                     </tr>
                 </thead>
                 <tbody class="text-gray-300">
                     {% for booking, quantity, unit_price in recent_bookings %}
                     <tr class="border-b border-gray-700 hover:bg-gray-700 transition">
                         <td class="p-4">#{{ booking.id }}</td>
-                        <td class="p-4">{{ booking.customer.username }}</td>
+                        <td class="p-4">{{ booking.customer.username if booking.customer else '-' }}</td>
                         <td class="p-4">{{ booking.date }}</td>
                         <td class="p-4 font-bold">{{ quantity }}</td>
                         <td class="p-4">
@@ -88,17 +84,38 @@
                             {% endif %}
                         </td>
                         <td class="p-4">
-                            <span class="px-2 py-1 rounded text-xs font-bold 
+                            <span class="px-2 py-1 rounded text-xs font-bold
                                 {% if booking.status == 'completed' %}bg-green-900 text-green-200
                                 {% elif booking.status == 'cancelled' %}bg-red-900 text-red-200
                                 {% else %}bg-yellow-900 text-yellow-200{% endif %}">
                                 {{ booking.status }}
                             </span>
                         </td>
+                        <td class="p-4">
+                            <div class="flex gap-2">
+                                <button type="button"
+                                    class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm"
+                                    data-id="{{ booking.id }}"
+                                    data-customer="{{ booking.customer.username if booking.customer else '-' }}"
+                                    data-date="{{ booking.date }}"
+                                    data-time="{{ booking.time.strftime('%H:%M') if booking.time else '' }}"
+                                    data-status="{{ booking.status }}"
+                                    data-payment="{{ booking.payment_method or '-' }}"
+                                    data-total="{{ booking.total_price or 0 }}"
+                                    onclick="showProductStatsBookingDetails(this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button type="button"
+                                    class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-sm"
+                                    onclick="showProductStatsEditBookingModal({{ booking.id }}, {{ (booking.payment_method or 'cash')|tojson }}, {{ booking.custom_service_price|tojson }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="p-8 text-center text-gray-500">لا توجد حجوزات لهذا المنتج حتى الآن</td>
+                        <td colspan="7" class="p-8 text-center text-gray-500">&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1581;&#1580;&#1608;&#1586;&#1575;&#1578; &#1604;&#1607;&#1584;&#1575; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580; &#1581;&#1578;&#1609; &#1575;&#1604;&#1570;&#1606;</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -106,4 +123,277 @@
         </div>
     </div>
 </div>
+
+<div id="productStatsDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-primary p-6 rounded-lg max-w-xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4 border-b border-gray-700 pb-2">
+            <h3 class="text-xl font-bold">&#1578;&#1601;&#1575;&#1589;&#1610;&#1604; &#1575;&#1604;&#1581;&#1580;&#1586; #<span id="detailsBookingId"></span></h3>
+            <button type="button" onclick="closeProductStatsDetailsModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="detailsBookingSummary" class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-4"></div>
+        <div class="mb-4">
+            <h4 class="text-accent font-bold mb-2">&#1575;&#1604;&#1582;&#1583;&#1605;&#1575;&#1578;</h4>
+            <div id="detailsServicesList" class="space-y-2 bg-darkbg p-3 rounded border border-gray-700"></div>
+        </div>
+        <div>
+            <h4 class="text-accent font-bold mb-2">&#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578;</h4>
+            <div id="detailsProductsList" class="space-y-2 bg-darkbg p-3 rounded border border-gray-700"></div>
+        </div>
+    </div>
+</div>
+
+<div id="productStatsEditModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-primary p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <h3 class="text-xl font-bold mb-4">&#1578;&#1593;&#1583;&#1610;&#1604; &#1575;&#1604;&#1581;&#1580;&#1586;</h3>
+        <form id="productStatsEditForm" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-4">
+                <label class="block text-sm mb-2">&#1575;&#1604;&#1587;&#1610;&#1575;&#1585;&#1575;&#1578; &#1608;&#1575;&#1604;&#1582;&#1583;&#1605;&#1575;&#1578;</label>
+                <div id="editBookingItemsList" class="space-y-2 bg-darkbg p-3 rounded border border-gray-600 max-h-56 overflow-y-auto"></div>
+            </div>
+            <div id="editLegacyPriceFields" class="hidden space-y-4 mb-4">
+                <label class="block text-sm">
+                    &#1587;&#1593;&#1585; &#1575;&#1604;&#1582;&#1583;&#1605;&#1577;
+                    <input type="number" name="custom_service_price" id="editServicePrice" step="0.01"
+                        class="mt-1 w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                </label>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm mb-2">&#1591;&#1585;&#1610;&#1602;&#1577; &#1575;&#1604;&#1583;&#1601;&#1593;</label>
+                <select name="payment_method" id="editPaymentMethod" class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                    <option value="cash">&#1603;&#1575;&#1588;</option>
+                    <option value="card">&#1576;&#1591;&#1575;&#1602;&#1577; / &#1588;&#1576;&#1603;&#1577;</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm mb-2">&#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578;</label>
+                <div id="editProductsList" class="space-y-2 bg-darkbg p-3 rounded border border-gray-600 max-h-44 overflow-y-auto mb-2"></div>
+                <div class="bg-gray-800 p-3 rounded border border-gray-700">
+                    <label class="block text-xs text-gray-400 mb-2">&#1573;&#1590;&#1575;&#1601;&#1577; &#1605;&#1606;&#1578;&#1580; &#1580;&#1583;&#1610;&#1583;</label>
+                    <div class="flex gap-2">
+                        <select id="newProductSelect" class="flex-1 bg-darkbg border border-gray-600 rounded px-2 py-1 text-sm"></select>
+                        <input type="number" id="newProductQty" value="1" min="1"
+                            class="w-16 bg-darkbg border border-gray-600 rounded px-2 py-1 text-sm text-center">
+                        <button type="button" onclick="addProductToProductStatsBooking()"
+                            class="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-sm">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-accent text-white py-2 rounded">&#1581;&#1601;&#1592; &#1575;&#1604;&#1578;&#1594;&#1610;&#1610;&#1585;&#1575;&#1578;</button>
+                <button type="button" onclick="closeProductStatsEditBookingModal()" class="flex-1 bg-gray-600 text-white py-2 rounded">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentProductStatsBookingId = null;
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char]));
+    }
+
+    function money(value) {
+        return parseFloat(value || 0).toFixed(2);
+    }
+
+    function setLegacyPriceFieldsVisible(visible) {
+        document.getElementById('editLegacyPriceFields').classList.toggle('hidden', !visible);
+        document.getElementById('editServicePrice').disabled = !visible;
+    }
+
+    function renderSummary(target, data) {
+        target.innerHTML = `
+            <div class="bg-gray-800 p-2 rounded"><span class="text-gray-400">&#1575;&#1604;&#1593;&#1605;&#1610;&#1604;:</span> <span class="font-bold">${escapeHtml(data.customer)}</span></div>
+            <div class="bg-gray-800 p-2 rounded"><span class="text-gray-400">&#1575;&#1604;&#1578;&#1575;&#1585;&#1610;&#1582;:</span> <span class="font-bold">${escapeHtml(data.date)} ${escapeHtml(data.time)}</span></div>
+            <div class="bg-gray-800 p-2 rounded"><span class="text-gray-400">&#1575;&#1604;&#1581;&#1575;&#1604;&#1577;:</span> <span class="font-bold">${escapeHtml(data.status)}</span></div>
+            <div class="bg-gray-800 p-2 rounded"><span class="text-gray-400">&#1575;&#1604;&#1573;&#1580;&#1605;&#1575;&#1604;&#1610;:</span> <span class="font-bold text-accent">${money(data.total)} &#1585;&#1610;&#1575;&#1604;</span></div>
+        `;
+    }
+
+    function showProductStatsBookingDetails(button) {
+        const bookingId = button.dataset.id;
+        currentProductStatsBookingId = bookingId;
+        document.getElementById('detailsBookingId').textContent = bookingId;
+        renderSummary(document.getElementById('detailsBookingSummary'), button.dataset);
+        document.getElementById('detailsServicesList').innerHTML = '<p class="text-gray-400 text-sm">&#1580;&#1575;&#1585;&#1610; &#1575;&#1604;&#1578;&#1581;&#1605;&#1610;&#1604;...</p>';
+        document.getElementById('detailsProductsList').innerHTML = '<p class="text-gray-400 text-sm">&#1580;&#1575;&#1585;&#1610; &#1575;&#1604;&#1578;&#1581;&#1605;&#1610;&#1604;...</p>';
+        document.getElementById('productStatsDetailsModal').classList.remove('hidden');
+
+        fetch(`/admin/bookings/${bookingId}/items`)
+            .then(response => response.ok ? response.json() : Promise.reject())
+            .then(items => {
+                const list = document.getElementById('detailsServicesList');
+                list.innerHTML = items.length ? items.map(item => `
+                    <div class="bg-gray-800 p-2 rounded">
+                        <div class="font-bold text-white">${escapeHtml(item.vehicle)}</div>
+                        <div class="text-gray-400 text-sm">${escapeHtml(item.service)} - ${money(item.service_price)} &#1585;&#1610;&#1575;&#1604;</div>
+                    </div>
+                `).join('') : '<p class="text-gray-500 text-sm">&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1582;&#1583;&#1605;&#1575;&#1578;</p>';
+            })
+            .catch(() => document.getElementById('detailsServicesList').innerHTML = '<p class="text-red-400 text-sm">&#1578;&#1593;&#1584;&#1585; &#1578;&#1581;&#1605;&#1610;&#1604; &#1575;&#1604;&#1582;&#1583;&#1605;&#1575;&#1578;</p>');
+
+        fetch(`/admin/bookings/${bookingId}/products`)
+            .then(response => response.ok ? response.json() : Promise.reject())
+            .then(products => {
+                const list = document.getElementById('detailsProductsList');
+                list.innerHTML = products.length ? products.map(item => `
+                    <div class="bg-gray-800 p-2 rounded flex justify-between gap-2">
+                        <span class="font-bold text-white">${escapeHtml(item.product_name)}</span>
+                        <span class="text-accent">${item.quantity} x ${money(item.price)} &#1585;&#1610;&#1575;&#1604;</span>
+                    </div>
+                `).join('') : '<p class="text-gray-500 text-sm">&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1605;&#1606;&#1578;&#1580;&#1575;&#1578;</p>';
+            })
+            .catch(() => document.getElementById('detailsProductsList').innerHTML = '<p class="text-red-400 text-sm">&#1578;&#1593;&#1584;&#1585; &#1578;&#1581;&#1605;&#1610;&#1604; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578;</p>');
+    }
+
+    function closeProductStatsDetailsModal() {
+        document.getElementById('productStatsDetailsModal').classList.add('hidden');
+    }
+
+    function showProductStatsEditBookingModal(bookingId, paymentMethod, customServicePrice) {
+        currentProductStatsBookingId = bookingId;
+        document.getElementById('productStatsEditForm').action = `/admin/bookings/${bookingId}/edit`;
+        document.getElementById('editPaymentMethod').value = paymentMethod || 'cash';
+        document.getElementById('editServicePrice').value = customServicePrice !== null ? customServicePrice : '';
+        document.getElementById('editBookingItemsList').innerHTML = '<p class="text-gray-400 text-sm text-center">&#1580;&#1575;&#1585;&#1610; &#1575;&#1604;&#1578;&#1581;&#1605;&#1610;&#1604;...</p>';
+        document.getElementById('editProductsList').innerHTML = '<p class="text-gray-400 text-sm text-center">&#1580;&#1575;&#1585;&#1610; &#1575;&#1604;&#1578;&#1581;&#1605;&#1610;&#1604;...</p>';
+        setLegacyPriceFieldsVisible(false);
+        document.getElementById('productStatsEditModal').classList.remove('hidden');
+
+        fetch(`/admin/bookings/${bookingId}/items`)
+            .then(response => response.ok ? response.json() : Promise.reject())
+            .then(items => {
+                const list = document.getElementById('editBookingItemsList');
+                if (!items.length) {
+                    list.innerHTML = '<p class="text-gray-400 text-sm text-center">&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1582;&#1583;&#1605;&#1575;&#1578;</p>';
+                    setLegacyPriceFieldsVisible(true);
+                    return;
+                }
+                list.innerHTML = items.map(item => `
+                    <div class="bg-gray-700 p-3 rounded">
+                        <div class="flex justify-between gap-2 mb-2">
+                            <div>
+                                <div class="text-sm font-bold text-accent">${escapeHtml(item.vehicle)}</div>
+                                <div class="text-xs text-gray-300">${escapeHtml(item.service)}</div>
+                            </div>
+                            <div class="text-xs text-gray-400">${money(item.total)} &#1585;&#1610;&#1575;&#1604;</div>
+                        </div>
+                        <label class="text-xs text-gray-300">
+                            &#1587;&#1593;&#1585; &#1575;&#1604;&#1582;&#1583;&#1605;&#1577;
+                            <input type="number" name="item_service_price_${item.item_id}" value="${money(item.service_price)}"
+                                min="0" step="0.01" class="mt-1 w-full bg-gray-600 border border-gray-500 rounded px-2 py-1 text-white">
+                        </label>
+                    </div>
+                `).join('');
+            })
+            .catch(() => {
+                document.getElementById('editBookingItemsList').innerHTML = '<p class="text-red-400 text-sm text-center">&#1578;&#1593;&#1584;&#1585; &#1578;&#1581;&#1605;&#1610;&#1604; &#1575;&#1604;&#1582;&#1583;&#1605;&#1575;&#1578;</p>';
+                setLegacyPriceFieldsVisible(true);
+            });
+
+        fetch(`/admin/bookings/${bookingId}/products`)
+            .then(response => response.ok ? response.json() : Promise.reject())
+            .then(products => {
+                const list = document.getElementById('editProductsList');
+                list.innerHTML = products.length ? products.map(item => `
+                    <div class="flex justify-between items-start bg-gray-700 p-2 rounded gap-2">
+                        <div class="flex-1">
+                            <div class="text-sm font-bold">${escapeHtml(item.product_name)}</div>
+                            <div class="text-xs text-gray-400 mb-1">&#1575;&#1604;&#1605;&#1578;&#1608;&#1601;&#1585;: ${item.stock}</div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <label class="text-[10px] text-gray-300">&#1575;&#1604;&#1587;&#1593;&#1585;:</label>
+                                <input type="number" name="product_price_${item.product_id}" value="${money(item.price)}" step="0.01"
+                                    class="w-20 bg-gray-600 border border-gray-500 rounded px-1 py-0.5 text-xs text-white">
+                                <label class="text-[10px] text-gray-300">&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;:</label>
+                                <input type="number" name="product_quantity_${item.product_id}" value="${parseInt(item.quantity || 1)}" min="1" step="1"
+                                    class="w-16 bg-gray-600 border border-gray-500 rounded px-1 py-0.5 text-xs text-white">
+                            </div>
+                        </div>
+                        <button type="button" onclick="refundProductFromProductStats(${bookingId}, ${item.product_id})"
+                            class="text-xs bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded h-fit">
+                            &#1575;&#1587;&#1578;&#1585;&#1580;&#1575;&#1593;
+                        </button>
+                    </div>
+                `).join('') : '<p class="text-gray-400 text-sm text-center">&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1605;&#1606;&#1578;&#1580;&#1575;&#1578;</p>';
+            })
+            .catch(() => document.getElementById('editProductsList').innerHTML = '<p class="text-red-400 text-sm text-center">&#1578;&#1593;&#1584;&#1585; &#1578;&#1581;&#1605;&#1610;&#1604; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578;</p>');
+
+        fetch('/admin/api/products/available')
+            .then(response => response.json())
+            .then(products => {
+                const select = document.getElementById('newProductSelect');
+                select.innerHTML = '<option value="">-- &#1575;&#1582;&#1578;&#1585; &#1605;&#1606;&#1578;&#1580; --</option>';
+                products.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = `${product.name} (${money(product.price)} &#1585;&#1610;&#1575;&#1604;) - &#1605;&#1578;&#1608;&#1601;&#1585;: ${product.stock}`;
+                    select.appendChild(option);
+                });
+            });
+    }
+
+    function closeProductStatsEditBookingModal() {
+        document.getElementById('productStatsEditModal').classList.add('hidden');
+    }
+
+    function createPostForm(action, fields) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = action;
+        const csrf = document.createElement('input');
+        csrf.type = 'hidden';
+        csrf.name = 'csrf_token';
+        csrf.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        form.appendChild(csrf);
+        Object.entries(fields).forEach(([name, value]) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function addProductToProductStatsBooking() {
+        const productId = document.getElementById('newProductSelect').value;
+        const quantity = document.getElementById('newProductQty').value;
+        if (!productId) {
+            alert('&#1575;&#1604;&#1585;&#1580;&#1575;&#1569; &#1575;&#1582;&#1578;&#1610;&#1575;&#1585; &#1605;&#1606;&#1578;&#1580;');
+            return;
+        }
+        createPostForm(`/admin/bookings/${currentProductStatsBookingId}/add-product`, {
+            product_id: productId,
+            quantity: quantity
+        });
+    }
+
+    function refundProductFromProductStats(bookingId, productId) {
+        if (!confirm('&#1607;&#1604; &#1578;&#1585;&#1610;&#1583; &#1575;&#1587;&#1578;&#1585;&#1580;&#1575;&#1593; &#1607;&#1584;&#1575; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1567;')) return;
+        createPostForm(`/admin/bookings/${bookingId}/refund-product/${productId}`, {});
+    }
+
+    ['productStatsDetailsModal', 'productStatsEditModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function (event) {
+            if (event.target === this) {
+                this.classList.add('hidden');
+            }
+        });
+    });
+</script>
 {% endblock %}

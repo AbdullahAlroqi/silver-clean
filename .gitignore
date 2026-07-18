@@ -49,3 +49,6 @@ Thumbs.db
 
 # Instance folder (Flask)
 instance/
+
+# Local tool scratch data
+appDataDir/

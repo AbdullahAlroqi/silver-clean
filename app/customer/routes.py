@@ -1394,7 +1394,7 @@ def get_package_price(package_id, city_id):
 
 @bp.route('/api/products')
 def get_products():
-    from app.models import Product, ProductStock, Neighborhood
+    from app.models import Product, ProductStock, Neighborhood, Warehouse, City
     
     neighborhood_id = request.args.get('neighborhood_id')
     available_products = []
@@ -1415,6 +1415,35 @@ def get_products():
                 current_price = p.price
                 
                 if city_id:
+                    neighborhood_warehouses = Warehouse.query.join(Warehouse.neighborhoods).filter(
+                        Warehouse.is_active == True,
+                        Neighborhood.id == neighborhood_id
+                    ).all()
+                    city_warehouses = Warehouse.query.join(Warehouse.cities).filter(
+                        Warehouse.is_active == True,
+                        City.id == city_id
+                    ).all()
+                    direct_city_warehouses = [w for w in city_warehouses if not w.neighborhoods]
+                    applicable_warehouses = neighborhood_warehouses or direct_city_warehouses
+                    if applicable_warehouses:
+                        warehouse_ids = [w.id for w in applicable_warehouses]
+                        warehouse_stocks = ProductStock.query.filter(
+                            ProductStock.product_id == p.id,
+                            ProductStock.warehouse_id.in_(warehouse_ids)
+                        ).all()
+                        current_stock = sum((s.quantity or 0) for s in warehouse_stocks)
+                        priced_stock = next((s for s in warehouse_stocks if (s.quantity or 0) > 0 and s.price is not None), None)
+                        if priced_stock:
+                            current_price = priced_stock.price
+                        if current_stock > 0:
+                            available_products.append({
+                                'id': p.id,
+                                'name_ar': p.name_ar,
+                                'price': float(current_price),
+                                'image_url': p.image_url if p.image_url else ''
+                            })
+                        continue
+
                     # Check city-wide stock (neighborhood_id is None)
                     city_stock = ProductStock.query.filter_by(
                         product_id=p.id, 

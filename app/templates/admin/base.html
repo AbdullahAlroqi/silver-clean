@@ -152,8 +152,45 @@
                 padding-inline: 0.5rem;
             }
 
+            .admin-main :where(.overflow-hidden):has(> table),
+            .admin-main :where(.rounded-lg):has(> table) {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
             .admin-main table {
                 min-width: 720px;
+            }
+
+            .admin-main .grid.grid-cols-2,
+            .admin-main .grid.grid-cols-3,
+            .admin-main .grid.grid-cols-4,
+            .admin-main .grid.grid-cols-5 {
+                grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            .admin-main > .flex,
+            .admin-main form.flex {
+                flex-wrap: wrap;
+                gap: 0.75rem;
+            }
+
+            .admin-main [class*="fixed"][class*="inset-0"] {
+                padding: 1rem;
+                align-items: flex-start;
+                overflow-y: auto;
+            }
+
+            .admin-main [class*="max-w-"] {
+                max-width: 100%;
+            }
+
+            .admin-main [class*="px-6"] {
+                padding-inline: 1rem;
+            }
+
+            .admin-main [class*="p-6"] {
+                padding: 1rem;
             }
 
             .admin-main input,

@@ -3,24 +3,23 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h2 class="text-2xl font-bold text-white">المنتجات الإضافية</h2>
-        <p class="text-gray-400">إدارة المنتجات وتقارير المبيعات</p>
+        <h2 class="text-2xl font-bold text-white">&#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578; &#1575;&#1604;&#1573;&#1590;&#1575;&#1601;&#1610;&#1577;</h2>
+        <p class="text-gray-400">&#1573;&#1583;&#1575;&#1585;&#1577; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578; &#1608;&#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;&#1575;&#1578; &#1608;&#1578;&#1602;&#1575;&#1585;&#1610;&#1585; &#1575;&#1604;&#1605;&#1576;&#1610;&#1593;&#1575;&#1578;</p>
     </div>
     {% if current_user.role == 'admin' %}
     <a href="{{ url_for('admin.add_product') }}"
         class="bg-accent hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition">
-        <i class="fas fa-plus ml-2"></i> إضافة منتج
+        <i class="fas fa-plus ml-2"></i> &#1573;&#1590;&#1575;&#1601;&#1577; &#1605;&#1606;&#1578;&#1580;
     </a>
     {% endif %}
 </div>
 
-<!-- Sales Summary -->
 <div class="bg-primary p-6 rounded-lg shadow-lg mb-8 border-r-4 border-accent">
     <div class="flex items-center justify-between">
         <div>
-            <p class="text-gray-400 text-sm">إجمالي مبيعات المنتجات</p>
+            <p class="text-gray-400 text-sm">&#1573;&#1580;&#1605;&#1575;&#1604;&#1610; &#1605;&#1576;&#1610;&#1593;&#1575;&#1578; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578;</p>
             <p class="text-3xl font-bold text-white mt-2">{{ "%.0f"|format(total_sales_revenue) }} <span
-                    class="text-lg text-accent">ريال</span></p>
+                    class="text-lg text-accent">&#1585;&#1610;&#1575;&#1604;</span></p>
         </div>
         <div class="bg-gray-700 p-4 rounded-full">
             <i class="fas fa-chart-pie text-3xl text-accent"></i>
@@ -28,6 +27,84 @@
     </div>
 </div>
 
+<div class="flex flex-wrap gap-2 mb-6 border-b border-gray-700">
+    <button type="button" id="productsTabButton" onclick="switchProductsPageTab('products')"
+        class="px-4 py-3 text-sm font-bold border-b-2 transition">
+        <i class="fas fa-box ml-1"></i>&#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1575;&#1578;
+    </button>
+    <button type="button" id="warehousesTabButton" onclick="switchProductsPageTab('warehouses')"
+        class="px-4 py-3 text-sm font-bold border-b-2 transition">
+        <i class="fas fa-warehouse ml-1"></i>&#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;&#1575;&#1578;
+    </button>
+</div>
+
+<section id="warehousesTabPanel" class="hidden">
+<div class="bg-primary p-6 rounded-lg shadow-lg mb-8 border border-gray-700">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-bold text-white"><i class="fas fa-warehouse ml-2"></i>&#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;&#1575;&#1578;</h3>
+    </div>
+    <form action="{{ url_for('admin.add_warehouse') }}" method="POST" class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="name_ar" required placeholder="&#1575;&#1587;&#1605; &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;"
+            class="bg-darkbg text-white border border-gray-600 rounded p-2">
+        <input type="text" name="name_en" placeholder="Name"
+            class="bg-darkbg text-white border border-gray-600 rounded p-2">
+        <select name="city_ids" id="warehouseCitySelect" multiple onchange="filterWarehouseNeighborhoods('warehouseCitySelect', 'warehouseNeighborhoodSelect')"
+            class="bg-darkbg text-white border border-gray-600 rounded p-2 min-h-24">
+            {% for city in cities %}
+            <option value="{{ city.id }}">{{ city.name_ar }}</option>
+            {% endfor %}
+        </select>
+        <select name="neighborhood_ids" id="warehouseNeighborhoodSelect" multiple class="bg-darkbg text-white border border-gray-600 rounded p-2 min-h-24">
+            {% for neighborhood in all_neighborhoods %}
+            <option value="{{ neighborhood.id }}" data-city-id="{{ neighborhood.city_id }}">{{ neighborhood.city.name_ar }} - {{ neighborhood.name_ar }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="bg-accent hover:bg-blue-600 text-white rounded p-2 font-bold">
+            <i class="fas fa-plus ml-1"></i>&#1573;&#1590;&#1575;&#1601;&#1577;
+        </button>
+    </form>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {% for warehouse in warehouses %}
+        <div class="bg-darkbg border border-gray-700 rounded p-3 flex items-start justify-between gap-3">
+            <div>
+                <div class="text-white font-bold">{{ warehouse.name_ar }}</div>
+                <div class="text-xs text-gray-400">
+                    {% if warehouse.neighborhoods %}
+                    {% for neighborhood in warehouse.neighborhoods %}
+                    {{ neighborhood.city.name_ar }} - {{ neighborhood.name_ar }}{% if not loop.last %}&#1548; {% endif %}
+                    {% endfor %}
+                    {% elif warehouse.cities %}
+                    {% for city in warehouse.cities %}
+                    {{ city.name_ar }}{% if not loop.last %}&#1548; {% endif %}
+                    {% endfor %}
+                    {% else %}
+                    &#1576;&#1583;&#1608;&#1606; &#1605;&#1606;&#1575;&#1591;&#1602;
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" class="text-blue-400 hover:text-blue-300"
+                    onclick='openWarehouseEditModal({{ warehouse.id }}, {{ warehouse.name_ar|tojson }}, {{ (warehouse.name_en or "")|tojson }}, {{ warehouse.cities|map(attribute="id")|list|tojson }}, {{ warehouse.neighborhoods|map(attribute="id")|list|tojson }})'>
+                    <i class="fas fa-edit"></i>
+                </button>
+                <form action="{{ url_for('admin.delete_warehouse', id=warehouse.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="text-red-400 hover:text-red-300" onclick="return confirm('&#1581;&#1584;&#1601; &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593; &#1608;&#1576;&#1610;&#1575;&#1606;&#1575;&#1578;&#1607;&#1567;')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-gray-500 text-sm">&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1605;&#1587;&#1578;&#1608;&#1583;&#1593;&#1575;&#1578; &#1581;&#1575;&#1604;&#1610;&#1575;.</div>
+        {% endfor %}
+    </div>
+</div>
+</section>
+
+<section id="productsTabPanel">
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for item in products %}
     <div class="bg-primary rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
@@ -45,23 +122,23 @@
                     <h3 class="text-xl font-bold text-white">{{ item.product.name_ar }}</h3>
                     <p class="text-gray-400 text-sm">{{ item.product.name_en }}</p>
                 </div>
-                <span class="bg-accent text-white px-2 py-1 rounded text-sm font-bold">{{ item.product.price }}
-                    ر.س</span>
+                <span class="bg-accent text-white px-2 py-1 rounded text-sm font-bold">
+                    {{ item.product.price }} &#1585;.&#1587;
+                </span>
             </div>
 
-            <!-- Stats -->
             <div class="grid grid-cols-3 gap-2 mb-4 bg-gray-800 p-3 rounded text-center">
                 <div>
-                    <p class="text-xs text-gray-400">المخزون</p>
+                    <p class="text-xs text-gray-400">&#1575;&#1604;&#1605;&#1582;&#1586;&#1608;&#1606;</p>
                     <p class="text-lg font-bold {% if item.stock > 0 %}text-blue-400{% else %}text-red-500{% endif %}">
                         {{ item.stock }}</p>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-400">المباع</p>
+                    <p class="text-xs text-gray-400">&#1575;&#1604;&#1605;&#1576;&#1575;&#1593;</p>
                     <p class="text-lg font-bold text-white">{{ item.sold_quantity }}</p>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-400">الإيرادات</p>
+                    <p class="text-xs text-gray-400">&#1575;&#1604;&#1573;&#1610;&#1585;&#1575;&#1583;&#1575;&#1578;</p>
                     <p class="text-lg font-bold text-green-400">{{ "%.0f"|format(item.revenue) }}</p>
                 </div>
             </div>
@@ -69,20 +146,11 @@
             <div class="flex gap-2">
                 <a href="{{ url_for('admin.product_stats', id=item.product.id) }}"
                     class="flex-1 bg-purple-600 hover:bg-purple-700 text-white text-center py-2 px-1 rounded transition text-sm">
-                    <i class="fas fa-chart-bar"></i> إحصائيات
+                    <i class="fas fa-chart-bar"></i> &#1573;&#1581;&#1589;&#1575;&#1574;&#1610;&#1575;&#1578;
                 </a>
                 <button onclick="openStockModal('{{ item.product.id }}', '{{ item.product.stock_quantity }}')"
-                    class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-center py-2 px-1 rounded transition text-sm">
-                    <i class="fas fa-boxes"></i> المخزون
-                </button>
-                <button onclick="openAssignCityModal({{ item.product.id }}, '{{ item.product.name_ar }}')"
                     class="flex-1 bg-green-600 hover:bg-green-700 text-white text-center py-2 px-1 rounded transition text-sm">
-                    <i class="fas fa-map-marker-alt"></i> تسعير المدن
-                </button>
-            </div>
-            <div class="mt-2">
-                <button onclick="loadProductCityPrices({{ item.product.id }})" class="w-full text-accent hover:text-blue-300 text-xs text-center border border-accent/20 py-1 rounded">
-                    <i class="fas fa-city ml-1"></i> الأسعار المخصصة
+                    <i class="fas fa-warehouse"></i> &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;&#1575;&#1578;
                 </button>
             </div>
 
@@ -90,14 +158,14 @@
             <div class="flex gap-2 mt-2 pt-2 border-t border-gray-700">
                 <a href="{{ url_for('admin.edit_product', id=item.product.id) }}"
                     class="flex-1 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white text-center py-2 rounded transition text-sm border border-blue-600/30">
-                    <i class="fas fa-edit"></i> تعديل
+                    <i class="fas fa-edit"></i> &#1578;&#1593;&#1583;&#1610;&#1604;
                 </a>
                 <form action="{{ url_for('admin.delete_product', id=item.product.id) }}" method="post" class="flex-1">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                     <button type="submit"
                         class="w-full bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white text-center py-2 rounded transition text-sm border border-red-600/30"
-                        onclick="return confirm('هل أنت متأكد من حذف هذا المنتج؟')">
-                        <i class="fas fa-trash"></i> حذف
+                        onclick="return confirm('&#1607;&#1604; &#1571;&#1606;&#1578; &#1605;&#1578;&#1571;&#1603;&#1583; &#1605;&#1606; &#1581;&#1584;&#1601; &#1607;&#1584;&#1575; &#1575;&#1604;&#1605;&#1606;&#1578;&#1580;&#1567;')">
+                        <i class="fas fa-trash"></i> &#1581;&#1584;&#1601;
                     </button>
                 </form>
             </div>
@@ -107,152 +175,197 @@
     {% else %}
     <div class="col-span-full text-center text-gray-400 py-12">
         <i class="fas fa-shopping-bag text-6xl mb-4"></i>
-        <p>لا توجد منتجات حالياً</p>
+        <p>&#1604;&#1575; &#1578;&#1608;&#1580;&#1583; &#1605;&#1606;&#1578;&#1580;&#1575;&#1578; &#1581;&#1575;&#1604;&#1610;&#1575;</p>
     </div>
     {% endfor %}
 </div>
 
-<!-- Stock Update Modal -->
-<div id="stockModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-    <div class="bg-primary p-6 rounded-lg shadow-lg w-full max-w-md border border-gray-700">
+{% include "admin/_pagination.html" %}
+</section>
+
+<div id="warehouseEditModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg shadow-lg w-full max-w-lg border border-gray-700">
         <h3 class="text-xl font-bold text-white mb-4">
-            <i class="fas fa-boxes ml-2"></i>تحديث المخزون
+            <i class="fas fa-edit ml-2"></i>&#1578;&#1593;&#1583;&#1610;&#1604; &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;
         </h3>
-        <form id="stockForm" method="POST" action="">
+        <form id="warehouseEditForm" method="POST" action="">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <!-- Stock Type Selection -->
-            <div class="mb-4">
-                <label class="block text-gray-400 mb-2">نوع المخزون</label>
-                <div class="flex gap-2">
-                    <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="stock_type" value="global" checked onchange="toggleLocationFields()">
-                        <span class="block bg-gray-700 text-white text-center py-2 rounded peer-checked:bg-accent">
-                            عام
-                        </span>
-                    </label>
-                    <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="stock_type" value="location" onchange="toggleLocationFields()">
-                        <span class="block bg-gray-700 text-white text-center py-2 rounded peer-checked:bg-accent">
-                            حسب الموقع
-                        </span>
-                    </label>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <div>
+                    <label class="block text-gray-400 mb-2">&#1575;&#1587;&#1605; &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;</label>
+                    <input type="text" name="name_ar" id="editWarehouseNameAr" required
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-gray-400 mb-2">Name</label>
+                    <input type="text" name="name_en" id="editWarehouseNameEn"
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2">
                 </div>
             </div>
 
-            <!-- Location Fields (hidden by default) -->
-            <div id="locationFields" class="hidden mb-4 space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                 <div>
-                    <label class="block text-gray-400 mb-2">المدينة</label>
-                    <select name="city_id" id="stockCitySelect" onchange="loadNeighborhoodsForStock()"
-                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2">
-                        <option value="">-- اختر المدينة --</option>
+                    <label class="block text-gray-400 mb-2">&#1575;&#1604;&#1605;&#1583;&#1606;</label>
+                    <select name="city_ids" id="editWarehouseCities" multiple onchange="filterWarehouseNeighborhoods('editWarehouseCities', 'editWarehouseNeighborhoods')"
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 min-h-32">
                         {% for city in cities %}
                         <option value="{{ city.id }}">{{ city.name_ar }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div>
-                    <label class="block text-gray-400 mb-2">الحي (اختياري)</label>
-                    <select name="neighborhood_id" id="stockNeighborhoodSelect"
-                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2">
-                        <option value="">كل أحياء المدينة</option>
+                    <label class="block text-gray-400 mb-2">&#1575;&#1604;&#1571;&#1581;&#1610;&#1575;&#1569;</label>
+                    <select name="neighborhood_ids" id="editWarehouseNeighborhoods" multiple
+                        class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 min-h-32">
+                        {% for neighborhood in all_neighborhoods %}
+                        <option value="{{ neighborhood.id }}" data-city-id="{{ neighborhood.city_id }}">{{ neighborhood.city.name_ar }} - {{ neighborhood.name_ar }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>
 
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeWarehouseEditModal()"
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
+                <button type="submit"
+                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">&#1581;&#1601;&#1592;</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="stockModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-primary p-6 rounded-lg shadow-lg w-full max-w-md border border-gray-700">
+        <h3 class="text-xl font-bold text-white mb-4">
+            <i class="fas fa-warehouse ml-2"></i>&#1578;&#1581;&#1583;&#1610;&#1579; &#1605;&#1582;&#1586;&#1608;&#1606; &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;
+        </h3>
+        <form id="stockForm" method="POST" action="">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
             <div class="mb-4">
-                <label class="block text-gray-400 mb-2">الكمية</label>
+                <label class="block text-gray-400 mb-2">&#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;</label>
+                <select name="warehouse_id" id="stockWarehouseSelect" required onchange="updateStockInputFromSelection()"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded p-2">
+                    <option value="">-- &#1575;&#1582;&#1578;&#1585; &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593; --</option>
+                    {% for warehouse in warehouses %}
+                    <option value="{{ warehouse.id }}">{{ warehouse.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">&#1575;&#1604;&#1587;&#1593;&#1585;</label>
+                <input type="number" name="price" id="warehousePriceInput" min="0" step="0.01"
+                    class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-2">&#1575;&#1604;&#1603;&#1605;&#1610;&#1577;</label>
                 <input type="number" name="stock" id="stockInput" min="0"
                     class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
             </div>
 
-            <!-- Existing Location Stocks -->
             <div id="existingStocks" class="mb-4 hidden">
-                <label class="block text-gray-400 mb-2">المخزون الحالي حسب الموقع:</label>
-                <div id="stocksList" class="bg-gray-800 rounded p-2 max-h-32 overflow-y-auto text-sm">
-                </div>
+                <label class="block text-gray-400 mb-2">&#1575;&#1604;&#1605;&#1582;&#1586;&#1608;&#1606; &#1575;&#1604;&#1581;&#1575;&#1604;&#1610; &#1581;&#1587;&#1576; &#1575;&#1604;&#1605;&#1587;&#1578;&#1608;&#1583;&#1593;:</label>
+                <div id="stocksList" class="bg-gray-800 rounded p-2 max-h-32 overflow-y-auto text-sm"></div>
             </div>
 
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="closeStockModal()"
-                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
+                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">&#1573;&#1604;&#1594;&#1575;&#1569;</button>
                 <button type="submit"
-                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ</button>
+                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">&#1581;&#1601;&#1592;</button>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- Assign Product to City Modal -->
-<div id="assignCityModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
-    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-white"><i class="fas fa-map-marker-alt ml-2"></i>إسناد منتج لمدينة</h3>
-            <button onclick="closeAssignCityModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
-        </div>
-        <p class="text-accent mb-4" id="assignProductName"></p>
-        <form action="{{ url_for('admin.assign_product_to_city') }}" method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="product_id" id="assignProductId">
-            <div class="mb-4">
-                <label class="block text-gray-400 mb-2">المدينة</label>
-                <select name="city_id" required class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
-                    <option value="">-- اختر المدينة --</option>
-                    {% for city in cities %}
-                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="mb-4">
-                <label class="block text-gray-400 mb-2">السعر في هذه المدينة</label>
-                <input type="number" name="price" step="0.01" required min="0"
-                    class="w-full bg-darkbg text-white border border-gray-600 rounded p-2 focus:outline-none focus:border-accent">
-            </div>
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="closeAssignCityModal()"
-                    class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إلغاء</button>
-                <button type="submit"
-                    class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded transition">حفظ</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- City Prices Detail Modal -->
-<div id="cityPricesModal" class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-50">
-    <div class="bg-primary p-6 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-white"><i class="fas fa-city ml-2"></i>أسعار المدن للمنتج</h3>
-            <button onclick="closeCityPricesModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
-        </div>
-        <div id="cityPricesContent" class="space-y-3">
-            <p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>
-        </div>
-        <div class="flex justify-end mt-4">
-            <button onclick="closeCityPricesModal()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded transition">إغلاق</button>
-        </div>
     </div>
 </div>
 
 <script>
-    const citiesData = {{ cities_json| safe }};
-    let currentProductId = null;
     let currentLocationStocks = [];
 
+    function switchProductsPageTab(tabName) {
+        const isProducts = tabName === 'products';
+        const productsPanel = document.getElementById('productsTabPanel');
+        const warehousesPanel = document.getElementById('warehousesTabPanel');
+        const productsButton = document.getElementById('productsTabButton');
+        const warehousesButton = document.getElementById('warehousesTabButton');
+
+        productsPanel.classList.toggle('hidden', !isProducts);
+        warehousesPanel.classList.toggle('hidden', isProducts);
+
+        productsButton.className = isProducts
+            ? 'px-4 py-3 text-sm font-bold border-b-2 transition border-accent text-white'
+            : 'px-4 py-3 text-sm font-bold border-b-2 transition border-transparent text-gray-400 hover:text-white';
+        warehousesButton.className = !isProducts
+            ? 'px-4 py-3 text-sm font-bold border-b-2 transition border-accent text-white'
+            : 'px-4 py-3 text-sm font-bold border-b-2 transition border-transparent text-gray-400 hover:text-white';
+
+        if (window.location.hash !== `#${tabName}`) {
+            history.replaceState(null, '', `#${tabName}`);
+        }
+    }
+
+    function getSelectedValues(selectElement) {
+        return Array.from(selectElement.selectedOptions).map(option => option.value);
+    }
+
+    function filterWarehouseNeighborhoods(citySelectId, neighborhoodSelectId) {
+        const citySelect = document.getElementById(citySelectId);
+        const neighborhoodSelect = document.getElementById(neighborhoodSelectId);
+        const selectedCityIds = getSelectedValues(citySelect);
+
+        Array.from(neighborhoodSelect.options).forEach(option => {
+            const shouldShow = selectedCityIds.includes(option.dataset.cityId);
+            option.hidden = !shouldShow;
+            if (!shouldShow) {
+                option.selected = false;
+            }
+        });
+    }
+
+    function setSelectedOptions(selectElement, selectedIds) {
+        Array.from(selectElement.options).forEach(option => {
+            option.selected = selectedIds.includes(Number(option.value));
+        });
+    }
+
+    function openWarehouseEditModal(id, nameAr, nameEn, cityIds, neighborhoodIds) {
+        const modal = document.getElementById('warehouseEditModal');
+        const form = document.getElementById('warehouseEditForm');
+        const nameArInput = document.getElementById('editWarehouseNameAr');
+        const nameEnInput = document.getElementById('editWarehouseNameEn');
+        const citySelect = document.getElementById('editWarehouseCities');
+        const neighborhoodSelect = document.getElementById('editWarehouseNeighborhoods');
+
+        form.action = `/admin/warehouses/${id}/edit`;
+        nameArInput.value = nameAr || '';
+        nameEnInput.value = nameEn || '';
+        setSelectedOptions(citySelect, cityIds || []);
+        filterWarehouseNeighborhoods('editWarehouseCities', 'editWarehouseNeighborhoods');
+        setSelectedOptions(neighborhoodSelect, neighborhoodIds || []);
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeWarehouseEditModal() {
+        const modal = document.getElementById('warehouseEditModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
     function openStockModal(productId, currentStock) {
-        currentProductId = productId;
         const modal = document.getElementById('stockModal');
         const form = document.getElementById('stockForm');
         const input = document.getElementById('stockInput');
+        const warehouseSelect = document.getElementById('stockWarehouseSelect');
+        const priceInput = document.getElementById('warehousePriceInput');
 
         form.action = `/admin/products/update_stock/${productId}`;
-        input.value = currentStock;
-
-        // Reset to global stock
-        document.querySelector('input[name="stock_type"][value="global"]').checked = true;
-        toggleLocationFields();
-
-        // Load existing location stocks
+        input.value = currentStock || 0;
+        warehouseSelect.value = '';
+        priceInput.value = '';
         loadExistingStocks(productId);
 
         modal.classList.remove('hidden');
@@ -265,148 +378,66 @@
         modal.classList.remove('flex');
     }
 
-    function toggleLocationFields() {
-        const isLocation = document.querySelector('input[name="stock_type"]:checked').value === 'location';
-        document.getElementById('locationFields').classList.toggle('hidden', !isLocation);
-
-        // Clear location if switching to global
-        if (!isLocation) {
-            document.getElementById('stockCitySelect').value = '';
-            document.getElementById('stockNeighborhoodSelect').innerHTML = '<option value="">كل أحياء المدينة</option>';
-        }
-    }
-
-    function loadNeighborhoodsForStock() {
-        const cityId = document.getElementById('stockCitySelect').value;
-        const neighborhoodSelect = document.getElementById('stockNeighborhoodSelect');
-        neighborhoodSelect.innerHTML = '<option value="">كل أحياء المدينة</option>';
-
-        if (cityId) {
-            const city = citiesData.find(c => c.id == cityId);
-            if (city && city.neighborhoods) {
-                city.neighborhoods.forEach(n => {
-                    neighborhoodSelect.innerHTML += `<option value="${n.id}">${n.name_ar}</option>`;
-                });
-            }
-        }
-        updateStockInputFromSelection();
-    }
-
     function loadExistingStocks(productId) {
         fetch(`/admin/products/location_stock/${productId}`)
             .then(res => res.json())
             .then(data => {
-                currentLocationStocks = data; // Store globally
+                currentLocationStocks = data.filter(s => s.warehouse_id);
                 const container = document.getElementById('existingStocks');
                 const list = document.getElementById('stocksList');
 
-                if (data.length > 0) {
+                if (currentLocationStocks.length > 0) {
                     container.classList.remove('hidden');
-                    list.innerHTML = data.map(s =>
-                        `<div class="flex justify-between py-1 border-b border-gray-700">
-                            <span class="text-gray-300">${s.city_name} - ${s.neighborhood_name}</span>
-                            <span class="text-accent font-bold">${s.quantity}</span>
+                    list.innerHTML = currentLocationStocks.map(s =>
+                        `<div class="flex items-center justify-between gap-2 py-1 border-b border-gray-700">
+                            <div>
+                                <span class="text-gray-300">${s.warehouse_name}</span>
+                                <span class="text-accent font-bold mr-2">${s.quantity}${s.price ? ' / ' + s.price + ' &#1585;&#1610;&#1575;&#1604;' : ''}</span>
+                            </div>
+                            <button type="button" class="text-blue-400 hover:text-blue-300 text-xs" onclick="selectWarehouseStock(${s.warehouse_id})">
+                                <i class="fas fa-edit ml-1"></i>&#1578;&#1593;&#1583;&#1610;&#1604;
+                            </button>
                         </div>`
                     ).join('');
                 } else {
                     container.classList.add('hidden');
+                    list.innerHTML = '';
                 }
             });
     }
 
     function updateStockInputFromSelection() {
-        // Only update if mode is 'location'
-        if (document.querySelector('input[name="stock_type"]:checked').value !== 'location') return;
-
-        const cityId = document.getElementById('stockCitySelect').value;
-        const neighborhoodId = document.getElementById('stockNeighborhoodSelect').value;
+        const warehouseId = document.getElementById('stockWarehouseSelect').value;
         const input = document.getElementById('stockInput');
+        const priceInput = document.getElementById('warehousePriceInput');
+        const stockEntry = currentLocationStocks.find(s => s.warehouse_id == warehouseId);
 
-        if (cityId) {
-            // Find stock for this location
-            const stockEntry = currentLocationStocks.find(s =>
-                s.city_id == cityId &&
-                ((!neighborhoodId && !s.neighborhood_id) || (s.neighborhood_id == neighborhoodId))
-            );
+        input.value = stockEntry ? stockEntry.quantity : 0;
+        priceInput.value = stockEntry && stockEntry.price !== null ? stockEntry.price : '';
+    }
 
-            if (stockEntry) {
-                input.value = stockEntry.quantity;
-            } else {
-                input.value = 0; // Default to 0 if no stock record exists
-            }
+    function selectWarehouseStock(warehouseId) {
+        const warehouseSelect = document.getElementById('stockWarehouseSelect');
+        const input = document.getElementById('stockInput');
+        warehouseSelect.value = warehouseId;
+        updateStockInputFromSelection();
+        input.focus();
+    }
+
+    document.getElementById('warehouseEditModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeWarehouseEditModal();
         }
-    }
-
-    // Add event listener to neighborhood select to update stock input
-    document.getElementById('stockNeighborhoodSelect').addEventListener('change', updateStockInputFromSelection);
-
-    // Assign City Modal Functions
-    function openAssignCityModal(productId, productName) {
-        document.getElementById('assignProductId').value = productId;
-        document.getElementById('assignProductName').textContent = productName;
-        document.getElementById('assignCityModal').classList.remove('hidden');
-        document.getElementById('assignCityModal').classList.add('flex');
-    }
-    function closeAssignCityModal() {
-        document.getElementById('assignCityModal').classList.add('hidden');
-        document.getElementById('assignCityModal').classList.remove('flex');
-    }
-
-    // City Prices Detail Functions
-    async function loadProductCityPrices(productId) {
-        const modal = document.getElementById('cityPricesModal');
-        const content = document.getElementById('cityPricesContent');
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        content.innerHTML = '<p class="text-gray-400 text-center"><i class="fas fa-spinner fa-spin"></i> جاري التحميل...</p>';
-
-        try {
-            const resp = await fetch(`/admin/api/city-product-prices/${productId}`);
-            const data = await resp.json();
-            if (!data.length) {
-                content.innerHTML = '<p class="text-gray-500 text-center py-4">لا توجد أسعار مدن مخصصة لهذا المنتج</p>';
-                return;
-            }
-            let html = '';
-            data.forEach(p => {
-                html += `
-                <div class="bg-darkbg p-3 rounded-lg border border-gray-700 flex items-center justify-between">
-                    <div>
-                        <p class="text-white font-semibold">${p.city_name}</p>
-                        <p class="text-accent font-bold">${p.price} ريال</p>
-                    </div>
-                    <div class="flex gap-2">
-                        <form action="/admin/products/remove-city-price/${p.id}" method="POST" style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="text-red-400 hover:text-red-300 text-sm" onclick="return confirm('إزالة هذا السعر؟')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                    </div>
-                </div>`;
-            });
-            content.innerHTML = html;
-        } catch (err) {
-            content.innerHTML = '<p class="text-red-400 text-center py-4">خطأ في تحميل البيانات</p>';
-        }
-    }
-
-    function closeCityPricesModal() {
-        document.getElementById('cityPricesModal').classList.add('hidden');
-        document.getElementById('cityPricesModal').classList.remove('flex');
-    }
-
-    // Close modals when clicking outside
-    ['stockModal', 'assignCityModal', 'cityPricesModal'].forEach(id => {
-        document.getElementById(id).addEventListener('click', function (e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-            }
-        });
     });
+
+    document.getElementById('stockModal').addEventListener('click', function (e) {
+        if (e.target === this) {
+            closeStockModal();
+        }
+    });
+
+    filterWarehouseNeighborhoods('warehouseCitySelect', 'warehouseNeighborhoodSelect');
+    switchProductsPageTab(window.location.hash === '#warehouses' ? 'warehouses' : 'products');
 </script>
 
-<!-- Pagination -->
-{% include "admin/_pagination.html" %}
 {% endblock %}

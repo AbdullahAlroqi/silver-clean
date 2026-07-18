@@ -202,6 +202,9 @@
                         <span class="timer" data-start="{{ booking.started_at.isoformat() }}">جاري الحساب...</span>
                     </div>
                     <div class="text-gray-500 mt-1">بدأ: {{ booking.started_at.strftime('%H:%M') }}</div>
+                    {% if booking.completed_at %}
+                    <div class="text-gray-500 mt-1">انتهى: {{ booking.completed_at.strftime('%H:%M') }}</div>
+                    {% endif %}
                     {% elif booking.status == 'completed' and booking.started_at and booking.completed_at %}
                     <!-- Total duration for completed bookings -->
                     {% set duration = (booking.completed_at - booking.started_at).total_seconds() // 60 %}
@@ -209,6 +212,7 @@
                         <i class="fas fa-check-circle mr-1"></i>
                         {{ duration|int }} دقيقة
                     </div>
+                    <div class="text-gray-500 mt-1">بدأ: {{ booking.started_at.strftime('%H:%M') }}</div>
                     <div class="text-gray-500 mt-1">انتهى: {{ booking.completed_at.strftime('%H:%M') }}</div>
                     {% elif booking.status == 'cancelled' %}
                     <div class="text-red-400">

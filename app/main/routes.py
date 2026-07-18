@@ -60,6 +60,10 @@ def manifest():
     
     return jsonify(manifest_data)
 
+@bp.route('/.well-known/appspecific/com.chrome.devtools.json')
+def chrome_devtools_config():
+    return jsonify({})
+
 @bp.route('/notifications')
 @login_required
 def notifications():

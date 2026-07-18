@@ -21,6 +21,16 @@ supervisor_neighborhoods = db.Table('supervisor_neighborhoods',
     db.Column('neighborhood_id', db.Integer, db.ForeignKey('neighborhood.id'), primary_key=True)
 )
 
+warehouse_cities = db.Table('warehouse_cities',
+    db.Column('warehouse_id', db.Integer, db.ForeignKey('warehouse.id'), primary_key=True),
+    db.Column('city_id', db.Integer, db.ForeignKey('city.id'), primary_key=True)
+)
+
+warehouse_neighborhoods = db.Table('warehouse_neighborhoods',
+    db.Column('warehouse_id', db.Integer, db.ForeignKey('warehouse.id'), primary_key=True),
+    db.Column('neighborhood_id', db.Integer, db.ForeignKey('neighborhood.id'), primary_key=True)
+)
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True)
@@ -36,6 +46,10 @@ class User(UserMixin, db.Model):
     is_banned = db.Column(db.Boolean, default=False)
     ban_reason = db.Column(db.String(255), nullable=True)
     is_on_break = db.Column(db.Boolean, default=False)
+    break_type = db.Column(db.String(20), nullable=True)  # full_day, date, time
+    break_date = db.Column(db.Date, nullable=True)
+    break_start_time = db.Column(db.Time, nullable=True)
+    break_end_time = db.Column(db.Time, nullable=True)
     
     # Referral System
     referral_code = db.Column(db.String(10), unique=True, index=True)  # e.g. SILVC4821
@@ -210,13 +224,24 @@ class Product(db.Model):
     location_stocks = db.relationship('ProductStock', backref='product', lazy='dynamic')
     # city_prices relationship defined in CityProductPrice
 
+class Warehouse(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name_ar = db.Column(db.String(100), nullable=False)
+    name_en = db.Column(db.String(100), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    cities = db.relationship('City', secondary=warehouse_cities, backref=db.backref('warehouses', lazy='dynamic'))
+    neighborhoods = db.relationship('Neighborhood', secondary=warehouse_neighborhoods, backref=db.backref('warehouses', lazy='dynamic'))
+    product_stocks = db.relationship('ProductStock', backref='warehouse', lazy='dynamic')
+
 class ProductStock(db.Model):
-    """Product stock per city/neighborhood"""
+    """Product stock per warehouse or legacy city/neighborhood"""
     id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=False)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True)
     neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True)
+    warehouse_id = db.Column(db.Integer, db.ForeignKey('warehouse.id'), nullable=True)
     quantity = db.Column(db.Integer, default=0)
+    price = db.Column(db.Float, nullable=True)
     
     # Relationships
     city = db.relationship('City')
