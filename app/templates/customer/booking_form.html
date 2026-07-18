@@ -56,6 +56,31 @@
                     <i class="fas fa-map-marker-alt ml-3"></i>
                     اختر الموقع والموعد
                 </h3>
+                <!-- Map Location Picker -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-map ml-1"></i> حدد موقعك بدقة من الخريطة <span class="text-red-500">*</span> (إجباري للوصول إليك)
+                    </label>
+                    <div class="flex gap-2 mb-3">
+                        <button type="button" onclick="getMyLocation()" id="geoBtn"
+                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
+                            <i class="fas fa-crosshairs ml-1"></i> حدد موقعي تلقائياً
+                        </button>
+                    </div>
+                    <!-- Leaflet CSS -->
+                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                    <div id="locationMap" style="height: 300px; width: 100%; border-radius: 12px; z-index: 1;" class="border border-gray-700"></div>
+                    <!-- Coverage Status -->
+                    <div id="coverageStatus" class="mt-3 hidden p-3 rounded-lg text-center font-bold">
+                        <span id="coverageIcon"></span>
+                        <span id="coverageText"></span>
+                    </div>
+                    <!-- Hidden fields for lat/lng -->
+                    <input type="hidden" name="location_lat" id="location_lat" value="">
+                    <input type="hidden" name="location_lng" id="location_lng" value="">
+                    <input type="hidden" name="detected_neighborhood_id" id="detected_neighborhood_id" value="">
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-300 mb-2">المدينة</label>
@@ -78,31 +103,6 @@
                     </label>
                     {{ form.date(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
                     focus:outline-none focus:ring-2 focus:ring-accent", type="date", id="date-input") }}
-                </div>
-
-                <!-- Map Location Picker -->
-                <div class="mt-6">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">
-                        <i class="fas fa-map ml-1"></i> الخطوة 2: حدد موقعك بدقة من الخريطة <span class="text-red-500">*</span> (إجباري للوصول إليك)
-                    </label>
-                    <div class="flex gap-2 mb-3">
-                        <button type="button" onclick="getMyLocation()" id="geoBtn"
-                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition text-sm">
-                            <i class="fas fa-crosshairs ml-1"></i> حدد موقعي تلقائياً
-                        </button>
-                    </div>
-                    <!-- Leaflet CSS -->
-                    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-                    <div id="locationMap" style="height: 300px; width: 100%; border-radius: 12px; z-index: 1;" class="border border-gray-700"></div>
-                    <!-- Coverage Status -->
-                    <div id="coverageStatus" class="mt-3 hidden p-3 rounded-lg text-center font-bold">
-                        <span id="coverageIcon"></span>
-                        <span id="coverageText"></span>
-                    </div>
-                    <!-- Hidden fields for lat/lng -->
-                    <input type="hidden" name="location_lat" id="location_lat" value="">
-                    <input type="hidden" name="location_lng" id="location_lng" value="">
-                    <input type="hidden" name="detected_neighborhood_id" id="detected_neighborhood_id" value="">
                 </div>
 
                 <div class="mt-6 flex justify-end">
@@ -759,6 +759,35 @@
         }
     }
 
+    async function detectAreaFromCoordinates(lat, lng) {
+        try {
+            const response = await fetch(`/customer/api/detect-location?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`);
+            if (!response.ok) return null;
+            const data = await response.json();
+            if (!data.found) return null;
+
+            if (citySelect.value !== String(data.city_id)) {
+                citySelect.value = data.city_id;
+                await fetchNeighborhoods(data.city_id);
+                fetchPrices();
+            }
+
+            neighborhoodSelect.value = data.neighborhood_id;
+            document.getElementById('detected_neighborhood_id').value = data.neighborhood_id;
+            await fetchAndDisplayNeighborhoodBoundary(data.neighborhood_id);
+
+            document.querySelectorAll('.vehicle-row').forEach(row => {
+                const vSelect = row.querySelector('.vehicle-select');
+                if (vSelect.value) handleVehicleChange(vSelect);
+            });
+            loadAvailableTimes();
+            return data;
+        } catch (error) {
+            console.error('Location detection failed:', error);
+            return null;
+        }
+    }
+
     async function panMapToLocation(query, type) {
         if (!locMap) return;
         try {
@@ -1197,6 +1226,8 @@
     }
 
     function getMyLocation() {
+        initLocationMap();
+
         const btn = document.getElementById('geoBtn');
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin ml-1"></i> جاري التحديد...';
@@ -1229,20 +1260,29 @@
         }
     }
 
-    function validateLocation(lat, lng) {
+    async function validateLocation(lat, lng) {
         const statusDiv = document.getElementById('coverageStatus');
         const iconSpan = document.getElementById('coverageIcon');
         const textSpan = document.getElementById('coverageText');
-        
-        const nId = document.getElementById('neighborhood-select').value;
+        let nId = document.getElementById('neighborhood-select').value;
         if (!nId) {
-            statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-yellow-900/30 text-yellow-400 border border-yellow-600/30';
-            iconSpan.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
-            textSpan.textContent = ' يرجى اختيار الحي أولاً حتى يتم التحقق من الموقع.';
+            statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-blue-900/30 text-blue-400 border border-blue-600/30';
+            iconSpan.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            textSpan.textContent = ' جار تحديد المدينة والحي من موقعك...';
             statusDiv.classList.remove('hidden');
-            isWithinBoundary = false;
             updateLocationFields(lat, lng);
-            return;
+            const detected = await detectAreaFromCoordinates(lat, lng);
+            nId = document.getElementById('neighborhood-select').value;
+            if (!detected || !nId) {
+                statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-yellow-900/30 text-yellow-400 border border-yellow-600/30';
+                iconSpan.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+                textSpan.textContent = ' لم يتم العثور على حي مطابق للموقع. يرجى اختيار المدينة والحي يدوياً.';
+                isWithinBoundary = false;
+                return;
+            }
+            statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-green-900/30 text-green-400 border border-green-600/30';
+            iconSpan.innerHTML = '<i class="fas fa-check-circle"></i>';
+            textSpan.textContent = ` تم تحديد ${detected.city_name} - ${detected.neighborhood_name} تلقائياً.`;
         }
 
         if (currentBoundaryGeoJSON) {

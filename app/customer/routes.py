@@ -1383,6 +1383,32 @@ def get_neighborhoods(city_id):
     neighborhoods = Neighborhood.query.filter_by(city_id=city_id, is_active=True).all()
     return jsonify([{'id': n.id, 'name': n.name_ar, 'lat': n.latitude, 'lng': n.longitude} for n in neighborhoods])
 
+@bp.route('/api/detect-location')
+def detect_location():
+    lat = request.args.get('lat', type=float)
+    lng = request.args.get('lng', type=float)
+    if lat is None or lng is None:
+        return jsonify({'found': False, 'error': 'missing_coordinates'}), 400
+
+    neighborhoods = Neighborhood.query.join(City).filter(
+        Neighborhood.is_active == True,
+        City.is_active == True,
+        Neighborhood.boundary_coords.isnot(None),
+        Neighborhood.boundary_coords != ''
+    ).all()
+
+    for neighborhood in neighborhoods:
+        if neighborhood.contains_point(lat, lng):
+            return jsonify({
+                'found': True,
+                'city_id': neighborhood.city_id,
+                'city_name': neighborhood.city.name_ar if neighborhood.city else '',
+                'neighborhood_id': neighborhood.id,
+                'neighborhood_name': neighborhood.name_ar
+            })
+
+    return jsonify({'found': False})
+
 @bp.route('/api/package-price/<int:package_id>/<int:city_id>')
 def get_package_price(package_id, city_id):
     from app.models import CityPackagePrice, SubscriptionPackage
