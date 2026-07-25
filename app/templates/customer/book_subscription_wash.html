@@ -374,6 +374,29 @@
             }
         }
 
+        window.detectAreaFromCoordinates = async function (lat, lng) {
+            try {
+                const response = await fetch(`/customer/api/detect-location?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`);
+                if (!response.ok) return null;
+                const data = await response.json();
+                if (!data.found) return null;
+
+                if (citySelect.value !== String(data.city_id)) {
+                    citySelect.value = data.city_id;
+                    await fetchNeighborhoods(data.city_id);
+                }
+                neighborhoodSelect.value = data.neighborhood_id;
+                document.getElementById('detected_neighborhood_id').value = data.neighborhood_id;
+                await fetchAndDisplayNeighborhoodBoundary(data.neighborhood_id);
+                loadAvailableTimes();
+                loadProducts();
+                return data;
+            } catch (error) {
+                console.error('Location detection failed:', error);
+                return null;
+            }
+        };
+
         async function panMapToLocation(query, type) {
             if (!locMap) return;
             try {
@@ -397,6 +420,7 @@
             if (!locMap || !neighborhoodId) return;
 
             try {
+                currentBoundaryGeoJSON = null;
                 const response = await fetch(`/customer/api/neighborhood/${neighborhoodId}/boundary`);
                 const data = await response.json();
 
@@ -406,24 +430,6 @@
 
                 if (data.boundary) {
                     currentBoundaryGeoJSON = data.boundary;
-                    currentBoundaryLayer = L.geoJSON(currentBoundaryGeoJSON, {
-                        style: {
-                            color: '#3b82f6',
-                            weight: 2,
-                            opacity: 0.8,
-                            fillColor: '#3b82f6',
-                            fillOpacity: 0.1
-                        }
-                    }).addTo(locMap);
-
-                    const bounds = currentBoundaryLayer.getBounds();
-                    locMap.fitBounds(bounds, { padding: [20, 20] });
-
-                    // Default marker to center of neighborhood
-                    const center = bounds.getCenter();
-                    locMarker.setLatLng(center);
-                    updateLocationFields(center.lat, center.lng);
-                    validateLocation(center.lat, center.lng);
                 } else {
                     currentBoundaryGeoJSON = null;
                 }
@@ -677,17 +683,18 @@
 
     var isWithinBoundary = true; // Default to true if no boundary exists
 
-    function validateLocation(lat, lng) {
+    async function validateLocation(lat, lng) {
         const statusDiv = document.getElementById('coverageStatus');
         const iconSpan = document.getElementById('coverageIcon');
         const textSpan = document.getElementById('coverageText');
         const submitBtn = document.getElementById('submit-btn');
         
-        const nId = document.getElementById('neighborhood-select').value;
-        if (!nId) {
+        updateLocationFields(lat, lng);
+        const detected = await detectAreaFromCoordinates(lat, lng);
+        if (!detected) {
             statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-yellow-900/30 text-yellow-400 border border-yellow-600/30';
             iconSpan.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
-            textSpan.textContent = ' يرجى اختيار الحي أولاً حتى يتم التحقق من الموقع.';
+            textSpan.textContent = ' الموقع المحدد خارج المدن والأحياء المتاحة للخدمة.';
             statusDiv.classList.remove('hidden');
             isWithinBoundary = false;
             updateLocationFields(lat, lng);

@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-28 04:16+0300\n"
+"POT-Creation-Date: 2026-07-25 23:02+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -14,6 +14,487 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
 
+#: app/templates/base.html:83
+msgid "Log out"
+msgstr ""
+
+#: app/templates/base.html:85
+msgid "Log in"
+msgstr ""
+
+#: app/templates/base.html:120
+msgid ""
+"Silver Clean is your ideal choice for mobile car washing in the Kingdom. "
+"We provide professional services with the highest standards of quality "
+"and cleanliness, reaching you wherever you are to save you time and "
+"effort."
+msgstr ""
+
+#: app/templates/base.html:153
+msgid "Important Links"
+msgstr ""
+
+#: app/templates/base.html:159
+msgid "Terms and Conditions"
+msgstr ""
+
+#: app/templates/base.html:174
+msgid "Contact Us"
+msgstr ""
+
+#: app/templates/base.html:184
+msgid "WhatsApp"
+msgstr ""
+
+#: app/templates/base.html:195
+msgid "Email"
+msgstr ""
+
+#: app/templates/base.html:204
+msgid "Tax Number"
+msgstr ""
+
+#: app/templates/base.html:214
+msgid "All rights reserved."
+msgstr ""
+
+#: app/templates/base.html:226
+msgid "Add the app to your home screen"
+msgstr ""
+
+#: app/templates/base.html:227
+msgid "For a better and faster experience"
+msgstr ""
+
+#: app/templates/base.html:233
+msgid "Install"
+msgstr ""
+
+#: app/templates/base.html:255
+msgid "Enable Notifications"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:6
+#: app/templates/employee/index.html:16
+msgid "Active Bookings"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:7
+#: app/templates/employee/index.html:17
+#, fuzzy
+msgid "active booking"
+msgstr "active subscription"
+
+#: app/templates/employee/active_bookings.html:11
+#: app/templates/employee/history.html:11 app/templates/employee/stats.html:11
+#: app/templates/employee/subscriptions.html:11
+msgid "Back"
+msgstr "Back"
+
+#: app/templates/employee/active_bookings.html:20
+msgid "Select Date"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:26
+msgid "Filter"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:33
+msgid "No work schedule found for this day. Showing all bookings."
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:47
+msgid "Bookings after midnight"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:55
+msgid "Booking"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:62
+msgid "Assigned"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:63
+#: app/templates/employee/active_bookings.html:343
+msgid "En Route"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:64
+#: app/templates/employee/active_bookings.html:351
+#, fuzzy
+msgid "Arrived"
+msgstr "Active"
+
+#: app/templates/employee/active_bookings.html:65
+msgid "In Progress"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:77
+#: app/templates/employee/history.html:39
+#: app/templates/employee/subscriptions.html:35
+msgid "Customer"
+msgstr "Customer"
+
+#: app/templates/employee/active_bookings.html:83
+msgid "Vehicles & Services"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:111
+#: app/templates/employee/active_bookings.html:113
+#: app/templates/employee/active_bookings.html:147
+#: app/templates/employee/active_bookings.html:149
+#: app/templates/employee/active_bookings.html:220
+#: app/templates/employee/active_bookings.html:268
+#: app/templates/employee/active_bookings.html:287
+#: app/templates/employee/history.html:79 app/templates/employee/stats.html:56
+#: app/templates/employee/stats.html:102
+msgid "SAR"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:161
+msgid "Payment Method"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:165
+#: app/templates/employee/subscriptions.html:21
+msgid "Subscription"
+msgstr "Subscription"
+
+#: app/templates/employee/active_bookings.html:167
+msgid "Card"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:169
+msgid "Cash"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:177
+msgid "Change"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:186
+#: app/templates/employee/subscriptions.html:64
+msgid "Neighborhood"
+msgstr "Neighborhood"
+
+#: app/templates/employee/active_bookings.html:195
+msgid "Additional Products"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:211
+msgid "Quantity"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:240
+#: app/templates/employee/history.html:81
+#, fuzzy
+msgid "Free Wash"
+msgstr "Complete Wash"
+
+#: app/templates/employee/active_bookings.html:241
+msgid "Used Free Wash"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:245
+msgid "Free"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:259
+msgid "Discount Code Applied"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:271
+msgid "Discount"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:284
+msgid "Total"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:289
+msgid "Service included in subscription"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:291
+msgid "Free wash"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:322
+#: app/templates/employee/subscriptions.html:106
+msgid "Contact via WhatsApp"
+msgstr "Contact via WhatsApp"
+
+#: app/templates/employee/active_bookings.html:329
+msgid "Go to location (Google Maps)"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:334
+msgid "Customer location is unavailable on the map"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:360
+msgid "Start Service"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:368
+#, fuzzy
+msgid "Complete Service"
+msgstr "Complete Wash"
+
+#: app/templates/employee/active_bookings.html:380
+msgid "No active bookings"
+msgstr ""
+
+#: app/templates/employee/active_bookings.html:381
+msgid "All bookings completed"
+msgstr ""
+
+#: app/templates/employee/history.html:6
+msgid "Booking History"
+msgstr ""
+
+#: app/templates/employee/history.html:7 app/templates/employee/history.html:21
+msgid "Completed"
+msgstr ""
+
+#: app/templates/employee/history.html:7 app/templates/employee/history.html:26
+msgid "Cancelled"
+msgstr ""
+
+#: app/templates/employee/history.html:37
+msgid "Number"
+msgstr ""
+
+#: app/templates/employee/history.html:38
+msgid "Date"
+msgstr ""
+
+#: app/templates/employee/history.html:40
+msgid "Service"
+msgstr ""
+
+#: app/templates/employee/history.html:41
+#: app/templates/employee/subscriptions.html:51
+msgid "Vehicle"
+msgstr "Vehicle"
+
+#: app/templates/employee/history.html:42
+msgid "Price"
+msgstr ""
+
+#: app/templates/employee/history.html:60
+msgid "Multiple"
+msgstr ""
+
+#: app/templates/employee/history.html:93
+#, python-format
+msgid "Showing %(count)s bookings (latest 100)"
+msgstr ""
+
+#: app/templates/employee/history.html:98
+#, python-format
+msgid "No %(status)s bookings"
+msgstr ""
+
+#: app/templates/employee/history.html:98
+msgid "completed"
+msgstr ""
+
+#: app/templates/employee/history.html:98
+msgid "cancelled"
+msgstr ""
+
+#: app/templates/employee/history.html:99
+msgid "Start completing bookings!"
+msgstr ""
+
+#: app/templates/employee/index.html:5
+#, python-format
+msgid "Welcome, %(username)s"
+msgstr ""
+
+#: app/templates/employee/index.html:6
+msgid "Employee Dashboard"
+msgstr ""
+
+#: app/templates/employee/index.html:26
+msgid "History"
+msgstr ""
+
+#: app/templates/employee/index.html:27
+#, fuzzy
+msgid "Completed Today"
+msgstr "Complete Wash"
+
+#: app/templates/employee/index.html:35
+msgid "Statistics"
+msgstr ""
+
+#: app/templates/employee/index.html:36
+msgid "Performance and Reports"
+msgstr ""
+
+#: app/templates/employee/index.html:45
+msgid "Location status"
+msgstr ""
+
+#: app/templates/employee/index.html:47
+msgid "Latitude"
+msgstr ""
+
+#: app/templates/employee/index.html:48
+msgid "Longitude"
+msgstr ""
+
+#: app/templates/employee/index.html:49
+msgid "Accuracy"
+msgstr ""
+
+#: app/templates/employee/index.html:50
+msgid "Status"
+msgstr ""
+
+#: app/templates/employee/index.html:50
+msgid "Waiting..."
+msgstr ""
+
+#: app/templates/employee/index.html:54
+msgid "Update location now"
+msgstr ""
+
+#: app/templates/employee/index.html:71
+msgid "Updating..."
+msgstr ""
+
+#: app/templates/employee/index.html:73
+msgid "Geolocation is not supported"
+msgstr ""
+
+#: app/templates/employee/index.html:83
+msgid "Sending..."
+msgstr ""
+
+#: app/templates/employee/index.html:92
+msgid "Sent successfully"
+msgstr ""
+
+#: app/templates/employee/index.html:96
+msgid "Sending failed"
+msgstr ""
+
+#: app/templates/employee/index.html:100
+msgid "Error"
+msgstr ""
+
+#: app/templates/employee/stats.html:6
+msgid "Performance Statistics"
+msgstr ""
+
+#: app/templates/employee/stats.html:7
+msgid "A complete overview of your performance"
+msgstr ""
+
+#: app/templates/employee/stats.html:21
+msgid "Total Bookings"
+msgstr ""
+
+#: app/templates/employee/stats.html:32
+msgid "Completed Bookings"
+msgstr ""
+
+#: app/templates/employee/stats.html:43
+msgid "Completion Rate"
+msgstr ""
+
+#: app/templates/employee/stats.html:54
+msgid "Total Revenue"
+msgstr ""
+
+#: app/templates/employee/stats.html:66
+msgid "Active Subscriptions"
+msgstr ""
+
+#: app/templates/employee/stats.html:77
+msgid "Ongoing Bookings"
+msgstr ""
+
+#: app/templates/employee/stats.html:88
+msgid "Service Revenue"
+msgstr ""
+
+#: app/templates/employee/stats.html:90
+msgid "SAR (after discount)"
+msgstr ""
+
+#: app/templates/employee/stats.html:100
+msgid "Product Revenue"
+msgstr ""
+
+#: app/templates/employee/stats.html:111
+msgid "Monthly Performance"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "January"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "February"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "March"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "April"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "May"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "June"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "July"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "August"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "September"
+msgstr ""
+
+#: app/templates/employee/stats.html:114
+msgid "October"
+msgstr ""
+
+#: app/templates/employee/stats.html:115
+msgid "November"
+msgstr ""
+
+#: app/templates/employee/stats.html:115
+msgid "December"
+msgstr ""
+
+#: app/templates/employee/stats.html:124
+msgid "bookings"
+msgstr ""
+
+#: app/templates/employee/stats.html:139
+msgid "View Ongoing Bookings"
+msgstr ""
+
+#: app/templates/employee/stats.html:143
+msgid "View Full History"
+msgstr ""
+
 #: app/templates/employee/subscriptions.html:6
 msgid "Assigned Subscriptions"
 msgstr "Assigned Subscriptions"
@@ -22,14 +503,6 @@ msgstr "Assigned Subscriptions"
 msgid "active subscription"
 msgstr "active subscription"
 
-#: app/templates/employee/subscriptions.html:11
-msgid "Back"
-msgstr "Back"
-
-#: app/templates/employee/subscriptions.html:21
-msgid "Subscription"
-msgstr "Subscription"
-
 #: app/templates/employee/subscriptions.html:22
 msgid "Active"
 msgstr "Active"
@@ -37,10 +510,6 @@ msgstr "Active"
 #: app/templates/employee/subscriptions.html:29
 msgid "Washes Remaining"
 msgstr "Washes Remaining"
-
-#: app/templates/employee/subscriptions.html:35
-msgid "Customer"
-msgstr "Customer"
 
 #: app/templates/employee/subscriptions.html:42
 msgid "Package"
@@ -54,17 +523,9 @@ msgstr "washes"
 msgid "days"
 msgstr "days"
 
-#: app/templates/employee/subscriptions.html:51
-msgid "Vehicle"
-msgstr "Vehicle"
-
 #: app/templates/employee/subscriptions.html:58
 msgid "Duration"
 msgstr "Duration"
-
-#: app/templates/employee/subscriptions.html:64
-msgid "Neighborhood"
-msgstr "Neighborhood"
 
 #: app/templates/employee/subscriptions.html:71
 msgid "Preferred Time"
@@ -86,127 +547,81 @@ msgstr "Evening (4 PM - 8 PM)"
 msgid "Any time"
 msgstr "Any time"
 
-#: app/templates/employee/subscriptions.html:102
-msgid "Contact via WhatsApp"
-msgstr "Contact via WhatsApp"
-
-#: app/templates/employee/subscriptions.html:109
+#: app/templates/employee/subscriptions.html:114
 msgid "Are you sure you want to complete this wash?"
 msgstr "Are you sure you want to complete this wash?"
 
-#: app/templates/employee/subscriptions.html:111
+#: app/templates/employee/subscriptions.html:116
 msgid "Complete Wash"
 msgstr "Complete Wash"
 
-#: app/templates/employee/subscriptions.html:117
+#: app/templates/employee/subscriptions.html:122
 msgid "No washes remaining"
 msgstr "No washes remaining"
 
-#: app/templates/employee/subscriptions.html:128
+#: app/templates/employee/subscriptions.html:133
 msgid "No assigned subscriptions"
 msgstr "No assigned subscriptions"
 
-#: app/templates/employee/subscriptions.html:129
+#: app/templates/employee/subscriptions.html:134
 msgid "Subscriptions will be assigned to you automatically"
 msgstr "Subscriptions will be assigned to you automatically"
 
+#: app/employee/routes.py:184 app/employee/routes.py:358
+msgid "You are not authorized to modify this booking"
+msgstr ""
+
+#: app/employee/routes.py:213
+msgid "Service completed. The customer earned a free wash! 🎉"
+msgstr ""
+
+#: app/employee/routes.py:215
+msgid "Service completed and a loyalty point was added to the customer"
+msgstr ""
+
+#: app/employee/routes.py:217
+msgid "Service completed without adding a loyalty point"
+msgstr ""
+
+#: app/employee/routes.py:300
+msgid "Status updated successfully"
+msgstr ""
+
+#: app/employee/routes.py:363
+msgid "The payment method cannot be changed for subscription bookings"
+msgstr ""
+
+#: app/employee/routes.py:373
+msgid "Payment method changed successfully"
+msgstr ""
+
+#: app/employee/routes.py:392
+msgid "You are not authorized to modify this subscription"
+msgstr ""
+
+#: app/employee/routes.py:401
+msgid "One wash completed. The subscription has ended!"
+msgstr ""
+
+#: app/employee/routes.py:403
 #, python-format
-msgid "Welcome, %(username)s"
+msgid "One wash completed. Remaining: %(count)s washes"
 msgstr ""
 
-msgid "Employee Dashboard"
+#: app/employee/routes.py:408
+msgid "There are no washes remaining in this subscription"
 msgstr ""
 
-msgid "Active Bookings"
+#: app/employee/routes.py:546
+msgid "Missing location data"
 msgstr ""
 
-#, fuzzy
-msgid "Subscriptions"
-msgstr "Subscription"
+#~ msgid "Subscriptions"
+#~ msgstr "Subscription"
 
-msgid "History"
-msgstr ""
+#~ msgid "Products"
+#~ msgstr ""
 
-#, fuzzy
-msgid "Completed Today"
-msgstr "Complete Wash"
-
-msgid "Statistics"
-msgstr ""
-
-msgid "Performance and Reports"
-msgstr ""
-
-#, fuzzy
-msgid "active booking"
-msgstr "active subscription"
-
-msgid "Booking"
-msgstr ""
-
-msgid "Assigned"
-msgstr ""
-
-msgid "En Route"
-msgstr ""
-
-#, fuzzy
-msgid "Arrived"
-msgstr "Active"
-
-msgid "In Progress"
-msgstr ""
-
-msgid "Service"
-msgstr ""
-
-msgid "Additional Products"
-msgstr ""
-
-msgid "Quantity"
-msgstr ""
-
-#, fuzzy
-msgid "Free Wash"
-msgstr "Complete Wash"
-
-msgid "Used Free Wash"
-msgstr ""
-
-msgid "Free"
-msgstr ""
-
-msgid "Discount Code Applied"
-msgstr ""
-
-msgid "Discount"
-msgstr ""
-
-msgid "Total"
-msgstr ""
-
-msgid "Start Service"
-msgstr ""
-
-#, fuzzy
-msgid "Complete Service"
-msgstr "Complete Wash"
-
-msgid "No active bookings"
-msgstr ""
-
-msgid "All bookings completed"
-msgstr ""
-
-msgid "SAR"
-msgstr ""
-
-msgid "Price"
-msgstr ""
-
-msgid "Products"
-msgstr ""
-
-msgid "No vehicle selected"
-msgstr ""
+#~ msgid "No vehicle selected"
+#~ msgstr ""
 

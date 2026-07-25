@@ -6,6 +6,7 @@ from app.employee import bp
 from app.models import Booking, User, Subscription
 from datetime import datetime, date, timedelta
 from app.notifications import send_push_notification
+from flask_babel import gettext as _
 
 def check_expired_bookings():
     """Auto-cancel all bookings (regular and subscription) that haven't been completed within 4 hours"""
@@ -180,7 +181,7 @@ def update_status(id, status):
     """Update booking status"""
     booking = Booking.query.get_or_404(id)
     if booking.employee_id != current_user.id:
-        flash('غير مصرح لك بتعديل هذا الحجز')
+        flash(_('You are not authorized to modify this booking'))
         return redirect(url_for('employee.index'))
     
     if status in ['en_route', 'arrived', 'in_progress', 'completed']:
@@ -209,11 +210,11 @@ def update_status(id, status):
             if not booking.subscription_id and not booking.used_free_wash:
                 if service_awards_loyalty:
                     if booking.customer.add_loyalty_point():
-                        flash('تم إكمال الخدمة. وصل العميل للحد المطلوب وحصل على غسلة مجانية! 🎉', 'success')
+                        flash(_('Service completed. The customer earned a free wash! 🎉'), 'success')
                     else:
-                        flash('تم إكمال الخدمة وإضافة نقطة ولاء للعميل', 'success')
+                        flash(_('Service completed and a loyalty point was added to the customer'), 'success')
                 else:
-                    flash('تم إكمال الخدمة بدون إضافة نقطة ولاء', 'success')
+                    flash(_('Service completed without adding a loyalty point'), 'success')
             
             # --- Referral System: First Wash Tracking ---
             # Check if this is the customer's first completed booking (for referral reward)
@@ -296,7 +297,7 @@ def update_status(id, status):
                 }
             }
             
-            flash(f'تم تحديث الحالة بنجاح', 'success')
+            flash(_('Status updated successfully'), 'success')
             
             # Send notification to customer with Arabic message
             if status in status_messages:
@@ -354,12 +355,12 @@ def toggle_payment(id):
     
     # Check if employee is authorized
     if booking.employee_id != current_user.id:
-        flash('غير مصرح لك بتعديل هذا الحجز', 'error')
+        flash(_('You are not authorized to modify this booking'), 'error')
         return redirect(url_for('employee.index'))
     
     # Check if it's a subscription (cannot change payment method)
     if booking.subscription_id:
-        flash('لا يمكن تغيير وسيلة الدفع لحجوزات الاشتراكات', 'error')
+        flash(_('The payment method cannot be changed for subscription bookings'), 'error')
         return redirect(request.referrer or url_for('employee.active_bookings'))
     
     # Toggle logic
@@ -369,7 +370,7 @@ def toggle_payment(id):
         booking.payment_method = 'card'
         
     db.session.commit()
-    flash('تم تغيير وسيلة الدفع بنجاح', 'success')
+    flash(_('Payment method changed successfully'), 'success')
     return redirect(request.referrer or url_for('employee.active_bookings'))
 
 @bp.route('/subscriptions')
@@ -388,7 +389,7 @@ def complete_wash(id):
     subscription = Subscription.query.get_or_404(id)
     
     if subscription.employee_id != current_user.id:
-        flash('غير مصرح لك بتعديل هذا الاشتراك', 'error')
+        flash(_('You are not authorized to modify this subscription'), 'error')
         return redirect(url_for('employee.subscriptions'))
     
     if subscription.remaining_washes > 0:
@@ -397,13 +398,14 @@ def complete_wash(id):
         # Check if subscription is exhausted
         if subscription.remaining_washes == 0:
             subscription.status = 'expired'
-            flash('تم إنهاء غسلة واحدة. الاشتراك انتهى!', 'info')
+            flash(_('One wash completed. The subscription has ended!'), 'info')
         else:
-            flash(f'تم إنهاء غسلة واحدة. متبقي: {subscription.remaining_washes} غسلة', 'success')
+            flash(_('One wash completed. Remaining: %(count)s washes',
+                    count=subscription.remaining_washes), 'success')
         
         db.session.commit()
     else:
-        flash('لا يوجد غسلات متبقية في هذا الاشتراك', 'error')
+        flash(_('There are no washes remaining in this subscription'), 'error')
     
     return redirect(url_for('employee.subscriptions'))
 
@@ -541,7 +543,7 @@ def update_location():
     
     data = request.get_json()
     if not data or 'latitude' not in data or 'longitude' not in data:
-        return jsonify({'status': 'error', 'message': 'Missing location data'}), 400
+        return jsonify({'status': 'error', 'message': _('Missing location data')}), 400
     
     # Get or create location record for this employee
     location = EmployeeLocation.query.filter_by(employee_id=current_user.id).first()

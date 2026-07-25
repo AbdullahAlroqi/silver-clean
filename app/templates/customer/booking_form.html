@@ -1182,9 +1182,6 @@
             
             if (data.boundary) {
                 currentBoundaryGeoJSON = data.boundary;
-                currentBoundaryLayer = L.geoJSON(data.boundary, {
-                    style: { color: '#3b82f6', weight: 2, fillOpacity: 0.1 }
-                }).addTo(locMap);
             }
         } catch (e) {
             console.error("Failed to fetch boundary", e);
@@ -1265,7 +1262,8 @@
         const iconSpan = document.getElementById('coverageIcon');
         const textSpan = document.getElementById('coverageText');
         let nId = document.getElementById('neighborhood-select').value;
-        if (!nId) {
+        // Re-detect after every marker move; a prior city/neighborhood selection may be stale.
+        {
             statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-blue-900/30 text-blue-400 border border-blue-600/30';
             iconSpan.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             textSpan.textContent = ' جار تحديد المدينة والحي من موقعك...';

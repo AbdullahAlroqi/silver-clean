@@ -37,7 +37,18 @@
 </div>
 {% if bookings %}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% set divider = namespace(shown=false) %}
     {% for booking in bookings %}
+    {% if booking.date > selected_date and not divider.shown %}
+    {% set divider.shown = true %}
+    <div class="md:col-span-2 relative flex items-center py-5" role="separator">
+        <div class="flex-grow border-t-2 border-accent/60"></div>
+        <span class="mx-4 px-4 py-2 rounded-full bg-gray-800 text-accent font-bold text-sm">
+            <i class="fas fa-moon ml-2"></i>{{ _('Bookings after midnight') }}
+        </span>
+        <div class="flex-grow border-t-2 border-accent/60"></div>
+    </div>
+    {% endif %}
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex justify-between items-start mb-4">
             <div>
@@ -151,7 +162,7 @@
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-white flex items-center gap-1">
                             {% if booking.subscription_id %}
-                            <i class="fas fa-sync-alt text-purple-500"></i> اشتراك
+                            <i class="fas fa-sync-alt text-purple-500"></i> {{ _('Subscription') }}
                             {% elif booking.payment_method == 'card' %}
                             <i class="fas fa-credit-card text-blue-500"></i> {{ _('Card') }}
                             {% else %}
@@ -163,7 +174,7 @@
                         <form action="{{ url_for('employee.toggle_payment', id=booking.id) }}" method="post" class="inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded border border-gray-600 transition">
-                                <i class="fas fa-exchange-alt ml-1"></i> تغيير
+                                <i class="fas fa-exchange-alt ml-1"></i> {{ _('Change') }}
                             </button>
                         </form>
                         {% endif %}
@@ -275,9 +286,9 @@
                 <div class="text-left">
                     <span class="text-accent font-bold text-2xl">{{ "%.1f"|format(booking.total_price) }} {{ _('SAR') }}</span>
                     {% if booking.subscription_id %}
-                    <p class="text-xs text-blue-400 mt-1">(الخدمة مشمولة بالاشتراك)</p>
+                    <p class="text-xs text-blue-400 mt-1">({{ _('Service included in subscription') }})</p>
                     {% elif booking.used_free_wash %}
-                    <p class="text-xs text-green-400 mt-1">(غسلة مجانية)</p>
+                    <p class="text-xs text-green-400 mt-1">({{ _('Free wash') }})</p>
                     {% endif %}
                 </div>
             </div>
@@ -315,12 +326,12 @@
                 <a href="https://www.google.com/maps/dir/?api=1&destination={{ booking.location_lat }},{{ booking.location_lng }}" target="_blank"
                     class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg text-center shadow-md transition transform hover:scale-[1.02] flex items-center justify-center gap-2">
                     <i class="fas fa-map-marked-alt text-xl"></i>
-                    <span>الذهاب للموقع (خرائط جوجل)</span>
+                    <span>{{ _('Go to location (Google Maps)') }}</span>
                 </a>
                 {% else %}
                 <div class="w-full bg-gray-700 text-gray-400 font-bold py-3 px-4 rounded-lg text-center cursor-not-allowed flex items-center justify-center gap-2">
                     <i class="fas fa-map-marked-alt text-xl"></i>
-                    <span>موقع العميل غير متوفر بالخريطة</span>
+                    <span>{{ _('Customer location is unavailable on the map') }}</span>
                 </div>
                 {% endif %}
 

@@ -80,9 +80,9 @@
                     <span id="notification-badge"
                         class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"></span>
                 </a>
-                <a href="{{ url_for('auth.logout') }}" class="text-secondary hover:text-white transition">تسجيل خروج</a>
+                <a href="{{ url_for('auth.logout') }}" class="text-secondary hover:text-white transition">{{ _('Log out') }}</a>
                 {% else %}
-                <a href="{{ url_for('auth.login') }}" class="text-secondary hover:text-white transition">تسجيل دخول</a>
+                <a href="{{ url_for('auth.login') }}" class="text-secondary hover:text-white transition">{{ _('Log in') }}</a>
                 {% endif %}
             </div>
         </div>
@@ -117,8 +117,7 @@
                         <h3 class="text-2xl font-bold text-accent">{{ site_settings.site_name or 'Silver Clean' }}</h3>
                     </div>
                     <p class="text-gray-400 mb-6 leading-relaxed">
-                        سيلفر كلين هي خيارك الأمثل لغسيل السيارات المتنقل في المملكة. نقدم خدمات احترافية بأعلى معايير
-                        الجودة والنظافة، نصلك أينما كنت لنوفر عليك الوقت والجهد.
+                        {{ _('Silver Clean is your ideal choice for mobile car washing in the Kingdom. We provide professional services with the highest standards of quality and cleanliness, reaching you wherever you are to save you time and effort.') }}
                     </p>
                     <div class="flex gap-4">
                         {% if site_settings.tiktok_url %}
@@ -151,13 +150,13 @@
                 <!-- Column 2: Important Links -->
                 <div>
                     <h4 class="text-xl font-bold text-white mb-6 relative inline-block">
-                        روابط مهمة
+                        {{ _('Important Links') }}
                         <span class="absolute bottom-[-8px] right-0 w-12 h-1 bg-accent rounded-full"></span>
                     </h4>
                     <ul class="space-y-3 text-gray-400">
                         <li><a href="{{ url_for('main.terms') }}"
                                 class="hover:text-accent transition flex items-center gap-2"><i
-                                    class="fas fa-chevron-left text-xs"></i> الشروط والأحكام</a></li>
+                                    class="fas fa-chevron-left text-xs"></i> {{ _('Terms and Conditions') }}</a></li>
                     </ul>
                     {% if site_settings.mawthooq_url %}
                     <div class="mt-6">
@@ -172,7 +171,7 @@
                 <!-- Column 3: Contact Us -->
                 <div>
                     <h4 class="text-xl font-bold text-white mb-6 relative inline-block">
-                        تواصل معنا
+                        {{ _('Contact Us') }}
                         <span class="absolute bottom-[-8px] right-0 w-12 h-1 bg-accent rounded-full"></span>
                     </h4>
                     <ul class="space-y-4 text-gray-400">
@@ -182,7 +181,7 @@
                                 <i class="fab fa-whatsapp text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500">واتساب</p>
+                                <p class="text-xs text-gray-500">{{ _('WhatsApp') }}</p>
                                 <a href="https://wa.me/{{ site_settings.whatsapp_number }}" target="_blank"
                                     class="hover:text-white dir-ltr block">{{ site_settings.whatsapp_number }}</a>
                             </div>
@@ -193,7 +192,7 @@
                                 <i class="fas fa-envelope text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500">البريد الإلكتروني</p>
+                                <p class="text-xs text-gray-500">{{ _('Email') }}</p>
                                 <a href="mailto:info@silverclean.com" class="hover:text-white">info@silverclean.com</a>
                             </div>
                         </li>
@@ -202,7 +201,7 @@
                                 <i class="fas fa-file-invoice-dollar text-xl"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500">الرقم الضريبي</p>
+                                <p class="text-xs text-gray-500">{{ _('Tax Number') }}</p>
                                 <span class="text-white"></span>
                             </div>
                         </li>
@@ -212,7 +211,7 @@
             </div>
 
             <div class="border-t border-gray-700 pt-6 text-center text-gray-500 text-sm">
-                <p>&copy; 2025 {{ site_settings.site_name or 'Silver Clean' }}. جميع الحقوق محفوظة.</p>
+                <p>&copy; 2025 {{ site_settings.site_name or 'Silver Clean' }}. {{ _('All rights reserved.') }}</p>
             </div>
         </div>
     </footer>
@@ -224,14 +223,14 @@
             <div class="flex items-center gap-3">
                 <i class="fas fa-mobile-alt text-3xl"></i>
                 <div>
-                    <h3 class="font-bold text-lg">أضف التطبيق إلى الشاشة الرئيسية</h3>
-                    <p class="text-sm opacity-90">للحصول على تجربة أفضل وأسرع</p>
+                    <h3 class="font-bold text-lg">{{ _('Add the app to your home screen') }}</h3>
+                    <p class="text-sm opacity-90">{{ _('For a better and faster experience') }}</p>
                 </div>
             </div>
             <div class="flex gap-2">
                 <button onclick="installApp()"
                     class="bg-white text-accent px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition whitespace-nowrap">
-                    تثبيت
+                    {{ _('Install') }}
                 </button>
                 <button onclick="dismissInstallBanner()"
                     class="text-white hover:bg-white/20 px-3 py-2 rounded-lg transition">
@@ -253,7 +252,7 @@
     <button id="enable-notifications-btn"
         class="hidden fixed bottom-24 left-6 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-600 transition z-50">
         <i class="fas fa-bell mr-2"></i>
-        <span class="text-sm">تفعيل الإشعارات</span>
+        <span class="text-sm">{{ _('Enable Notifications') }}</span>
     </button>
 
     <script src="{{ url_for('static', filename='js/notifications.js') }}?v=3"></script>

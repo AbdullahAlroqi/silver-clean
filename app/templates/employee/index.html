@@ -42,16 +42,16 @@
             <i class="fas fa-location-arrow text-3xl text-yellow-500"></i>
             <div id="gps-status-icon" class="w-3 h-3 rounded-full bg-gray-500"></div>
         </div>
-        <h3 class="text-lg font-bold text-white">حالة الموقع</h3>
+        <h3 class="text-lg font-bold text-white">{{ _('Location status') }}</h3>
         <div class="text-sm text-gray-400 mt-2 space-y-1" dir="ltr">
-            <p>Lat: <span id="debug-lat">-</span></p>
-            <p>Lng: <span id="debug-lng">-</span></p>
-            <p>Acc: <span id="debug-acc">-</span> m</p>
-            <p>Msg: <span id="debug-msg">Waiting...</span></p>
+            <p>{{ _('Latitude') }}: <span id="debug-lat">-</span></p>
+            <p>{{ _('Longitude') }}: <span id="debug-lng">-</span></p>
+            <p>{{ _('Accuracy') }}: <span id="debug-acc">-</span> m</p>
+            <p>{{ _('Status') }}: <span id="debug-msg">{{ _('Waiting...') }}</span></p>
         </div>
         <button onclick="forceUpdateLocation()"
             class="mt-3 w-full bg-gray-700 hover:bg-gray-600 text-white py-2 rounded text-sm transition">
-            تحديث الموقع الآن
+            {{ _('Update location now') }}
         </button>
     </div>
 
@@ -68,9 +68,9 @@
         }
 
         function forceUpdateLocation() {
-            document.getElementById('debug-msg').textContent = "Updating...";
+            document.getElementById('debug-msg').textContent = {{ _('Updating...')|tojson }};
             if (!navigator.geolocation) {
-                updateDebugInfo(null, null, null, "Geo not supported");
+                updateDebugInfo(null, null, null, {{ _('Geolocation is not supported')|tojson }});
                 return;
             }
             navigator.geolocation.getCurrentPosition(
@@ -80,7 +80,7 @@
                         longitude: pos.coords.longitude,
                         accuracy: pos.coords.accuracy
                     };
-                    updateDebugInfo(data.latitude, data.longitude, data.accuracy, "Sending...");
+                    updateDebugInfo(data.latitude, data.longitude, data.accuracy, {{ _('Sending...')|tojson }});
 
                     fetch("{{ url_for('employee.update_location') }}", {
                         method: 'POST',
@@ -89,15 +89,15 @@
                     })
                         .then(res => res.json())
                         .then(data => {
-                            document.getElementById('debug-msg').textContent = "Sent OK";
+                            document.getElementById('debug-msg').textContent = {{ _('Sent successfully')|tojson }};
                             document.getElementById('gps-status-icon').className = "w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]";
                         })
                         .catch(err => {
-                            document.getElementById('debug-msg').textContent = "Send Fail";
+                            document.getElementById('debug-msg').textContent = {{ _('Sending failed')|tojson }};
                         });
                 },
                 (err) => {
-                    updateDebugInfo(null, null, null, `Error ${err.code}: ${err.message}`);
+                    updateDebugInfo(null, null, null, {{ _('Error')|tojson }} + ` ${err.code}: ${err.message}`);
                 },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );

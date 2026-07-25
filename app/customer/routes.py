@@ -8,6 +8,7 @@ from app.models import (
     BookingItem, DiscountCode, Season, CityServicePrice, 
     CityProductPrice, CityPackagePrice, PolishingOrder
 )
+from app.utils.employee_breaks import employee_break_overlaps
 
 def _get_repeatable_booking():
     return current_user.bookings.filter(
@@ -68,7 +69,7 @@ def _build_repeat_booking_prefill(booking):
 def _find_employee_for_repeated_booking(neighborhood, vehicle_ids, booking_date, booking_time, total_duration_minutes):
     from datetime import datetime, timedelta
 
-    employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
+    employees = neighborhood.employees.filter_by(role='employee').all()
     if not employees:
         return None, None, None, 'لا يوجد موظفون متاحون لهذا الحي'
 
@@ -133,6 +134,8 @@ def _find_employee_for_repeated_booking(neighborhood, vehicle_ids, booking_date,
 
             actual_end = actual_start + timedelta(minutes=total_duration_minutes)
             if actual_start < schedule_start or actual_end > schedule_end:
+                continue
+            if employee_break_overlaps(employee, actual_start, actual_end):
                 continue
 
             employee_conflicts = Booking.query.filter(
@@ -401,7 +404,7 @@ def _find_employee_for_reschedule(booking, booking_date, booking_time):
     if active_vehicle_booking:
         return None, None, None, f'إحدى المركبات لديها حجز فعال في هذا اليوم رقم ({active_vehicle_booking.booking_id})'
 
-    employees = booking.neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
+    employees = booking.neighborhood.employees.filter_by(role='employee').all()
     if booking.employee_id:
         employees.sort(key=lambda employee: employee.id != booking.employee_id)
 
@@ -458,6 +461,8 @@ def _find_employee_for_reschedule(booking, booking_date, booking_time):
                 continue
 
             if actual_start < schedule_start or actual_end > schedule_end:
+                continue
+            if employee_break_overlaps(employee, actual_start, actual_end):
                 continue
 
             employee_conflicts = Booking.query.filter(
@@ -1053,8 +1058,12 @@ def book():
                 lat = float(location_lat)
                 lng = float(location_lng)
                 if not neighborhood.contains_point(lat, lng):
-                    flash('عذراً، الموقع المحدد يقع خارج نطاق الحي المختار. يرجى تعديل الموقع للطلب.', 'error')
-                    return redirect(url_for('customer.book'))
+                    detected_neighborhood = _find_active_neighborhood_at(lat, lng)
+                    if not detected_neighborhood:
+                        flash('عذراً، الموقع المحدد يقع خارج نطاق المدن والأحياء المتاحة للخدمة.', 'error')
+                        return redirect(url_for('customer.book'))
+                    neighborhood = detected_neighborhood
+                    neighborhood_id = detected_neighborhood.id
             except (ValueError, TypeError):
                 flash('إحداثيات الموقع غير صالحة', 'error')
                 return redirect(url_for('customer.book'))
@@ -1062,7 +1071,7 @@ def book():
             # (Vehicle conflict check moved inside loop above)
             
             # Sticky Employee Logic: Priority to employee already assigned to this customer today
-            employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
+            employees = neighborhood.employees.filter_by(role='employee').all()
             
             customer_active_booking = Booking.query.filter(
                 Booking.customer_id == current_user.id,
@@ -1145,7 +1154,8 @@ def book():
                         
                         end_datetime = test_datetime + timedelta(minutes=duration_minutes)
                         
-                        if test_datetime >= schedule_start and end_datetime <= schedule_end:
+                        if (test_datetime >= schedule_start and end_datetime <= schedule_end
+                                and not employee_break_overlaps(employee, test_datetime, end_datetime)):
                             emp_fits_in_schedule = True
                             actual_booking_datetime = test_datetime
                             actual_booking_date = test_datetime.date()
@@ -1383,6 +1393,16 @@ def get_neighborhoods(city_id):
     neighborhoods = Neighborhood.query.filter_by(city_id=city_id, is_active=True).all()
     return jsonify([{'id': n.id, 'name': n.name_ar, 'lat': n.latitude, 'lng': n.longitude} for n in neighborhoods])
 
+
+def _find_active_neighborhood_at(lat, lng):
+    neighborhoods = Neighborhood.query.join(City).filter(
+        Neighborhood.is_active == True,
+        City.is_active == True,
+        Neighborhood.boundary_coords.isnot(None),
+        Neighborhood.boundary_coords != ''
+    ).all()
+    return next((n for n in neighborhoods if n.contains_point(lat, lng)), None)
+
 @bp.route('/api/detect-location')
 def detect_location():
     lat = request.args.get('lat', type=float)
@@ -1390,22 +1410,15 @@ def detect_location():
     if lat is None or lng is None:
         return jsonify({'found': False, 'error': 'missing_coordinates'}), 400
 
-    neighborhoods = Neighborhood.query.join(City).filter(
-        Neighborhood.is_active == True,
-        City.is_active == True,
-        Neighborhood.boundary_coords.isnot(None),
-        Neighborhood.boundary_coords != ''
-    ).all()
-
-    for neighborhood in neighborhoods:
-        if neighborhood.contains_point(lat, lng):
-            return jsonify({
-                'found': True,
-                'city_id': neighborhood.city_id,
-                'city_name': neighborhood.city.name_ar if neighborhood.city else '',
-                'neighborhood_id': neighborhood.id,
-                'neighborhood_name': neighborhood.name_ar
-            })
+    neighborhood = _find_active_neighborhood_at(lat, lng)
+    if neighborhood:
+        return jsonify({
+            'found': True,
+            'city_id': neighborhood.city_id,
+            'city_name': neighborhood.city.name_ar if neighborhood.city else '',
+            'neighborhood_id': neighborhood.id,
+            'neighborhood_name': neighborhood.name_ar
+        })
 
     return jsonify({'found': False})
 
@@ -1638,7 +1651,7 @@ def get_available_times():
         return jsonify([])
     
     
-    employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
+    employees = neighborhood.employees.filter_by(role='employee').all()
     
     # --- New Rules: Multi-vehicle and Same-Employee Logic ---
     vehicle_ids = request.args.getlist('vehicle_ids[]')
@@ -1767,7 +1780,7 @@ def get_available_times():
                 slot_end_datetime = current_time + timedelta(minutes=duration_minutes)
                 
                 # Check if this slot conflicts with existing bookings (Employee, Customer, and Vehicle)
-                has_conflict = False
+                has_conflict = employee_break_overlaps(employee, current_time, slot_end_datetime)
                 
                 # Check Employee Conflicts (Already in code)
                 for booking in conflicts:
@@ -2106,13 +2119,17 @@ def book_subscription_wash(subscription_id):
             lat = float(location_lat)
             lng = float(location_lng)
             if not neighborhood.contains_point(lat, lng):
-                flash('عذراً، الموقع المحدد يقع خارج نطاق الحي المختار. يرجى تعديل الموقع للطلب.', 'error')
-                return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+                detected_neighborhood = _find_active_neighborhood_at(lat, lng)
+                if not detected_neighborhood:
+                    flash('عذراً، الموقع المحدد يقع خارج نطاق المدن والأحياء المتاحة للخدمة.', 'error')
+                    return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
+                neighborhood = detected_neighborhood
+                neighborhood_id = detected_neighborhood.id
         except (ValueError, TypeError):
             flash('إحداثيات الموقع غير صالحة', 'error')
             return redirect(url_for('customer.book_subscription_wash', subscription_id=subscription_id))
         
-        employees = neighborhood.employees.filter_by(role='employee', is_on_break=False).all()
+        employees = neighborhood.employees.filter_by(role='employee').all()
         available_employee = None
         
         for employee in employees:
@@ -2146,7 +2163,8 @@ def book_subscription_wash(subscription_id):
                 booking_duration = default_service.duration if (default_service and default_service.duration) else 60
                 end_datetime = test_datetime + timedelta(minutes=booking_duration)
                 
-                if test_datetime >= schedule_start and end_datetime <= schedule_end:
+                if (test_datetime >= schedule_start and end_datetime <= schedule_end
+                        and not employee_break_overlaps(employee, test_datetime, end_datetime)):
                     fits_in_schedule = True
                     actual_booking_datetime = test_datetime
                     actual_booking_date = test_datetime.date()

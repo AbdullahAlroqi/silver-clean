@@ -1,15 +1,497 @@
+
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-28 04:16+0300\n"
+"POT-Creation-Date: 2026-07-25 23:02+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: ar\n"
+"Language-Team: ar <LL@li.org>\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : "
+"n%100>=3 && n%100<=10 ? 3 : n%100>=0 && n%100<=2 ? 4 : 5);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
+
+#: app/templates/base.html:83
+msgid "Log out"
+msgstr "تسجيل خروج"
+
+#: app/templates/base.html:85
+msgid "Log in"
+msgstr "تسجيل دخول"
+
+#: app/templates/base.html:120
+msgid ""
+"Silver Clean is your ideal choice for mobile car washing in the Kingdom. "
+"We provide professional services with the highest standards of quality "
+"and cleanliness, reaching you wherever you are to save you time and "
+"effort."
+msgstr ""
+"سيلفر كلين هي خيارك الأمثل لغسيل السيارات المتنقل في المملكة. نقدم خدمات "
+"احترافية بأعلى معايير الجودة والنظافة، ونصلك أينما كنت لنوفر عليك الوقت والجهد."
+
+#: app/templates/base.html:153
+msgid "Important Links"
+msgstr "روابط مهمة"
+
+#: app/templates/base.html:159
+msgid "Terms and Conditions"
+msgstr "الشروط والأحكام"
+
+#: app/templates/base.html:174
+msgid "Contact Us"
+msgstr "تواصل معنا"
+
+#: app/templates/base.html:184
+msgid "WhatsApp"
+msgstr "واتساب"
+
+#: app/templates/base.html:195
+msgid "Email"
+msgstr "البريد الإلكتروني"
+
+#: app/templates/base.html:204
+msgid "Tax Number"
+msgstr "الرقم الضريبي"
+
+#: app/templates/base.html:214
+msgid "All rights reserved."
+msgstr "جميع الحقوق محفوظة."
+
+#: app/templates/base.html:226
+msgid "Add the app to your home screen"
+msgstr "أضف التطبيق إلى الشاشة الرئيسية"
+
+#: app/templates/base.html:227
+msgid "For a better and faster experience"
+msgstr "للحصول على تجربة أفضل وأسرع"
+
+#: app/templates/base.html:233
+msgid "Install"
+msgstr "تثبيت"
+
+#: app/templates/base.html:255
+msgid "Enable Notifications"
+msgstr "تفعيل الإشعارات"
+
+#: app/templates/employee/active_bookings.html:6
+#: app/templates/employee/index.html:16
+msgid "Active Bookings"
+msgstr "الحجوزات الجارية"
+
+#: app/templates/employee/active_bookings.html:7
+#: app/templates/employee/index.html:17
+msgid "active booking"
+msgstr "حجز نشط"
+
+#: app/templates/employee/active_bookings.html:11
+#: app/templates/employee/history.html:11 app/templates/employee/stats.html:11
+#: app/templates/employee/subscriptions.html:11
+msgid "Back"
+msgstr "رجوع"
+
+#: app/templates/employee/active_bookings.html:20
+msgid "Select Date"
+msgstr "اختر التاريخ"
+
+#: app/templates/employee/active_bookings.html:26
+msgid "Filter"
+msgstr "تصفية"
+
+#: app/templates/employee/active_bookings.html:33
+msgid "No work schedule found for this day. Showing all bookings."
+msgstr "لا يوجد جدول عمل لهذا اليوم. يتم عرض جميع الحجوزات."
+
+#: app/templates/employee/active_bookings.html:47
+msgid "Bookings after midnight"
+msgstr "حجوزات ما بعد منتصف الليل"
+
+#: app/templates/employee/active_bookings.html:55
+msgid "Booking"
+msgstr "حجز"
+
+#: app/templates/employee/active_bookings.html:62
+msgid "Assigned"
+msgstr "تم التعيين"
+
+#: app/templates/employee/active_bookings.html:63
+#: app/templates/employee/active_bookings.html:343
+msgid "En Route"
+msgstr "في الطريق"
+
+#: app/templates/employee/active_bookings.html:64
+#: app/templates/employee/active_bookings.html:351
+msgid "Arrived"
+msgstr "وصل الموظف"
+
+#: app/templates/employee/active_bookings.html:65
+msgid "In Progress"
+msgstr "جاري العمل"
+
+#: app/templates/employee/active_bookings.html:77
+#: app/templates/employee/history.html:39
+#: app/templates/employee/subscriptions.html:35
+msgid "Customer"
+msgstr "العميل"
+
+#: app/templates/employee/active_bookings.html:83
+msgid "Vehicles & Services"
+msgstr "المركبات والخدمات"
+
+#: app/templates/employee/active_bookings.html:111
+#: app/templates/employee/active_bookings.html:113
+#: app/templates/employee/active_bookings.html:147
+#: app/templates/employee/active_bookings.html:149
+#: app/templates/employee/active_bookings.html:220
+#: app/templates/employee/active_bookings.html:268
+#: app/templates/employee/active_bookings.html:287
+#: app/templates/employee/history.html:79 app/templates/employee/stats.html:56
+#: app/templates/employee/stats.html:102
+msgid "SAR"
+msgstr "ر.س"
+
+#: app/templates/employee/active_bookings.html:161
+msgid "Payment Method"
+msgstr "وسيلة الدفع"
+
+#: app/templates/employee/active_bookings.html:165
+#: app/templates/employee/subscriptions.html:21
+msgid "Subscription"
+msgstr "اشتراك"
+
+#: app/templates/employee/active_bookings.html:167
+msgid "Card"
+msgstr "بطاقة"
+
+#: app/templates/employee/active_bookings.html:169
+msgid "Cash"
+msgstr "نقداً"
+
+#: app/templates/employee/active_bookings.html:177
+msgid "Change"
+msgstr "تغيير"
+
+#: app/templates/employee/active_bookings.html:186
+#: app/templates/employee/subscriptions.html:64
+msgid "Neighborhood"
+msgstr "الحي"
+
+#: app/templates/employee/active_bookings.html:195
+msgid "Additional Products"
+msgstr "منتجات إضافية"
+
+#: app/templates/employee/active_bookings.html:211
+msgid "Quantity"
+msgstr "الكمية"
+
+#: app/templates/employee/active_bookings.html:240
+#: app/templates/employee/history.html:81
+msgid "Free Wash"
+msgstr "غسلة مجانية"
+
+#: app/templates/employee/active_bookings.html:241
+msgid "Used Free Wash"
+msgstr "تم استخدام غسلة مجانية"
+
+#: app/templates/employee/active_bookings.html:245
+msgid "Free"
+msgstr "مجاناً"
+
+#: app/templates/employee/active_bookings.html:259
+msgid "Discount Code Applied"
+msgstr "كود خصم مطبق"
+
+#: app/templates/employee/active_bookings.html:271
+msgid "Discount"
+msgstr "خصم"
+
+#: app/templates/employee/active_bookings.html:284
+msgid "Total"
+msgstr "المجموع الكلي"
+
+#: app/templates/employee/active_bookings.html:289
+msgid "Service included in subscription"
+msgstr "الخدمة مشمولة بالاشتراك"
+
+#: app/templates/employee/active_bookings.html:291
+msgid "Free wash"
+msgstr "غسلة مجانية"
+
+#: app/templates/employee/active_bookings.html:322
+#: app/templates/employee/subscriptions.html:106
+msgid "Contact via WhatsApp"
+msgstr "تواصل واتساب"
+
+#: app/templates/employee/active_bookings.html:329
+msgid "Go to location (Google Maps)"
+msgstr "الذهاب للموقع (خرائط جوجل)"
+
+#: app/templates/employee/active_bookings.html:334
+msgid "Customer location is unavailable on the map"
+msgstr "موقع العميل غير متوفر على الخريطة"
+
+#: app/templates/employee/active_bookings.html:360
+msgid "Start Service"
+msgstr "بدء الخدمة"
+
+#: app/templates/employee/active_bookings.html:368
+msgid "Complete Service"
+msgstr "إنهاء الخدمة"
+
+#: app/templates/employee/active_bookings.html:380
+msgid "No active bookings"
+msgstr "لا يوجد حجوزات جارية"
+
+#: app/templates/employee/active_bookings.html:381
+msgid "All bookings completed"
+msgstr "جميع الحجوزات مكتملة!"
+
+#: app/templates/employee/history.html:6
+msgid "Booking History"
+msgstr "سجل الحجوزات"
+
+#: app/templates/employee/history.html:7 app/templates/employee/history.html:21
+msgid "Completed"
+msgstr "مكتمل"
+
+#: app/templates/employee/history.html:7 app/templates/employee/history.html:26
+msgid "Cancelled"
+msgstr "ملغي"
+
+#: app/templates/employee/history.html:37
+msgid "Number"
+msgstr "الرقم"
+
+#: app/templates/employee/history.html:38
+msgid "Date"
+msgstr "التاريخ"
+
+#: app/templates/employee/history.html:40
+msgid "Service"
+msgstr "الخدمة"
+
+#: app/templates/employee/history.html:41
+#: app/templates/employee/subscriptions.html:51
+msgid "Vehicle"
+msgstr "المركبة"
+
+#: app/templates/employee/history.html:42
+msgid "Price"
+msgstr "السعر"
+
+#: app/templates/employee/history.html:60
+msgid "Multiple"
+msgstr "متعدد"
+
+#: app/templates/employee/history.html:93
+#, python-format
+msgid "Showing %(count)s bookings (latest 100)"
+msgstr "عرض %(count)s حجز (آخر 100 حجز)"
+
+#: app/templates/employee/history.html:98
+#, python-format
+msgid "No %(status)s bookings"
+msgstr "لا توجد حجوزات %(status)s"
+
+#: app/templates/employee/history.html:98
+msgid "completed"
+msgstr "مكتملة"
+
+#: app/templates/employee/history.html:98
+msgid "cancelled"
+msgstr "ملغاة"
+
+#: app/templates/employee/history.html:99
+msgid "Start completing bookings!"
+msgstr "ابدأ بإكمال الحجوزات!"
+
+#: app/templates/employee/index.html:5
+#, python-format
+msgid "Welcome, %(username)s"
+msgstr "مرحباً، %(username)s"
+
+#: app/templates/employee/index.html:6
+msgid "Employee Dashboard"
+msgstr "لوحة تحكم الموظف"
+
+#: app/templates/employee/index.html:26
+msgid "History"
+msgstr "السجل"
+
+#: app/templates/employee/index.html:27
+msgid "Completed Today"
+msgstr "المكتملة اليوم"
+
+#: app/templates/employee/index.html:35
+msgid "Statistics"
+msgstr "الإحصائيات"
+
+#: app/templates/employee/index.html:36
+msgid "Performance and Reports"
+msgstr "أداء وتقارير"
+
+#: app/templates/employee/index.html:45
+msgid "Location status"
+msgstr "حالة الموقع"
+
+#: app/templates/employee/index.html:47
+msgid "Latitude"
+msgstr "خط العرض"
+
+#: app/templates/employee/index.html:48
+msgid "Longitude"
+msgstr "خط الطول"
+
+#: app/templates/employee/index.html:49
+msgid "Accuracy"
+msgstr "الدقة"
+
+#: app/templates/employee/index.html:50
+msgid "Status"
+msgstr "الحالة"
+
+#: app/templates/employee/index.html:50
+msgid "Waiting..."
+msgstr "بانتظار التحديث..."
+
+#: app/templates/employee/index.html:54
+msgid "Update location now"
+msgstr "تحديث الموقع الآن"
+
+#: app/templates/employee/index.html:71
+msgid "Updating..."
+msgstr "جارٍ التحديث..."
+
+#: app/templates/employee/index.html:73
+msgid "Geolocation is not supported"
+msgstr "تحديد الموقع غير مدعوم"
+
+#: app/templates/employee/index.html:83
+msgid "Sending..."
+msgstr "جارٍ الإرسال..."
+
+#: app/templates/employee/index.html:92
+msgid "Sent successfully"
+msgstr "تم الإرسال بنجاح"
+
+#: app/templates/employee/index.html:96
+msgid "Sending failed"
+msgstr "فشل الإرسال"
+
+#: app/templates/employee/index.html:100
+msgid "Error"
+msgstr "خطأ"
+
+#: app/templates/employee/stats.html:6
+msgid "Performance Statistics"
+msgstr "إحصائيات الأداء"
+
+#: app/templates/employee/stats.html:7
+msgid "A complete overview of your performance"
+msgstr "نظرة شاملة على أدائك"
+
+#: app/templates/employee/stats.html:21
+msgid "Total Bookings"
+msgstr "إجمالي الحجوزات"
+
+#: app/templates/employee/stats.html:32
+msgid "Completed Bookings"
+msgstr "الحجوزات المكتملة"
+
+#: app/templates/employee/stats.html:43
+msgid "Completion Rate"
+msgstr "معدل الإنجاز"
+
+#: app/templates/employee/stats.html:54
+msgid "Total Revenue"
+msgstr "إجمالي الإيرادات"
+
+#: app/templates/employee/stats.html:66
+msgid "Active Subscriptions"
+msgstr "الاشتراكات النشطة"
+
+#: app/templates/employee/stats.html:77
+msgid "Ongoing Bookings"
+msgstr "الحجوزات الجارية"
+
+#: app/templates/employee/stats.html:88
+msgid "Service Revenue"
+msgstr "إيرادات الخدمات"
+
+#: app/templates/employee/stats.html:90
+msgid "SAR (after discount)"
+msgstr "ريال (بعد الخصم)"
+
+#: app/templates/employee/stats.html:100
+msgid "Product Revenue"
+msgstr "إيرادات المنتجات"
+
+#: app/templates/employee/stats.html:111
+msgid "Monthly Performance"
+msgstr "الأداء الشهري"
+
+#: app/templates/employee/stats.html:114
+msgid "January"
+msgstr "يناير"
+
+#: app/templates/employee/stats.html:114
+msgid "February"
+msgstr "فبراير"
+
+#: app/templates/employee/stats.html:114
+msgid "March"
+msgstr "مارس"
+
+#: app/templates/employee/stats.html:114
+msgid "April"
+msgstr "أبريل"
+
+#: app/templates/employee/stats.html:114
+msgid "May"
+msgstr "مايو"
+
+#: app/templates/employee/stats.html:114
+msgid "June"
+msgstr "يونيو"
+
+#: app/templates/employee/stats.html:114
+msgid "July"
+msgstr "يوليو"
+
+#: app/templates/employee/stats.html:114
+msgid "August"
+msgstr "أغسطس"
+
+#: app/templates/employee/stats.html:114
+msgid "September"
+msgstr "سبتمبر"
+
+#: app/templates/employee/stats.html:114
+msgid "October"
+msgstr "أكتوبر"
+
+#: app/templates/employee/stats.html:115
+msgid "November"
+msgstr "نوفمبر"
+
+#: app/templates/employee/stats.html:115
+msgid "December"
+msgstr "ديسمبر"
+
+#: app/templates/employee/stats.html:124
+msgid "bookings"
+msgstr "حجوزات"
+
+#: app/templates/employee/stats.html:139
+msgid "View Ongoing Bookings"
+msgstr "عرض الحجوزات الجارية"
+
+#: app/templates/employee/stats.html:143
+msgid "View Full History"
+msgstr "عرض السجل الكامل"
 
 #: app/templates/employee/subscriptions.html:6
 msgid "Assigned Subscriptions"
@@ -19,14 +501,6 @@ msgstr "الاشتراكات المسندة"
 msgid "active subscription"
 msgstr "اشتراك نشط"
 
-#: app/templates/employee/subscriptions.html:11
-msgid "Back"
-msgstr "رجوع"
-
-#: app/templates/employee/subscriptions.html:21
-msgid "Subscription"
-msgstr "اشتراك"
-
 #: app/templates/employee/subscriptions.html:22
 msgid "Active"
 msgstr "نشط"
@@ -34,10 +508,6 @@ msgstr "نشط"
 #: app/templates/employee/subscriptions.html:29
 msgid "Washes Remaining"
 msgstr "غسلات متبقية"
-
-#: app/templates/employee/subscriptions.html:35
-msgid "Customer"
-msgstr "العميل"
 
 #: app/templates/employee/subscriptions.html:42
 msgid "Package"
@@ -51,17 +521,9 @@ msgstr "غسلات"
 msgid "days"
 msgstr "أيام"
 
-#: app/templates/employee/subscriptions.html:51
-msgid "Vehicle"
-msgstr "المركبة"
-
 #: app/templates/employee/subscriptions.html:58
 msgid "Duration"
 msgstr "المدة"
-
-#: app/templates/employee/subscriptions.html:64
-msgid "Neighborhood"
-msgstr "الحي"
 
 #: app/templates/employee/subscriptions.html:71
 msgid "Preferred Time"
@@ -83,119 +545,80 @@ msgstr "مساءً (4 م - 8 م)"
 msgid "Any time"
 msgstr "في أي وقت"
 
-#: app/templates/employee/subscriptions.html:102
-msgid "Contact via WhatsApp"
-msgstr "تواصل واتساب"
-
-#: app/templates/employee/subscriptions.html:109
+#: app/templates/employee/subscriptions.html:114
 msgid "Are you sure you want to complete this wash?"
 msgstr "هل أنت متأكد أنك تريد إكمال هذه الغسلة؟"
 
-#: app/templates/employee/subscriptions.html:111
+#: app/templates/employee/subscriptions.html:116
 msgid "Complete Wash"
 msgstr "إتمام غسلة"
 
-#: app/templates/employee/subscriptions.html:117
+#: app/templates/employee/subscriptions.html:122
 msgid "No washes remaining"
 msgstr "لا توجد غسلات متبقية"
 
-#: app/templates/employee/subscriptions.html:128
+#: app/templates/employee/subscriptions.html:133
 msgid "No assigned subscriptions"
 msgstr "لا يوجد اشتراكات مسندة"
 
-#: app/templates/employee/subscriptions.html:129
+#: app/templates/employee/subscriptions.html:134
 msgid "Subscriptions will be assigned to you automatically"
 msgstr "سيتم إسناد الاشتراكات لك تلقائياً"
 
-msgid "Welcome, %(username)s"
-msgstr "مرحباً، %(username)s"
+#: app/employee/routes.py:184 app/employee/routes.py:358
+msgid "You are not authorized to modify this booking"
+msgstr "غير مصرح لك بتعديل هذا الحجز"
 
-msgid "Employee Dashboard"
-msgstr "لوحة تحكم الموظف"
+#: app/employee/routes.py:213
+msgid "Service completed. The customer earned a free wash! 🎉"
+msgstr "تم إكمال الخدمة. حصل العميل على غسلة مجانية! 🎉"
 
-msgid "Active Bookings"
-msgstr "الحجوزات الجارية"
+#: app/employee/routes.py:215
+msgid "Service completed and a loyalty point was added to the customer"
+msgstr "تم إكمال الخدمة وإضافة نقطة ولاء للعميل"
 
-msgid "Subscriptions"
-msgstr "الاشتراكات"
+#: app/employee/routes.py:217
+msgid "Service completed without adding a loyalty point"
+msgstr "تم إكمال الخدمة بدون إضافة نقطة ولاء"
 
-msgid "History"
-msgstr "السجل"
+#: app/employee/routes.py:300
+msgid "Status updated successfully"
+msgstr "تم تحديث الحالة بنجاح"
 
-msgid "Completed Today"
-msgstr "المكتملة اليوم"
+#: app/employee/routes.py:363
+msgid "The payment method cannot be changed for subscription bookings"
+msgstr "لا يمكن تغيير وسيلة الدفع لحجوزات الاشتراكات"
 
-msgid "Statistics"
-msgstr "الإحصائيات"
+#: app/employee/routes.py:373
+msgid "Payment method changed successfully"
+msgstr "تم تغيير وسيلة الدفع بنجاح"
 
-msgid "Performance and Reports"
-msgstr "أداء وتقارير"
+#: app/employee/routes.py:392
+msgid "You are not authorized to modify this subscription"
+msgstr "غير مصرح لك بتعديل هذا الاشتراك"
 
-msgid "active booking"
-msgstr "حجز نشط"
+#: app/employee/routes.py:401
+msgid "One wash completed. The subscription has ended!"
+msgstr "تم إنهاء غسلة واحدة. الاشتراك انتهى!"
 
-msgid "Booking"
-msgstr "حجز"
+#: app/employee/routes.py:403
+#, python-format
+msgid "One wash completed. Remaining: %(count)s washes"
+msgstr "تم إنهاء غسلة واحدة. متبقي: %(count)s غسلة"
 
-msgid "Assigned"
-msgstr "تم التعيين"
+#: app/employee/routes.py:408
+msgid "There are no washes remaining in this subscription"
+msgstr "لا توجد غسلات متبقية في هذا الاشتراك"
 
-msgid "En Route"
-msgstr "في الطريق"
+#: app/employee/routes.py:546
+msgid "Missing location data"
+msgstr "بيانات الموقع ناقصة"
 
-msgid "Arrived"
-msgstr "وصل الموظف"
+#~ msgid "Subscriptions"
+#~ msgstr "الاشتراكات"
 
-msgid "In Progress"
-msgstr "جاري العمل"
+#~ msgid "Products"
+#~ msgstr "منتجات"
 
-msgid "Service"
-msgstr "الخدمة"
-
-msgid "Additional Products"
-msgstr "منتجات إضافية"
-
-msgid "Quantity"
-msgstr "الكمية"
-
-msgid "Free Wash"
-msgstr "غسلة مجانية"
-
-msgid "Used Free Wash"
-msgstr "تم استخدام غسلة مجانية"
-
-msgid "Free"
-msgstr "مجاناً"
-
-msgid "Discount Code Applied"
-msgstr "كود خصم مطبق"
-
-msgid "Discount"
-msgstr "خصم"
-
-msgid "Total"
-msgstr "المجموع الكلي"
-
-msgid "Start Service"
-msgstr "بدء الخدمة"
-
-msgid "Complete Service"
-msgstr "إنهاء الخدمة"
-
-msgid "No active bookings"
-msgstr "لا يوجد حجوزات جارية"
-
-msgid "All bookings completed"
-msgstr "جميع الحجوزات مكتملة!"
-
-msgid "SAR"
-msgstr "ر.س"
-
-msgid "Price"
-msgstr "السعر"
-
-msgid "Products"
-msgstr "منتجات"
-
-msgid "No vehicle selected"
-msgstr "لم يتم تحديد مركبة"
+#~ msgid "No vehicle selected"
+#~ msgstr "لم يتم تحديد مركبة"

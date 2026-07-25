@@ -1,15 +1,497 @@
+
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-11-28 04:16+0300\n"
+"POT-Creation-Date: 2026-07-25 23:02+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: ha\n"
+"Language-Team: ha <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.17.0\n"
+
+#: app/templates/base.html:83
+msgid "Log out"
+msgstr "Fita"
+
+#: app/templates/base.html:85
+msgid "Log in"
+msgstr "Shiga"
+
+#: app/templates/base.html:120
+msgid ""
+"Silver Clean is your ideal choice for mobile car washing in the Kingdom. "
+"We provide professional services with the highest standards of quality "
+"and cleanliness, reaching you wherever you are to save you time and "
+"effort."
+msgstr ""
+"Silver Clean shi ne zaɓinka mafi dacewa don wanke mota a duk inda kake "
+"a cikin Masarautar. Muna ba da ayyuka na ƙwararru bisa manyan ƙa'idodin "
+"inganci da tsafta, muna zuwa inda kake domin adana lokacinka da ƙoƙarinka."
+
+#: app/templates/base.html:153
+msgid "Important Links"
+msgstr "Muhimman Hanyoyin Haɗi"
+
+#: app/templates/base.html:159
+msgid "Terms and Conditions"
+msgstr "Sharuɗɗa da Ƙa'idoji"
+
+#: app/templates/base.html:174
+msgid "Contact Us"
+msgstr "Tuntuɓe Mu"
+
+#: app/templates/base.html:184
+msgid "WhatsApp"
+msgstr "WhatsApp"
+
+#: app/templates/base.html:195
+msgid "Email"
+msgstr "Imel"
+
+#: app/templates/base.html:204
+msgid "Tax Number"
+msgstr "Lambar Haraji"
+
+#: app/templates/base.html:214
+msgid "All rights reserved."
+msgstr "An kiyaye duk haƙƙoƙi."
+
+#: app/templates/base.html:226
+msgid "Add the app to your home screen"
+msgstr "Ƙara manhajar zuwa allon farko"
+
+#: app/templates/base.html:227
+msgid "For a better and faster experience"
+msgstr "Domin amfani mafi kyau da sauri"
+
+#: app/templates/base.html:233
+msgid "Install"
+msgstr "Sanya"
+
+#: app/templates/base.html:255
+msgid "Enable Notifications"
+msgstr "Kunna Sanarwa"
+
+#: app/templates/employee/active_bookings.html:6
+#: app/templates/employee/index.html:16
+msgid "Active Bookings"
+msgstr "Ayyukan Yanzu"
+
+#: app/templates/employee/active_bookings.html:7
+#: app/templates/employee/index.html:17
+msgid "active booking"
+msgstr "aiki mai gudana"
+
+#: app/templates/employee/active_bookings.html:11
+#: app/templates/employee/history.html:11 app/templates/employee/stats.html:11
+#: app/templates/employee/subscriptions.html:11
+msgid "Back"
+msgstr "Baya"
+
+#: app/templates/employee/active_bookings.html:20
+msgid "Select Date"
+msgstr "Zaɓi Kwanan Wata"
+
+#: app/templates/employee/active_bookings.html:26
+msgid "Filter"
+msgstr "Tace"
+
+#: app/templates/employee/active_bookings.html:33
+msgid "No work schedule found for this day. Showing all bookings."
+msgstr "Ba a sami jadawalin aiki na wannan rana ba. Ana nuna duk ajiyoyin."
+
+#: app/templates/employee/active_bookings.html:47
+msgid "Bookings after midnight"
+msgstr "Ajiyoyin bayan tsakar dare"
+
+#: app/templates/employee/active_bookings.html:55
+msgid "Booking"
+msgstr "Yin rajista"
+
+#: app/templates/employee/active_bookings.html:62
+msgid "Assigned"
+msgstr "An sanya"
+
+#: app/templates/employee/active_bookings.html:63
+#: app/templates/employee/active_bookings.html:343
+msgid "En Route"
+msgstr "Akan hanya"
+
+#: app/templates/employee/active_bookings.html:64
+#: app/templates/employee/active_bookings.html:351
+msgid "Arrived"
+msgstr "Ya isa"
+
+#: app/templates/employee/active_bookings.html:65
+msgid "In Progress"
+msgstr "Ana kan aiki"
+
+#: app/templates/employee/active_bookings.html:77
+#: app/templates/employee/history.html:39
+#: app/templates/employee/subscriptions.html:35
+msgid "Customer"
+msgstr "Abokin ciniki"
+
+#: app/templates/employee/active_bookings.html:83
+msgid "Vehicles & Services"
+msgstr "Motoci da Ayyuka"
+
+#: app/templates/employee/active_bookings.html:111
+#: app/templates/employee/active_bookings.html:113
+#: app/templates/employee/active_bookings.html:147
+#: app/templates/employee/active_bookings.html:149
+#: app/templates/employee/active_bookings.html:220
+#: app/templates/employee/active_bookings.html:268
+#: app/templates/employee/active_bookings.html:287
+#: app/templates/employee/history.html:79 app/templates/employee/stats.html:56
+#: app/templates/employee/stats.html:102
+msgid "SAR"
+msgstr "SAR"
+
+#: app/templates/employee/active_bookings.html:161
+msgid "Payment Method"
+msgstr "Hanyar Biya"
+
+#: app/templates/employee/active_bookings.html:165
+#: app/templates/employee/subscriptions.html:21
+msgid "Subscription"
+msgstr "Biyan kuɗi"
+
+#: app/templates/employee/active_bookings.html:167
+msgid "Card"
+msgstr "Kati"
+
+#: app/templates/employee/active_bookings.html:169
+msgid "Cash"
+msgstr "Tsabar Kuɗi"
+
+#: app/templates/employee/active_bookings.html:177
+msgid "Change"
+msgstr "Canja"
+
+#: app/templates/employee/active_bookings.html:186
+#: app/templates/employee/subscriptions.html:64
+msgid "Neighborhood"
+msgstr "Unguwa"
+
+#: app/templates/employee/active_bookings.html:195
+msgid "Additional Products"
+msgstr "Ƙarin Kayayyaki"
+
+#: app/templates/employee/active_bookings.html:211
+msgid "Quantity"
+msgstr "Yawa"
+
+#: app/templates/employee/active_bookings.html:240
+#: app/templates/employee/history.html:81
+msgid "Free Wash"
+msgstr "Wanki Kyauta"
+
+#: app/templates/employee/active_bookings.html:241
+msgid "Used Free Wash"
+msgstr "An yi amfani da Wanki Kyauta"
+
+#: app/templates/employee/active_bookings.html:245
+msgid "Free"
+msgstr "Kyauta"
+
+#: app/templates/employee/active_bookings.html:259
+msgid "Discount Code Applied"
+msgstr "An yi amfani da Lambar Rangwame"
+
+#: app/templates/employee/active_bookings.html:271
+msgid "Discount"
+msgstr "Rangwame"
+
+#: app/templates/employee/active_bookings.html:284
+msgid "Total"
+msgstr "Jimla"
+
+#: app/templates/employee/active_bookings.html:289
+msgid "Service included in subscription"
+msgstr "Aikin yana cikin biyan kuɗin rajista"
+
+#: app/templates/employee/active_bookings.html:291
+msgid "Free wash"
+msgstr "Wanki kyauta"
+
+#: app/templates/employee/active_bookings.html:322
+#: app/templates/employee/subscriptions.html:106
+msgid "Contact via WhatsApp"
+msgstr "Tuntube mu ta WhatsApp"
+
+#: app/templates/employee/active_bookings.html:329
+msgid "Go to location (Google Maps)"
+msgstr "Je zuwa wurin (Google Maps)"
+
+#: app/templates/employee/active_bookings.html:334
+msgid "Customer location is unavailable on the map"
+msgstr "Ba a samun wurin abokin ciniki a taswira"
+
+#: app/templates/employee/active_bookings.html:360
+msgid "Start Service"
+msgstr "Fara Sabis"
+
+#: app/templates/employee/active_bookings.html:368
+msgid "Complete Service"
+msgstr "Kammala Sabis"
+
+#: app/templates/employee/active_bookings.html:380
+msgid "No active bookings"
+msgstr "Babu ayyuka masu gudana"
+
+#: app/templates/employee/active_bookings.html:381
+msgid "All bookings completed"
+msgstr "Duk ayyukan an kammala su!"
+
+#: app/templates/employee/history.html:6
+msgid "Booking History"
+msgstr "Tarihin Ajiyoyi"
+
+#: app/templates/employee/history.html:7 app/templates/employee/history.html:21
+msgid "Completed"
+msgstr "An Kammala"
+
+#: app/templates/employee/history.html:7 app/templates/employee/history.html:26
+msgid "Cancelled"
+msgstr "An Soke"
+
+#: app/templates/employee/history.html:37
+msgid "Number"
+msgstr "Lamba"
+
+#: app/templates/employee/history.html:38
+msgid "Date"
+msgstr "Kwanan Wata"
+
+#: app/templates/employee/history.html:40
+msgid "Service"
+msgstr "Sabis"
+
+#: app/templates/employee/history.html:41
+#: app/templates/employee/subscriptions.html:51
+msgid "Vehicle"
+msgstr "Mota"
+
+#: app/templates/employee/history.html:42
+msgid "Price"
+msgstr "Farashi"
+
+#: app/templates/employee/history.html:60
+msgid "Multiple"
+msgstr "Fiye da ɗaya"
+
+#: app/templates/employee/history.html:93
+#, python-format
+msgid "Showing %(count)s bookings (latest 100)"
+msgstr "Ana nuna ajiya %(count)s (100 na baya-bayan nan)"
+
+#: app/templates/employee/history.html:98
+#, python-format
+msgid "No %(status)s bookings"
+msgstr "Babu ajiyoyin da aka %(status)s"
+
+#: app/templates/employee/history.html:98
+msgid "completed"
+msgstr "kammala"
+
+#: app/templates/employee/history.html:98
+msgid "cancelled"
+msgstr "soke"
+
+#: app/templates/employee/history.html:99
+msgid "Start completing bookings!"
+msgstr "Fara kammala ajiyoyi!"
+
+#: app/templates/employee/index.html:5
+#, python-format
+msgid "Welcome, %(username)s"
+msgstr "Barka da zuwa, %(username)s"
+
+#: app/templates/employee/index.html:6
+msgid "Employee Dashboard"
+msgstr "Dashboard na Ma'aikata"
+
+#: app/templates/employee/index.html:26
+msgid "History"
+msgstr "Tarihi"
+
+#: app/templates/employee/index.html:27
+msgid "Completed Today"
+msgstr "An Kammala Yau"
+
+#: app/templates/employee/index.html:35
+msgid "Statistics"
+msgstr "Alkaluma"
+
+#: app/templates/employee/index.html:36
+msgid "Performance and Reports"
+msgstr "Ayyuka da Rahotanni"
+
+#: app/templates/employee/index.html:45
+msgid "Location status"
+msgstr "Matsayin Wuri"
+
+#: app/templates/employee/index.html:47
+msgid "Latitude"
+msgstr "Latitude"
+
+#: app/templates/employee/index.html:48
+msgid "Longitude"
+msgstr "Longitude"
+
+#: app/templates/employee/index.html:49
+msgid "Accuracy"
+msgstr "Daidaito"
+
+#: app/templates/employee/index.html:50
+msgid "Status"
+msgstr "Matsayi"
+
+#: app/templates/employee/index.html:50
+msgid "Waiting..."
+msgstr "Ana jira..."
+
+#: app/templates/employee/index.html:54
+msgid "Update location now"
+msgstr "Sabunta Wuri Yanzu"
+
+#: app/templates/employee/index.html:71
+msgid "Updating..."
+msgstr "Ana sabuntawa..."
+
+#: app/templates/employee/index.html:73
+msgid "Geolocation is not supported"
+msgstr "Na'urar ba ta goyi bayan gano wuri ba"
+
+#: app/templates/employee/index.html:83
+msgid "Sending..."
+msgstr "Ana aikawa..."
+
+#: app/templates/employee/index.html:92
+msgid "Sent successfully"
+msgstr "An aika cikin nasara"
+
+#: app/templates/employee/index.html:96
+msgid "Sending failed"
+msgstr "Aikawa ta gaza"
+
+#: app/templates/employee/index.html:100
+msgid "Error"
+msgstr "Kuskure"
+
+#: app/templates/employee/stats.html:6
+msgid "Performance Statistics"
+msgstr "Ƙididdigar Ayyuka"
+
+#: app/templates/employee/stats.html:7
+msgid "A complete overview of your performance"
+msgstr "Cikakken bayani game da ayyukanka"
+
+#: app/templates/employee/stats.html:21
+msgid "Total Bookings"
+msgstr "Jimillar Ajiyoyi"
+
+#: app/templates/employee/stats.html:32
+msgid "Completed Bookings"
+msgstr "Ajiyoyin da Aka Kammala"
+
+#: app/templates/employee/stats.html:43
+msgid "Completion Rate"
+msgstr "Adadin Kammalawa"
+
+#: app/templates/employee/stats.html:54
+msgid "Total Revenue"
+msgstr "Jimillar Kuɗin Shiga"
+
+#: app/templates/employee/stats.html:66
+msgid "Active Subscriptions"
+msgstr "Biyan Kuɗin Rajista Masu Aiki"
+
+#: app/templates/employee/stats.html:77
+msgid "Ongoing Bookings"
+msgstr "Ajiyoyi Masu Gudana"
+
+#: app/templates/employee/stats.html:88
+msgid "Service Revenue"
+msgstr "Kuɗin Shigar Ayyuka"
+
+#: app/templates/employee/stats.html:90
+msgid "SAR (after discount)"
+msgstr "SAR (bayan rangwame)"
+
+#: app/templates/employee/stats.html:100
+msgid "Product Revenue"
+msgstr "Kuɗin Shigar Kayayyaki"
+
+#: app/templates/employee/stats.html:111
+msgid "Monthly Performance"
+msgstr "Ayyukan Wata-wata"
+
+#: app/templates/employee/stats.html:114
+msgid "January"
+msgstr "Janairu"
+
+#: app/templates/employee/stats.html:114
+msgid "February"
+msgstr "Fabrairu"
+
+#: app/templates/employee/stats.html:114
+msgid "March"
+msgstr "Maris"
+
+#: app/templates/employee/stats.html:114
+msgid "April"
+msgstr "Afrilu"
+
+#: app/templates/employee/stats.html:114
+msgid "May"
+msgstr "Mayu"
+
+#: app/templates/employee/stats.html:114
+msgid "June"
+msgstr "Yuni"
+
+#: app/templates/employee/stats.html:114
+msgid "July"
+msgstr "Yuli"
+
+#: app/templates/employee/stats.html:114
+msgid "August"
+msgstr "Agusta"
+
+#: app/templates/employee/stats.html:114
+msgid "September"
+msgstr "Satumba"
+
+#: app/templates/employee/stats.html:114
+msgid "October"
+msgstr "Oktoba"
+
+#: app/templates/employee/stats.html:115
+msgid "November"
+msgstr "Nuwamba"
+
+#: app/templates/employee/stats.html:115
+msgid "December"
+msgstr "Disamba"
+
+#: app/templates/employee/stats.html:124
+msgid "bookings"
+msgstr "ajiyoyi"
+
+#: app/templates/employee/stats.html:139
+msgid "View Ongoing Bookings"
+msgstr "Duba Ajiyoyi Masu Gudana"
+
+#: app/templates/employee/stats.html:143
+msgid "View Full History"
+msgstr "Duba Cikakken Tarihi"
 
 #: app/templates/employee/subscriptions.html:6
 msgid "Assigned Subscriptions"
@@ -19,14 +501,6 @@ msgstr "Biyan Kuɗi da aka Sanya"
 msgid "active subscription"
 msgstr "biyan kuɗi mai aiki"
 
-#: app/templates/employee/subscriptions.html:11
-msgid "Back"
-msgstr "Baya"
-
-#: app/templates/employee/subscriptions.html:21
-msgid "Subscription"
-msgstr "Biyan kuɗi"
-
 #: app/templates/employee/subscriptions.html:22
 msgid "Active"
 msgstr "Mai aiki"
@@ -34,10 +508,6 @@ msgstr "Mai aiki"
 #: app/templates/employee/subscriptions.html:29
 msgid "Washes Remaining"
 msgstr "Sauran wanki"
-
-#: app/templates/employee/subscriptions.html:35
-msgid "Customer"
-msgstr "Abokin ciniki"
 
 #: app/templates/employee/subscriptions.html:42
 msgid "Package"
@@ -51,17 +521,9 @@ msgstr "wanki"
 msgid "days"
 msgstr "kwanaki"
 
-#: app/templates/employee/subscriptions.html:51
-msgid "Vehicle"
-msgstr "Mota"
-
 #: app/templates/employee/subscriptions.html:58
 msgid "Duration"
 msgstr "Tsawon lokaci"
-
-#: app/templates/employee/subscriptions.html:64
-msgid "Neighborhood"
-msgstr "Unguwa"
 
 #: app/templates/employee/subscriptions.html:71
 msgid "Preferred Time"
@@ -83,119 +545,80 @@ msgstr "Yamma (4 na yamma - 8 na dare)"
 msgid "Any time"
 msgstr "Kowane lokaci"
 
-#: app/templates/employee/subscriptions.html:102
-msgid "Contact via WhatsApp"
-msgstr "Tuntube mu ta WhatsApp"
-
-#: app/templates/employee/subscriptions.html:109
+#: app/templates/employee/subscriptions.html:114
 msgid "Are you sure you want to complete this wash?"
 msgstr "Shin kun tabbata kuna son kammala wannan wanki?"
 
-#: app/templates/employee/subscriptions.html:111
+#: app/templates/employee/subscriptions.html:116
 msgid "Complete Wash"
 msgstr "Kammala Wanki"
 
-#: app/templates/employee/subscriptions.html:117
+#: app/templates/employee/subscriptions.html:122
 msgid "No washes remaining"
 msgstr "Babu sauran wanki"
 
-#: app/templates/employee/subscriptions.html:128
+#: app/templates/employee/subscriptions.html:133
 msgid "No assigned subscriptions"
 msgstr "Babu biyan kuɗi da aka sanya"
 
-#: app/templates/employee/subscriptions.html:129
+#: app/templates/employee/subscriptions.html:134
 msgid "Subscriptions will be assigned to you automatically"
 msgstr "Za a sanya muku biyan kuɗi ta atomatik"
 
-msgid "Welcome, %(username)s"
-msgstr "Barka da zuwa, %(username)s"
+#: app/employee/routes.py:184 app/employee/routes.py:358
+msgid "You are not authorized to modify this booking"
+msgstr "Ba ka da izinin gyara wannan ajiyar"
 
-msgid "Employee Dashboard"
-msgstr "Dashboard na Ma'aikata"
+#: app/employee/routes.py:213
+msgid "Service completed. The customer earned a free wash! 🎉"
+msgstr "An kammala aikin. Abokin ciniki ya sami wanki kyauta! 🎉"
 
-msgid "Active Bookings"
-msgstr "Ayyukan Yanzu"
+#: app/employee/routes.py:215
+msgid "Service completed and a loyalty point was added to the customer"
+msgstr "An kammala aikin kuma an ƙara wa abokin ciniki makin aminci"
 
-msgid "Subscriptions"
-msgstr "Biyan Kuɗi"
+#: app/employee/routes.py:217
+msgid "Service completed without adding a loyalty point"
+msgstr "An kammala aikin ba tare da ƙara makin aminci ba"
 
-msgid "History"
-msgstr "Tarihi"
+#: app/employee/routes.py:300
+msgid "Status updated successfully"
+msgstr "An sabunta matsayi cikin nasara"
 
-msgid "Completed Today"
-msgstr "An Kammala Yau"
+#: app/employee/routes.py:363
+msgid "The payment method cannot be changed for subscription bookings"
+msgstr "Ba za a iya canja hanyar biyan ajiyoyin rajista ba"
 
-msgid "Statistics"
-msgstr "Alkaluma"
+#: app/employee/routes.py:373
+msgid "Payment method changed successfully"
+msgstr "An canja hanyar biya cikin nasara"
 
-msgid "Performance and Reports"
-msgstr "Ayyuka da Rahotanni"
+#: app/employee/routes.py:392
+msgid "You are not authorized to modify this subscription"
+msgstr "Ba ka da izinin gyara wannan rajistar"
 
-msgid "active booking"
-msgstr "aiki mai gudana"
+#: app/employee/routes.py:401
+msgid "One wash completed. The subscription has ended!"
+msgstr "An kammala wanki ɗaya. Rajistar ta ƙare!"
 
-msgid "Booking"
-msgstr "Yin rajista"
+#: app/employee/routes.py:403
+#, python-format
+msgid "One wash completed. Remaining: %(count)s washes"
+msgstr "An kammala wanki ɗaya. Sauran wanki: %(count)s"
 
-msgid "Assigned"
-msgstr "An sanya"
+#: app/employee/routes.py:408
+msgid "There are no washes remaining in this subscription"
+msgstr "Babu sauran wanki a wannan rajistar"
 
-msgid "En Route"
-msgstr "Akan hanya"
+#: app/employee/routes.py:546
+msgid "Missing location data"
+msgstr "Bayanan wurin ba su cika ba"
 
-msgid "Arrived"
-msgstr "Ya isa"
+#~ msgid "Subscriptions"
+#~ msgstr "Biyan Kuɗi"
 
-msgid "In Progress"
-msgstr "Ana kan aiki"
+#~ msgid "Products"
+#~ msgstr "Kayayyaki"
 
-msgid "Service"
-msgstr "Sabis"
-
-msgid "Additional Products"
-msgstr "Ƙarin Kayayyaki"
-
-msgid "Quantity"
-msgstr "Yawa"
-
-msgid "Free Wash"
-msgstr "Wanki Kyauta"
-
-msgid "Used Free Wash"
-msgstr "An yi amfani da Wanki Kyauta"
-
-msgid "Free"
-msgstr "Kyauta"
-
-msgid "Discount Code Applied"
-msgstr "An yi amfani da Lambar Rangwame"
-
-msgid "Discount"
-msgstr "Rangwame"
-
-msgid "Total"
-msgstr "Jimla"
-
-msgid "Start Service"
-msgstr "Fara Sabis"
-
-msgid "Complete Service"
-msgstr "Kammala Sabis"
-
-msgid "No active bookings"
-msgstr "Babu ayyuka masu gudana"
-
-msgid "All bookings completed"
-msgstr "Duk ayyukan an kammala su!"
-
-msgid "SAR"
-msgstr "SAR"
-
-msgid "Price"
-msgstr "Farashi"
-
-msgid "Products"
-msgstr "Kayayyaki"
-
-msgid "No vehicle selected"
-msgstr "Ba a zaɓi mota ba"
+#~ msgid "No vehicle selected"
+#~ msgstr "Ba a zaɓi mota ba"

@@ -11,6 +11,7 @@ from urllib.parse import quote
 import os
 from pywebpush import webpush, WebPushException
 import json
+from app.utils.employee_breaks import employee_on_break_at, employee_break_overlaps
 
 @bp.before_request
 def before_request():
@@ -50,17 +51,7 @@ def _scoped_employee_query(include_break=False):
     return query
 
 def _is_employee_on_break(employee, target_date=None, target_time=None):
-    if not employee or not employee.is_on_break:
-        return False
-    if employee.break_type == 'date':
-        return bool(target_date and employee.break_date == target_date)
-    if employee.break_type == 'time':
-        if not target_time or not employee.break_start_time or not employee.break_end_time:
-            return False
-        if employee.break_start_time <= employee.break_end_time:
-            return employee.break_start_time <= target_time <= employee.break_end_time
-        return target_time >= employee.break_start_time or target_time <= employee.break_end_time
-    return True
+    return employee_on_break_at(employee, target_date, target_time)
 
 def _employee_has_scope_access(employee):
     neighborhood_ids = _supervisor_neighborhood_ids()
@@ -3405,7 +3396,7 @@ def get_available_slots(employee_id, date):
                     slot_blocked = True
                     break
             
-            if _is_employee_on_break(employee, date_obj, current.time()):
+            if employee_break_overlaps(employee, current, slot_end):
                 slot_blocked = True
 
             if not slot_blocked:
@@ -3500,7 +3491,7 @@ def get_area_available_slots(neighborhood_id, date):
                         slot_blocked = True
                         break
                 
-                if _is_employee_on_break(emp, date_obj, current.time()):
+                if employee_break_overlaps(emp, current, slot_end):
                     slot_blocked = True
 
                 if not slot_blocked:
@@ -3581,7 +3572,10 @@ def reassign_booking(id):
         return redirect(url_for('admin.bookings'))
 
     new_employee = User.query.get(int(new_employee_id))
-    if not new_employee or new_employee.role != 'employee' or new_employee.is_on_break:
+    booking_start = datetime.combine(booking.date, booking.time)
+    booking_end = booking_start + timedelta(minutes=booking.total_duration)
+    if (not new_employee or new_employee.role != 'employee'
+            or employee_break_overlaps(new_employee, booking_start, booking_end)):
         flash('لا يمكن إسناد الحجز لموظف في وضع الراحة')
         return redirect(url_for('admin.bookings'))
     

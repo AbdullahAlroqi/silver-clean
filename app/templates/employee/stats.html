@@ -3,12 +3,12 @@
 {% block content %}
 <div class="flex justify-between items-center mb-6">
     <div>
-        <h2 class="text-2xl font-bold text-white">إحصائيات الأداء</h2>
-        <p class="text-gray-400">نظرة شاملة على أدائك</p>
+        <h2 class="text-2xl font-bold text-white">{{ _('Performance Statistics') }}</h2>
+        <p class="text-gray-400">{{ _('A complete overview of your performance') }}</p>
     </div>
     <a href="{{ url_for('employee.index') }}"
         class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition">
-        <i class="fas fa-arrow-right ml-2"></i> رجوع
+        <i class="fas fa-arrow-right ml-2"></i> {{ _('Back') }}
     </a>
 </div>
 
@@ -18,7 +18,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">إجمالي الحجوزات</p>
+                <p class="text-gray-400 text-sm">{{ _('Total Bookings') }}</p>
                 <p class="text-3xl font-bold text-white mt-2">{{ total_bookings }}</p>
             </div>
             <i class="fas fa-calendar text-4xl text-blue-500"></i>
@@ -29,7 +29,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">الحجوزات المكتملة</p>
+                <p class="text-gray-400 text-sm">{{ _('Completed Bookings') }}</p>
                 <p class="text-3xl font-bold text-green-500 mt-2">{{ completed_bookings }}</p>
             </div>
             <i class="fas fa-check-circle text-4xl text-green-500"></i>
@@ -40,7 +40,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">معدل الإنجاز</p>
+                <p class="text-gray-400 text-sm">{{ _('Completion Rate') }}</p>
                 <p class="text-3xl font-bold text-accent mt-2">{{ "%.0f"|format(completion_rate) }}%</p>
             </div>
             <i class="fas fa-chart-line text-4xl text-accent"></i>
@@ -51,9 +51,9 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">إجمالي الإيرادات</p>
+                <p class="text-gray-400 text-sm">{{ _('Total Revenue') }}</p>
                 <p class="text-3xl font-bold text-yellow-500 mt-2">{{ "%.0f"|format(total_earnings) }}</p>
-                <p class="text-xs text-gray-400">ريال</p>
+                <p class="text-xs text-gray-400">{{ _('SAR') }}</p>
             </div>
             <i class="fas fa-dollar-sign text-4xl text-yellow-500"></i>
         </div>
@@ -63,7 +63,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">الاشتراكات النشطة</p>
+                <p class="text-gray-400 text-sm">{{ _('Active Subscriptions') }}</p>
                 <p class="text-3xl font-bold text-purple-500 mt-2">{{ active_subscriptions }}</p>
             </div>
             <i class="fas fa-box text-4xl text-purple-500"></i>
@@ -74,7 +74,7 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">الحجوزات الجارية</p>
+                <p class="text-gray-400 text-sm">{{ _('Ongoing Bookings') }}</p>
                 <p class="text-3xl font-bold text-orange-500 mt-2">{{ pending_bookings }}</p>
             </div>
             <i class="fas fa-hourglass-half text-4xl text-orange-500"></i>
@@ -85,9 +85,9 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">إيرادات الخدمات</p>
+                <p class="text-gray-400 text-sm">{{ _('Service Revenue') }}</p>
                 <p class="text-3xl font-bold text-cyan-500 mt-2">{{ "%.0f"|format(total_services_revenue) }}</p>
-                <p class="text-xs text-gray-400">ريال (بعد الخصم)</p>
+                <p class="text-xs text-gray-400">{{ _('SAR (after discount)') }}</p>
             </div>
             <i class="fas fa-spray-can text-4xl text-cyan-500"></i>
         </div>
@@ -97,9 +97,9 @@
     <div class="bg-primary p-6 rounded-lg shadow-lg">
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-gray-400 text-sm">إيرادات المنتجات</p>
+                <p class="text-gray-400 text-sm">{{ _('Product Revenue') }}</p>
                 <p class="text-3xl font-bold text-teal-500 mt-2">{{ "%.0f"|format(total_products_revenue) }}</p>
-                <p class="text-xs text-gray-400">ريال</p>
+                <p class="text-xs text-gray-400">{{ _('SAR') }}</p>
             </div>
             <i class="fas fa-coins text-4xl text-teal-500"></i>
         </div>
@@ -108,11 +108,11 @@
 
 <!-- Monthly Performance Chart -->
 <div class="bg-primary p-6 rounded-lg shadow-lg">
-    <h3 class="text-xl font-bold text-white mb-6">الأداء الشهري - {{ current_year }}</h3>
+    <h3 class="text-xl font-bold text-white mb-6">{{ _('Monthly Performance') }} - {{ current_year }}</h3>
 
     <div class="space-y-3">
-        {% set months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر',
-        'نوفمبر', 'ديسمبر'] %}
+        {% set months = [_('January'), _('February'), _('March'), _('April'), _('May'), _('June'), _('July'), _('August'), _('September'), _('October'),
+        _('November'), _('December')] %}
         {% for i in range(1, 13) %}
         {% set count = monthly_data.get(i, 0) %}
         {% set max_count = monthly_data.values()|max if monthly_data else 1 %}
@@ -121,7 +121,7 @@
         <div>
             <div class="flex justify-between text-sm mb-1">
                 <span class="text-gray-400">{{ months[i-1] }}</span>
-                <span class="text-white font-bold">{{ count }} حجز</span>
+                <span class="text-white font-bold">{{ count }} {{ _('bookings') }}</span>
             </div>
             <div class="w-full bg-gray-700 rounded-full h-4">
                 <div class="bg-accent h-4 rounded-full transition-all duration-500" style="width: {{ percentage }}%">
@@ -136,11 +136,11 @@
 <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
     <a href="{{ url_for('employee.active_bookings') }}"
         class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-lg text-center transition">
-        <i class="fas fa-tasks ml-2"></i> عرض الحجوزات الجارية
+        <i class="fas fa-tasks ml-2"></i> {{ _('View Ongoing Bookings') }}
     </a>
     <a href="{{ url_for('employee.history') }}"
         class="bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-6 rounded-lg text-center transition">
-        <i class="fas fa-history ml-2"></i> عرض السجل الكامل
+        <i class="fas fa-history ml-2"></i> {{ _('View Full History') }}
     </a>
 </div>
 {% endblock %}
