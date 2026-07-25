@@ -2882,6 +2882,11 @@ def create_booking():
     time_str = request.form.get('time')
     discount = float(request.form.get('discount', 0))
 
+    customer = User.query.filter_by(id=customer_id, role='customer').first()
+    if not customer:
+        flash('اختر عميلاً صحيحاً من نتائج البحث', 'error')
+        return redirect(url_for('admin.bookings'))
+
     booking_date_obj = datetime.strptime(date, '%Y-%m-%d').date()
     hour, minute = map(int, time_str.split(':'))
     time_obj = dt_time(hour, minute)
@@ -2933,6 +2938,9 @@ def create_booking():
     if vehicle_id and neighborhood_id:
         from app.models import Vehicle, CityServicePrice, Neighborhood
         vehicle = Vehicle.query.get(int(vehicle_id))
+        if not vehicle or vehicle.user_id != customer.id:
+            flash('السيارة المحددة لا تخص العميل المختار', 'error')
+            return redirect(url_for('admin.bookings'))
         neighborhood_obj = Neighborhood.query.get(int(neighborhood_id))
         
         if vehicle and neighborhood_obj:
@@ -3066,6 +3074,38 @@ def edit_booking(id):
     if not _booking_has_scope_access(booking):
         flash('\u0644\u0627 \u062a\u0645\u0644\u0643 \u0635\u0644\u0627\u062d\u064a\u0629 \u062a\u0639\u062f\u064a\u0644 \u0647\u0630\u0627 \u0627\u0644\u062d\u062c\u0632', 'error')
         return redirect(request.referrer or url_for('admin.bookings'))
+
+    new_date = request.form.get('date')
+    new_time = request.form.get('time')
+    current_date = booking.date.strftime('%Y-%m-%d')
+    current_time = booking.time.strftime('%H:%M')
+    appointment_changed = (
+        (new_date is not None or new_time is not None)
+        and (new_date != current_date or new_time != current_time)
+    )
+    if appointment_changed:
+        if not booking.employee_id:
+            flash('يجب إسناد الحجز إلى موظف قبل تغيير الموعد', 'error')
+            return redirect(request.referrer or url_for('admin.bookings'))
+        try:
+            new_date_obj = datetime.strptime(new_date, '%Y-%m-%d').date()
+            new_time_obj = datetime.strptime(new_time, '%H:%M').time()
+        except (TypeError, ValueError):
+            flash('التاريخ أو الوقت المحدد غير صحيح', 'error')
+            return redirect(request.referrer or url_for('admin.bookings'))
+
+        available_slots = _employee_available_slots(
+            booking.employee_id,
+            new_date_obj,
+            booking.service_id,
+            exclude_booking_id=booking.id
+        )
+        if new_time_obj.strftime('%H:%M') not in available_slots:
+            flash('الوقت المحدد غير متاح. اختر وقتاً من قائمة الأوقات المتاحة', 'error')
+            return redirect(request.referrer or url_for('admin.bookings'))
+
+        booking.date = new_date_obj
+        booking.time = new_time_obj
 
     has_item_fields = any(
         key.startswith('item_service_price_')
@@ -3314,98 +3354,112 @@ def get_customer_vehicles(customer_id):
         })
     return jsonify(v_list)
 
-@bp.route('/api/available-slots/<int:employee_id>/<date>')
-def get_available_slots(employee_id, date):
-    from datetime import datetime, timedelta, time as dt_time
+@bp.route('/api/customers/search')
+def search_customers():
+    query_text = request.args.get('q', '').strip()
+    if len(query_text) < 2:
+        return jsonify([])
+
+    pattern = f'%{query_text}%'
+    customers = User.query.filter(
+        User.role == 'customer',
+        or_(
+            User.username.ilike(pattern),
+            User.phone.ilike(pattern),
+            User.email.ilike(pattern)
+        )
+    ).order_by(User.username.asc()).limit(20).all()
+
+    return jsonify([{
+        'id': customer.id,
+        'name': customer.username,
+        'phone': customer.phone or '',
+        'email': customer.email or ''
+    } for customer in customers])
+
+def _employee_available_slots(employee_id, date_obj, service_id=None, exclude_booking_id=None):
+    """Return valid 30-minute start times for an employee."""
+    from datetime import timedelta
     from app.utils.timezone import get_saudi_time
 
     employee = User.query.get(employee_id)
-    date_obj = datetime.strptime(date, '%Y-%m-%d').date()
     if not employee or employee.role != 'employee' or _is_employee_on_break(employee, date_obj):
-        return jsonify([])
-    
-    # Get service duration if provided
-    service_id = request.args.get('service_id')
-    booking_duration = 90 # Default
+        return []
+
+    booking_duration = 90
     if service_id:
-        from app.models import Service
         service = Service.query.get(service_id)
         if service and service.duration:
             booking_duration = service.duration
 
-    day_of_week = date_obj.weekday()
-    
     schedules = EmployeeSchedule.query.filter_by(
-        employee_id=employee_id, 
-        day_of_week=day_of_week, 
+        employee_id=employee_id,
+        day_of_week=date_obj.weekday(),
         is_active=True
     ).all()
-    
     if not schedules:
-        return jsonify([])
-    
-    # Get all bookings for this employee on this date, excluding cancelled ones
-    bookings = Booking.query.filter(
+        return []
+
+    bookings_query = Booking.query.filter(
         Booking.employee_id == employee_id,
         Booking.date == date_obj,
         Booking.status != 'cancelled'
-    ).all()
-    
-    # Build set of blocked time ranges
+    )
+    if exclude_booking_id:
+        bookings_query = bookings_query.filter(Booking.id != exclude_booking_id)
+
     blocked_ranges = []
-    for booking in bookings:
-        # Get duration for this specific booking
-        duration = booking.service.duration if (booking.service and booking.service.duration) else 90
-        booking_start = datetime.combine(date_obj, booking.time)
-        booking_end = booking_start + timedelta(minutes=duration)
-        blocked_ranges.append((booking_start, booking_end))
-    
-    # Get current Saudi time for "today" check
+    for existing_booking in bookings_query.all():
+        duration = existing_booking.service.duration if (
+            existing_booking.service and existing_booking.service.duration
+        ) else 90
+        booking_start = datetime.combine(date_obj, existing_booking.time)
+        blocked_ranges.append((booking_start, booking_start + timedelta(minutes=duration)))
+
     now = get_saudi_time()
     is_today = date_obj == now.date()
-    
     slots = set()
     for schedule in schedules:
         current = datetime.combine(date_obj, schedule.start_time)
-        
-        # Handle night shift
         if schedule.end_time < schedule.start_time:
             end = datetime.combine(date_obj + timedelta(days=1), schedule.end_time)
         else:
             end = datetime.combine(date_obj, schedule.end_time)
-        
-        # Generate slots every 30 minutes for better flexibility
+
         while current < end:
             slot_end = current + timedelta(minutes=booking_duration)
-            
-            # Skip if slot would extend beyond working hours
             if slot_end > end:
                 break
-            
-            time_str = current.strftime('%H:%M')
-            
-            # Skip if it's today and the time has passed (plus 30 min buffer)
             if is_today and current <= (now + timedelta(minutes=30)).replace(tzinfo=None):
-                current = current + timedelta(minutes=30)
+                current += timedelta(minutes=30)
                 continue
-            
-            # Check if this slot overlaps with any blocked range
-            slot_blocked = False
-            for blocked_start, blocked_end in blocked_ranges:
-                if current < blocked_end and slot_end > blocked_start:
-                    slot_blocked = True
-                    break
-            
-            if employee_break_overlaps(employee, current, slot_end):
-                slot_blocked = True
+            overlaps = any(current < blocked_end and slot_end > blocked_start
+                           for blocked_start, blocked_end in blocked_ranges)
+            if not overlaps and not employee_break_overlaps(employee, current, slot_end):
+                slots.add(current.strftime('%H:%M'))
+            current += timedelta(minutes=30)
 
-            if not slot_blocked:
-                # For admin, we use 30 min increments to allow more flexibility than customer side
-                slots.add(time_str)
-            
-            current = current + timedelta(minutes=30)
-            
-    return jsonify(sorted(list(slots)))
+    return sorted(slots)
+
+@bp.route('/api/available-slots/<int:employee_id>/<date>')
+def get_available_slots(employee_id, date):
+    try:
+        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify([])
+
+    exclude_booking_id = request.args.get('exclude_booking_id', type=int)
+    if exclude_booking_id:
+        booking = Booking.query.get(exclude_booking_id)
+        if not booking or not _booking_has_scope_access(booking) or booking.employee_id != employee_id:
+            return jsonify([]), 403
+
+    return jsonify(_employee_available_slots(
+        employee_id,
+        date_obj,
+        request.args.get('service_id', type=int),
+        exclude_booking_id=exclude_booking_id
+    ))
 
 @bp.route('/api/area-available-slots/<int:neighborhood_id>/<date>')
 def get_area_available_slots(neighborhood_id, date):

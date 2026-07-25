@@ -252,7 +252,7 @@
     </style>
 </head>
 
-<body class="bg-darkbg text-white">
+<body class="bg-darkbg text-white" data-user-logged-in="true">
     <div class="admin-shell flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <div id="adminSidebar" class="sidebar bg-primary text-white w-64 flex-shrink-0 h-screen overflow-y-auto">
@@ -486,6 +486,15 @@
             <span>التقارير</span>
         </a>
     </nav>
+
+    {% if current_user.role == 'supervisor' %}
+    <button id="enable-notifications-btn"
+        class="hidden fixed bottom-24 left-6 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-500 transition z-[100]">
+        <i class="fas fa-bell ml-2"></i>
+        <span>تفعيل إشعارات الطلبات</span>
+    </button>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=4"></script>
+    {% endif %}
 
     <!-- JavaScript -->
     <script>

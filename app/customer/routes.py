@@ -9,6 +9,7 @@ from app.models import (
     CityProductPrice, CityPackagePrice, PolishingOrder
 )
 from app.utils.employee_breaks import employee_break_overlaps
+from app.notifications import notify_area_supervisors
 
 def _get_repeatable_booking():
     return current_user.bookings.filter(
@@ -832,6 +833,12 @@ def repeat_last_booking():
 
         booking.total_price = total_items_price + total_products_price
         db.session.commit()
+        notify_area_supervisors(
+            neighborhood_id=booking.neighborhood_id,
+            event_type='booking',
+            object_id=booking.id,
+            customer_name=current_user.username
+        )
 
         try:
             from app.notifications import send_push_notification
@@ -859,12 +866,8 @@ def repeat_last_booking():
 
 @bp.route('/book', methods=['GET', 'POST'])
 def book():
-    # Check if user has vehicles
     user_vehicles = current_user.vehicles.all()
-    if not user_vehicles:
-        flash('يجب إضافة مركبة قبل الحجز', 'warning')
-        return redirect(url_for('customer.add_vehicle'))
-    
+
     form = BookingForm()
     # Populate choices with placeholder
     form.vehicle_id.choices = [(v.id, f"{v.brand} - {v.plate_number}") for v in user_vehicles]
@@ -877,6 +880,7 @@ def book():
     service_eligibility = {s.id: s.includes_free_wash for s in services_query}
     # Create a dictionary for service durations (ID -> Minutes)
     service_durations = {s.id: (s.duration if s.duration else 60) for s in services_query}
+    vehicle_sizes = VehicleSize.query.filter_by(is_active=True).order_by(VehicleSize.id).all()
     
     # Add placeholder option for city
     form.city_id.choices = [('', 'اختر المدينة')] + [(c.id, c.name_ar) for c in City.query.filter_by(is_active=True).all()]
@@ -944,6 +948,8 @@ def book():
             # Multi-vehicle support
             vehicle_ids = request.form.getlist('vehicle_ids[]')
             service_ids = request.form.getlist('service_ids[]')
+            new_plate_numbers = request.form.getlist('new_plate_numbers[]')
+            new_vehicle_size_ids = request.form.getlist('new_vehicle_size_ids[]')
             
             # Fallback for old forms or direct access
             if not vehicle_ids and form.vehicle_id.data:
@@ -959,11 +965,42 @@ def book():
             order_items = []
             total_duration_minutes = 0
             
-            for v_id, s_id in zip(vehicle_ids, service_ids):
-                v_id = int(v_id)
+            for index, (v_id, s_id) in enumerate(zip(vehicle_ids, service_ids)):
                 s_id = int(s_id)
-                vehicle = Vehicle.query.get(v_id)
                 service = Service.query.get(s_id)
+
+                if v_id == 'new':
+                    plate_number = (new_plate_numbers[index] if index < len(new_plate_numbers) else '').strip()
+                    size_id_raw = new_vehicle_size_ids[index] if index < len(new_vehicle_size_ids) else ''
+                    try:
+                        size_id = int(size_id_raw)
+                    except (TypeError, ValueError):
+                        size_id = None
+                    vehicle_size = VehicleSize.query.filter_by(id=size_id, is_active=True).first()
+                    if not plate_number or not vehicle_size:
+                        flash('يرجى إدخال رقم اللوحة واختيار حجم السيارة غير المسجلة', 'error')
+                        return redirect(url_for('customer.book'))
+
+                    vehicle = current_user.vehicles.filter_by(plate_number=plate_number).first()
+                    if vehicle:
+                        vehicle.vehicle_size_id = vehicle_size.id
+                    else:
+                        vehicle = Vehicle(
+                            user_id=current_user.id,
+                            vehicle_size_id=vehicle_size.id,
+                            brand=vehicle_size.name_ar or 'سيارة',
+                            plate_number=plate_number
+                        )
+                        db.session.add(vehicle)
+                    db.session.flush()
+                    vehicle_ids[index] = str(vehicle.id)
+                else:
+                    try:
+                        vehicle_id = int(v_id)
+                    except (TypeError, ValueError):
+                        flash('واحدة من المركبات غير صالحة', 'error')
+                        return redirect(url_for('customer.book'))
+                    vehicle = Vehicle.query.get(vehicle_id)
                 
                 if not vehicle or vehicle.user_id != current_user.id:
                     flash('واحدة من المركبات غير صالحة')
@@ -975,7 +1012,7 @@ def book():
                 # Check for existing active bookings for the same vehicle on the same day/time
                 existing_v_booking = Booking.query.filter(
                     Booking.customer_id == current_user.id,
-                    Booking.vehicle_id == v_id,
+                    Booking.vehicle_id == vehicle.id,
                     Booking.date == booking_date,
                     Booking.time == booking_time,
                     Booking.status.notin_(['cancelled', 'completed'])
@@ -1350,6 +1387,12 @@ def book():
                 flash(f'تم تطبيق كود الخصم: {discount_code.code}')
             
             db.session.commit()
+            notify_area_supervisors(
+                neighborhood_id=booking.neighborhood_id,
+                event_type='booking',
+                object_id=booking.id,
+                customer_name=current_user.username
+            )
             
             # Notify assigned employee
             if available_employee:
@@ -1378,6 +1421,7 @@ def book():
         form=form,
         service_eligibility=service_eligibility,
         service_durations=service_durations,
+        vehicle_sizes=vehicle_sizes,
         site_settings=settings
     )
 
@@ -1948,6 +1992,12 @@ def subscribe_details(package_id):
         
         db.session.add(subscription)
         db.session.commit()
+        notify_area_supervisors(
+            neighborhood_id=subscription.neighborhood_id,
+            event_type='subscription',
+            object_id=subscription.id,
+            customer_name=current_user.username
+        )
         
         flash('تم إرسال طلب الاشتراك بنجاح!')
         return redirect(url_for('customer.subscription_success'))
@@ -2021,6 +2071,12 @@ def request_polishing(package_id):
         )
         db.session.add(order)
         db.session.commit()
+        notify_area_supervisors(
+            neighborhood_id=order.neighborhood_id,
+            event_type='polishing',
+            object_id=order.id,
+            customer_name=current_user.username
+        )
 
         flash('تم إرسال طلب التلميع بنجاح، سيتم التواصل معك قريباً', 'success')
         return redirect(url_for('customer.index'))
@@ -2284,6 +2340,12 @@ def book_subscription_wash(subscription_id):
             subscription.status = 'expired'
         
         db.session.commit()
+        notify_area_supervisors(
+            neighborhood_id=booking.neighborhood_id,
+            event_type='subscription_booking',
+            object_id=booking.id,
+            customer_name=current_user.username
+        )
         
         # Notify employee
         try:
@@ -2560,6 +2622,13 @@ def gift_wash():
                 db.session.add(gift_product)
         
         db.session.commit()
+        notify_area_supervisors(
+            neighborhood_id=gift_order.neighborhood_id,
+            city_id=gift_order.city_id,
+            event_type='gift',
+            object_id=gift_order.id,
+            customer_name=current_user.username
+        )
         return redirect(url_for('customer.gift_success'))
     
     return render_template('customer/gift_wash.html', services=services, products=products, cities=cities)
@@ -2571,16 +2640,24 @@ def gift_subscription():
     from app.models import SubscriptionPackage, GiftOrder
     
     packages = SubscriptionPackage.query.filter_by(is_active=True, package_type='subscription').all()
+    cities = City.query.filter_by(is_active=True).all()
     
     if request.method == 'POST':
         package_id = request.form.get('package_id')
         recipient_name = request.form.get('recipient_name')
         recipient_phone = request.form.get('recipient_phone')
+        city_id = request.form.get('city_id', type=int)
+        neighborhood_id = request.form.get('neighborhood_id', type=int)
         
         # Validate phone (9 digits)
         if not recipient_phone or len(recipient_phone) != 9 or not recipient_phone.isdigit():
             flash('الرجاء إدخال رقم جوال صحيح (9 أرقام بدون صفر)', 'error')
-            return render_template('customer/gift_subscription.html', packages=packages)
+            return render_template('customer/gift_subscription.html', packages=packages, cities=cities)
+
+        neighborhood = Neighborhood.query.get(neighborhood_id) if neighborhood_id else None
+        if not city_id or not neighborhood or neighborhood.city_id != city_id:
+            flash('الرجاء اختيار مدينة وحي صحيحين', 'error')
+            return render_template('customer/gift_subscription.html', packages=packages, cities=cities)
         
         # Format phone number with Saudi country code
         formatted_phone = '+966' + recipient_phone
@@ -2590,16 +2667,25 @@ def gift_subscription():
             sender_id=current_user.id,
             recipient_name=recipient_name,
             recipient_phone=formatted_phone,
+            city_id=city_id,
+            neighborhood_id=neighborhood_id,
             gift_type='subscription',
             package_id=package_id,
             status='pending'
         )
         db.session.add(gift_order)
         db.session.commit()
+        notify_area_supervisors(
+            neighborhood_id=gift_order.neighborhood_id,
+            city_id=gift_order.city_id,
+            event_type='gift',
+            object_id=gift_order.id,
+            customer_name=current_user.username
+        )
         
         return redirect(url_for('customer.gift_success'))
     
-    return render_template('customer/gift_subscription.html', packages=packages)
+    return render_template('customer/gift_subscription.html', packages=packages, cities=cities)
 
 
 @bp.route('/gift/polishing', methods=['GET', 'POST'])
@@ -2645,6 +2731,13 @@ def gift_polishing():
         )
         db.session.add(gift_order)
         db.session.commit()
+        notify_area_supervisors(
+            neighborhood_id=gift_order.neighborhood_id,
+            city_id=gift_order.city_id,
+            event_type='gift',
+            object_id=gift_order.id,
+            customer_name=current_user.username
+        )
 
         return redirect(url_for('customer.gift_success'))
 
@@ -2733,7 +2826,20 @@ def get_services_for_vehicle(vehicle_id):
     from app.models import Vehicle, CityServicePrice, Season, Service
     from datetime import datetime
     
-    vehicle = Vehicle.query.get_or_404(vehicle_id)
+    vehicle = current_user.vehicles.filter_by(id=vehicle_id).first_or_404()
+    return _services_for_vehicle_size(vehicle.vehicle_size_id)
+
+
+@bp.route('/api/services-for-vehicle-size/<int:size_id>')
+def get_services_for_vehicle_size(size_id):
+    vehicle_size = VehicleSize.query.filter_by(id=size_id, is_active=True).first_or_404()
+    return _services_for_vehicle_size(vehicle_size.id)
+
+
+def _services_for_vehicle_size(vehicle_size_id):
+    from app.models import CityServicePrice, Season
+    from datetime import datetime
+
     city_id = request.args.get('city_id', type=int)
     date_str = request.args.get('date')
     
@@ -2743,7 +2849,7 @@ def get_services_for_vehicle(vehicle_id):
     if city_id:
         city_prices = CityServicePrice.query.filter_by(
             city_id=city_id, 
-            vehicle_size_id=vehicle.vehicle_size_id,
+            vehicle_size_id=vehicle_size_id,
             is_active=True
         ).all()
     else:

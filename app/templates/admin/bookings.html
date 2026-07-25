@@ -296,6 +296,10 @@
                             class="text-yellow-400 hover:text-yellow-300 edit-booking-btn"
                             title="تعديل"
                             data-id="{{ booking.id }}"
+                            data-date="{{ booking.date.strftime('%Y-%m-%d') }}"
+                            data-time="{{ booking.time.strftime('%H:%M') }}"
+                            data-employee-id="{{ booking.employee_id or '' }}"
+                            data-service-id="{{ booking.service_id }}"
                             data-payment="{{ booking.payment_method }}"
                             data-custom-price="{{ booking.custom_service_price if (booking.custom_service_price is not none and booking.custom_service_price|string != '') else '' }}">
                             <i class="fas fa-edit"></i>
@@ -363,6 +367,21 @@
         <h3 class="text-xl font-bold mb-4">تعديل الحجز</h3>
         <form id="editBookingForm" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm mb-2">التاريخ</label>
+                    <input type="date" name="date" id="editBookingDate"
+                        onchange="loadEditBookingSlots()"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm mb-2">الوقت المتاح</label>
+                    <select name="time" id="editBookingTime"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
+                        <option value="">-- اختر التاريخ أولاً --</option>
+                    </select>
+                </div>
+            </div>
             <div class="mb-4">
                 <label class="block text-sm mb-2">السيارات والخدمات (السعر)</label>
                 <div id="editBookingItemsList"
@@ -447,11 +466,22 @@
         }[char]));
     }
 
-    function showEditBookingModal(bookingId, paymentMethod, customServicePrice) {
+    let currentEditEmployeeId = null;
+    let currentEditServiceId = null;
+    let currentEditTime = null;
+
+    function showEditBookingModal(bookingId, paymentMethod, customServicePrice, date, time, employeeId, serviceId) {
         currentBookingId = bookingId;
+        currentEditEmployeeId = employeeId;
+        currentEditServiceId = serviceId;
+        currentEditTime = time;
         document.getElementById('editBookingForm').action = `/admin/bookings/${bookingId}/edit`;
         document.getElementById('editPaymentMethod').value = paymentMethod;
         document.getElementById('editServicePrice').value = customServicePrice !== null ? customServicePrice : '';
+        const editDateInput = document.getElementById('editBookingDate');
+        editDateInput.value = date;
+        editDateInput.disabled = !employeeId;
+        loadEditBookingSlots(time);
 
         const itemsList = document.getElementById('editBookingItemsList');
         const productsList = document.getElementById('editProductsList');
@@ -550,6 +580,48 @@
             });
     }
 
+    function loadEditBookingSlots(selectedTime = null) {
+        const date = document.getElementById('editBookingDate').value;
+        const timeSelect = document.getElementById('editBookingTime');
+        if (!currentEditEmployeeId) {
+            timeSelect.innerHTML = '<option value="">-- أسند الحجز لموظف أولاً --</option>';
+            timeSelect.disabled = true;
+            return;
+        }
+        timeSelect.disabled = false;
+        timeSelect.innerHTML = '<option value="">-- جاري تحميل الأوقات المتاحة --</option>';
+        const url = `/admin/api/available-slots/${currentEditEmployeeId}/${date}` +
+            `?service_id=${currentEditServiceId}&exclude_booking_id=${currentBookingId}`;
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('تعذر تحميل الأوقات');
+                return response.json();
+            })
+            .then(times => {
+                timeSelect.innerHTML = '<option value="">-- اختر الوقت --</option>';
+                if (selectedTime && !times.includes(selectedTime)) {
+                    const currentOption = document.createElement('option');
+                    currentOption.value = selectedTime;
+                    currentOption.textContent = `${selectedTime} (الموعد الحالي)`;
+                    currentOption.selected = true;
+                    timeSelect.appendChild(currentOption);
+                }
+                times.forEach(time => {
+                    const option = document.createElement('option');
+                    option.value = time;
+                    option.textContent = time;
+                    option.selected = time === (selectedTime || currentEditTime);
+                    timeSelect.appendChild(option);
+                });
+                if (!times.length && !selectedTime) {
+                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة</option>';
+                }
+            })
+            .catch(() => {
+                timeSelect.innerHTML = '<option value="">تعذر تحميل الأوقات المتاحة</option>';
+            });
+    }
+
     function addProductToBooking() {
         const productId = document.getElementById('newProductSelect').value;
         const quantity = document.getElementById('newProductQty').value;
@@ -617,15 +689,12 @@
                 <div class="col-span-2">
                     <label class="block text-sm mb-2">العميل *</label>
                     <input type="text" id="bookingCustomerSearch" placeholder="ابحث بالاسم أو الهاتف..."
-                        onkeyup="searchBookingCustomers()"
+                        oninput="searchBookingCustomers()"
+                        autocomplete="off"
                         class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2 mb-2">
                     <select name="customer_id" id="bookingCustomerSelect" required onchange="onCustomerSelected()"
                         class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2">
                         <option value="">-- اختر العميل --</option>
-                        {% for customer in customers %}
-                        <option value="{{ customer.id }}" data-name="{{ customer.username }}"
-                            data-phone="{{ customer.phone }}">{{ customer.username }} - {{ customer.phone }}</option>
-                        {% endfor %}
                     </select>
                 </div>
                 <div class="col-span-2">
@@ -1130,20 +1199,43 @@
         document.getElementById('bookingFinalPrice').textContent = finalPrice.toFixed(2) + ' ريال';
     }
 
+    let customerSearchTimer = null;
     function searchBookingCustomers() {
         const input = document.getElementById('bookingCustomerSearch');
-        const filter = input.value.toLowerCase();
         const select = document.getElementById('bookingCustomerSelect');
-        const options = select.getElementsByTagName('option');
+        const query = input.value.trim();
+        select.value = '';
+        onCustomerSelected();
+        clearTimeout(customerSearchTimer);
 
-        for (let i = 0; i < options.length; i++) {
-            const txtValue = options[i].text;
-            if (txtValue.toLowerCase().indexOf(filter) > -1 || options[i].value === "") {
-                options[i].style.display = "";
-            } else {
-                options[i].style.display = "none";
-            }
+        if (query.length < 2) {
+            select.innerHTML = '<option value="">-- اكتب حرفين أو رقمين على الأقل --</option>';
+            return;
         }
+
+        select.innerHTML = '<option value="">-- جاري البحث --</option>';
+        customerSearchTimer = setTimeout(() => {
+            fetch(`/admin/api/customers/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(customers => {
+                    select.innerHTML = '<option value="">-- اختر العميل المطابق --</option>';
+                    customers.forEach(customer => {
+                        const option = document.createElement('option');
+                        option.value = customer.id;
+                        option.textContent = `${customer.name} - ${customer.phone || customer.email}`;
+                        select.appendChild(option);
+                    });
+                    if (!customers.length) {
+                        select.innerHTML = '<option value="">لا يوجد عميل مطابق</option>';
+                    } else if (customers.length === 1) {
+                        select.value = String(customers[0].id);
+                        onCustomerSelected();
+                    }
+                })
+                .catch(() => {
+                    select.innerHTML = '<option value="">تعذر البحث عن العميل</option>';
+                });
+        }, 250);
     }
 
     // Live timer for in-progress bookings
@@ -1200,7 +1292,15 @@
             const id = editBtn.dataset.id;
             const payment = editBtn.dataset.payment;
             const customPrice = editBtn.dataset.customPrice;
-            showEditBookingModal(id, payment, customPrice === '' ? null : parseFloat(customPrice));
+            showEditBookingModal(
+                id,
+                payment,
+                customPrice === '' ? null : parseFloat(customPrice),
+                editBtn.dataset.date,
+                editBtn.dataset.time,
+                editBtn.dataset.employeeId === '' ? null : parseInt(editBtn.dataset.employeeId),
+                parseInt(editBtn.dataset.serviceId)
+            );
         }
 
         // Reassign booking buttons

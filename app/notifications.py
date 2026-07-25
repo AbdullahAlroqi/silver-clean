@@ -88,3 +88,63 @@ def send_push_notification(user, notification_data):
     thread.start()
             
     return True # We return True immediately as we can't wait for the result
+
+
+def notify_area_supervisors(neighborhood_id=None, city_id=None, event_type='request',
+                            object_id=None, customer_name=None):
+    """Notify only supervisors explicitly assigned to the request's city or neighborhood."""
+    from app import db
+    from app.models import City, Neighborhood, Notification
+
+    neighborhood = Neighborhood.query.get(neighborhood_id) if neighborhood_id else None
+    if neighborhood:
+        city_id = neighborhood.city_id
+    city = City.query.get(city_id) if city_id else None
+
+    supervisors = {}
+    if neighborhood:
+        for supervisor in neighborhood.supervisors.filter_by(role='supervisor').all():
+            supervisors[supervisor.id] = supervisor
+    if city:
+        for supervisor in city.supervisors.filter_by(role='supervisor').all():
+            supervisors[supervisor.id] = supervisor
+
+    if not supervisors:
+        return 0
+
+    event_labels = {
+        'booking': ('حجز جديد', '/admin/bookings'),
+        'subscription': ('طلب اشتراك جديد', '/admin/subscriptions'),
+        'subscription_booking': ('حجز اشتراك جديد', '/admin/bookings'),
+        'gift': ('طلب هدية جديد', '/admin/gift-orders'),
+        'polishing': ('طلب تلميع جديد', '/admin/polishing-orders'),
+    }
+    title, url = event_labels.get(event_type, ('طلب جديد', '/admin/'))
+    area_name = ' - '.join(filter(None, [
+        city.name_ar if city else None,
+        neighborhood.name_ar if neighborhood else None
+    ]))
+    details = [f'رقم الطلب: {object_id}' if object_id else None,
+               f'العميل: {customer_name}' if customer_name else None,
+               f'المنطقة: {area_name}' if area_name else None]
+    message = ' | '.join(item for item in details if item)
+
+    for supervisor in supervisors.values():
+        db.session.add(Notification(
+            user_id=supervisor.id,
+            title=title,
+            message=message
+        ))
+    db.session.commit()
+
+    payload = {
+        'title': title,
+        'body': message,
+        'icon': '/static/images/logo.png',
+        'badge': '/static/images/logo.png',
+        'url': url,
+        'data': {'event_type': event_type, 'object_id': object_id}
+    }
+    for supervisor in supervisors.values():
+        send_push_notification(supervisor, payload)
+    return len(supervisors)

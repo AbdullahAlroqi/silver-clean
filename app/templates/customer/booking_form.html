@@ -133,6 +133,7 @@
                                         <option value="{{ vehicle[0] }}">{{ vehicle[1] }}</option>
                                         {% endif %}
                                     {% endfor %}
+                                    <option value="new">سيارة غير مسجلة</option>
                                 </select>
                             </div>
                             <div>
@@ -144,6 +145,30 @@
                                 <p class="text-gray-500 text-xs mt-2 service-duration-info hidden">
                                     <i class="fas fa-clock mr-1"></i> مدة الخدمة: <span class="duration-val">0</span> دقيقة
                                 </p>
+                            </div>
+                        </div>
+                        <div class="new-vehicle-fields hidden mt-5 p-4 rounded-lg border border-accent/40 bg-primary/50">
+                            <p class="text-accent font-bold mb-4">
+                                <i class="fas fa-car-side ml-2"></i>بيانات السيارة غير المسجلة
+                            </p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm text-gray-300 mb-2">رقم اللوحة</label>
+                                    <input type="text" name="new_plate_numbers[]" maxlength="20"
+                                        class="new-plate-input w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                        placeholder="أدخل رقم اللوحة">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-300 mb-2">حجم السيارة</label>
+                                    <select name="new_vehicle_size_ids[]"
+                                        class="new-size-select w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                        onchange="handleNewVehicleSizeChange(this)">
+                                        <option value="">اختر حجم السيارة</option>
+                                        {% for size in vehicle_sizes %}
+                                        <option value="{{ size.id }}">{{ size.name_ar }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -476,6 +501,11 @@
                 const v = row.querySelector('.vehicle-select').value;
                 const s = row.querySelector('.service-select').value;
                 if (!v || !s) valid = false;
+                if (v === 'new') {
+                    const plate = row.querySelector('.new-plate-input').value.trim();
+                    const size = row.querySelector('.new-size-select').value;
+                    if (!plate || !size) valid = false;
+                }
             });
 
             if (!valid) {
@@ -554,7 +584,13 @@
             const vSelect = row.querySelector('.vehicle-select');
             const sSelect = row.querySelector('.service-select');
             
-            const vText = vSelect.options[vSelect.selectedIndex].text;
+            let vText = vSelect.options[vSelect.selectedIndex].text;
+            if (vSelect.value === 'new') {
+                const plate = row.querySelector('.new-plate-input').value.trim();
+                const sizeSelect = row.querySelector('.new-size-select');
+                const sizeText = sizeSelect.value ? sizeSelect.options[sizeSelect.selectedIndex].text : '';
+                vText = `${vText}${plate ? ` - ${plate}` : ''}${sizeText ? ` (${sizeText})` : ''}`;
+            }
             const sOption = sSelect.options[sSelect.selectedIndex];
             const sText = sOption.text;
             const sPrice = parseFloat(sOption.getAttribute('data-price') || 0);
@@ -650,6 +686,11 @@
         
         newRow.setAttribute('data-index', vehicleRowIndex++);
         newRow.querySelector('.vehicle-select').value = '';
+        newRow.querySelector('.new-vehicle-fields').classList.add('hidden');
+        newRow.querySelector('.new-plate-input').value = '';
+        newRow.querySelector('.new-size-select').value = '';
+        newRow.querySelector('.new-plate-input').required = false;
+        newRow.querySelector('.new-size-select').required = false;
         const sSelect = newRow.querySelector('.service-select');
         sSelect.innerHTML = '<option value="">اختر المركبة أولاً</option>';
         sSelect.disabled = true;
@@ -676,6 +717,14 @@
         const vehicleId = select.value;
         const cityId = document.getElementById('city-select').value;
         const date = dateInput.value;
+        const newFields = row.querySelector('.new-vehicle-fields');
+        const plateInput = row.querySelector('.new-plate-input');
+        const sizeSelect = row.querySelector('.new-size-select');
+
+        const isNewVehicle = vehicleId === 'new';
+        newFields.classList.toggle('hidden', !isNewVehicle);
+        plateInput.required = isNewVehicle;
+        sizeSelect.required = isNewVehicle;
 
         if (!vehicleId) {
             sSelect.innerHTML = '<option value="">اختر المركبة أولاً</option>';
@@ -683,11 +732,38 @@
             return;
         }
 
+        if (isNewVehicle) {
+            sSelect.innerHTML = '<option value="">اختر حجم السيارة أولاً</option>';
+            sSelect.disabled = true;
+            if (sizeSelect.value) handleNewVehicleSizeChange(sizeSelect);
+            return;
+        }
+
+        await loadServicesForVehicleRow(row, `/customer/api/services-for-vehicle/${vehicleId}?city_id=${cityId}&date=${date}`);
+    }
+
+    async function handleNewVehicleSizeChange(sizeSelect) {
+        const row = sizeSelect.closest('.vehicle-row');
+        const sizeId = sizeSelect.value;
+        const cityId = document.getElementById('city-select').value;
+        const date = dateInput.value;
+        const sSelect = row.querySelector('.service-select');
+
+        if (!sizeId) {
+            sSelect.innerHTML = '<option value="">اختر حجم السيارة أولاً</option>';
+            sSelect.disabled = true;
+            return;
+        }
+        await loadServicesForVehicleRow(row, `/customer/api/services-for-vehicle-size/${sizeId}?city_id=${cityId}&date=${date}`);
+    }
+
+    async function loadServicesForVehicleRow(row, url) {
+        const sSelect = row.querySelector('.service-select');
         sSelect.innerHTML = '<option value="">جاري تحميل الخدمات...</option>';
         sSelect.disabled = true;
 
         try {
-            const resp = await fetch(`/customer/api/services-for-vehicle/${vehicleId}?city_id=${cityId}&date=${date}`);
+            const resp = await fetch(url);
             const services = await resp.json();
             
             sSelect.innerHTML = '<option value="">اختر الخدمة</option>';
@@ -879,7 +955,7 @@
         
         // Add all selected vehicle IDs to check for multi-vehicle assignment rules
         document.querySelectorAll('.vehicle-select').forEach(select => {
-            if (select.value) {
+            if (select.value && /^\d+$/.test(select.value)) {
                 params.append('vehicle_ids[]', select.value);
             }
         });

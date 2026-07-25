@@ -80,6 +80,27 @@
                 </div>
                 <p class="text-gray-400 text-xs mt-1">أدخل 9 أرقام بدون الصفر الأول</p>
             </div>
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="city_id">
+                    <i class="fas fa-map-marker-alt ml-1 text-purple-400"></i> مدينة المستلم
+                </label>
+                <select id="city_id" name="city_id" required onchange="loadNeighborhoods(this.value)"
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-purple-400 focus:outline-none">
+                    <option value="">-- اختر المدينة --</option>
+                    {% for city in cities %}
+                    <option value="{{ city.id }}">{{ city.name_ar }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block text-gray-300 text-sm font-bold mb-2" for="neighborhood_id">
+                    <i class="fas fa-home ml-1 text-purple-400"></i> حي المستلم
+                </label>
+                <select id="neighborhood_id" name="neighborhood_id" required
+                    class="w-full bg-darkbg text-white p-3 rounded-lg border border-gray-600 focus:border-purple-400 focus:outline-none">
+                    <option value="">-- اختر المدينة أولاً --</option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -90,4 +111,29 @@
         إرسال الهدية
     </button>
 </form>
+
+<script>
+    function loadNeighborhoods(cityId) {
+        const neighborhoodSelect = document.getElementById('neighborhood_id');
+        if (!cityId) {
+            neighborhoodSelect.innerHTML = '<option value="">-- اختر المدينة أولاً --</option>';
+            return;
+        }
+        neighborhoodSelect.innerHTML = '<option value="">جاري التحميل...</option>';
+        fetch(`/customer/api/neighborhoods/${cityId}`)
+            .then(response => response.json())
+            .then(data => {
+                neighborhoodSelect.innerHTML = '<option value="">-- اختر الحي --</option>';
+                data.forEach(neighborhood => {
+                    const option = document.createElement('option');
+                    option.value = neighborhood.id;
+                    option.textContent = neighborhood.name;
+                    neighborhoodSelect.appendChild(option);
+                });
+            })
+            .catch(() => {
+                neighborhoodSelect.innerHTML = '<option value="">خطأ في تحميل الأحياء</option>';
+            });
+    }
+</script>
 {% endblock %}
