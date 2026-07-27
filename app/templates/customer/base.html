@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ site_settings.site_name or 'Silver Clean' }}</title>
 
@@ -14,8 +14,8 @@
 
     <link rel="icon" type="image/png"
         href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}">
-    <link rel="apple-touch-icon"
-        href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ range(1, 10000) | random }}">
+    <link rel="apple-touch-icon" sizes="192x192"
+        href="{{ url_for('static', filename='images/pwa-icon-192.png') }}">
     <link rel="manifest" href="{{ url_for('main.manifest') }}">
     <meta name="theme-color" content="#1F1F1F">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -40,6 +40,36 @@
         .customer-app {
             padding-bottom: 90px;
             /* Space for bottom nav */
+            background: #1F1F1F;
+            min-height: 100dvh;
+        }
+
+        html,
+        body {
+            background: #1F1F1F;
+            overscroll-behavior-y: none;
+        }
+
+        /* Keep scrolling content from appearing above the sticky header on
+           notched phones and in standalone PWA mode. */
+        .app-safe-area {
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 0;
+            height: env(safe-area-inset-top, 0px);
+            background: var(--customer-header-bg, #303030);
+            z-index: 80;
+            pointer-events: none;
+        }
+
+        .customer-header {
+            top: 0;
+            z-index: 70;
+            padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+            background: var(--customer-header-bg, #303030);
+            transform: translateZ(0);
+            isolation: isolate;
         }
 
         /* Bottom Navigation */
@@ -123,11 +153,13 @@
     </style>
 </head>
 
-<body class="bg-darkbg text-white font-sans">
+<body class="bg-darkbg text-white font-sans" data-user-logged-in="true"
+    style="--customer-header-bg: {{ site_settings.primary_color or '#303030' }};">
+    <div class="app-safe-area" aria-hidden="true"></div>
     <div class="customer-app min-h-screen">
         <!-- Top Header -->
         <header
-            class="bg-primary px-4 py-3 flex items-center justify-between sticky top-0 z-40 border-b border-gray-700">
+            class="customer-header bg-primary px-4 pb-3 flex items-center justify-between sticky border-b border-gray-700">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
                     <i class="fas fa-user text-gray-300"></i>
@@ -199,7 +231,29 @@
         </div>
     </nav>
 
+    <div id="install-banner" style="display: none;"
+        class="fixed bottom-24 left-4 right-4 bg-gradient-to-r from-accent to-blue-600 text-white px-4 py-4 rounded-2xl shadow-2xl z-[90] max-w-md mx-auto">
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <i class="fas fa-mobile-alt text-2xl flex-shrink-0"></i>
+                <div class="min-w-0">
+                    <h3 class="font-bold">تثبيت التطبيق</h3>
+                    <p class="text-xs opacity-90">وصول أسرع من الشاشة الرئيسية</p>
+                </div>
+            </div>
+            <div class="flex gap-1 flex-shrink-0">
+                <button id="install-app-btn" type="button" onclick="installApp()"
+                    class="bg-white text-blue-600 px-3 py-2 rounded-lg font-bold">تثبيت</button>
+                <button type="button" onclick="dismissInstallBanner()" aria-label="إغلاق"
+                    class="text-white hover:bg-white/20 px-2 py-2 rounded-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/notifications.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/install-prompt.js') }}?v=4"></script>
     <script src="{{ url_for('static', filename='js/checkout-tracker.js') }}?v=1"></script>
     {% block scripts %}{% endblock %}
 </body>

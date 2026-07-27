@@ -1,5 +1,5 @@
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing. Version 2.0');
+  console.log('Service Worker installing. Version 3.0');
   self.skipWaiting();
 });
 

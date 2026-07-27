@@ -3,6 +3,16 @@ let deferredPrompt;
 let installButton;
 let installBanner;
 
+// PWA installation must not depend on notification permission.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => console.log('PWA service worker is ready'))
+      .catch((error) => console.error('PWA service worker registration failed:', error));
+  });
+}
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
   installButton = document.getElementById('install-app-btn');
@@ -65,9 +75,10 @@ function installApp() {
   if (!deferredPrompt) {
     console.log('No deferred prompt available');
 
-    // For iOS devices (Safari doesn't support beforeinstallprompt)
     if (isIOS()) {
       showIOSInstructions();
+    } else {
+      showAndroidInstructions();
     }
     return;
   }
@@ -181,6 +192,42 @@ function showIOSInstructions() {
       modal.remove();
     }
   });
+}
+
+// Chrome variants and Samsung Internet may not expose beforeinstallprompt.
+// In that case provide the browser's manual installation path.
+function showAndroidInstructions() {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed; inset: 0; background: rgba(0,0,0,.82);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 10000; padding: 20px;
+  `;
+  modal.innerHTML = `
+    <div style="background:#303030;border:1px solid #4b5563;border-radius:20px;
+      padding:24px;max-width:400px;width:100%;color:white;text-align:right">
+      <h2 style="color:#4DA8DA;font-size:22px;font-weight:bold;margin-bottom:16px">
+        تثبيت التطبيق على أندرويد
+      </h2>
+      <p style="line-height:1.8;margin-bottom:14px">
+        من قائمة المتصفح <strong>⋮</strong> اختر:
+      </p>
+      <ol style="line-height:2;padding-right:22px;list-style:decimal">
+        <li><strong>تثبيت التطبيق</strong> أو <strong>إضافة إلى الشاشة الرئيسية</strong>.</li>
+        <li>اضغط <strong>تثبيت</strong> في رسالة التأكيد.</li>
+      </ol>
+      <p style="color:#9CA3AF;font-size:13px;margin-top:12px">
+        استخدم Chrome أو Samsung Internet، وتأكد من فتح الموقع عبر HTTPS.
+      </p>
+      <button type="button" style="width:100%;margin-top:18px;background:#4DA8DA;color:white;
+        border:0;border-radius:10px;padding:12px;font-weight:bold"
+        onclick="this.closest('[style*=fixed]').remove()">فهمت</button>
+    </div>
+  `;
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) modal.remove();
+  });
+  document.body.appendChild(modal);
 }
 
 // Listen for successful app installation

@@ -1,4 +1,4 @@
-from flask import render_template, Blueprint, request, jsonify, send_from_directory
+from flask import render_template, Blueprint, request, jsonify, send_from_directory, make_response
 from flask_login import login_required, current_user
 from app.models import Notification, PushSubscription
 from app import db
@@ -12,44 +12,44 @@ def index():
 @bp.route('/sw.js')
 def service_worker():
     """Serve service worker from root to fix scope issue"""
-    return send_from_directory(os.path.join(os.path.dirname(__file__), '..', 'static'), 
-                                'sw.js', 
-                                mimetype='application/javascript')
+    response = make_response(send_from_directory(
+        os.path.join(os.path.dirname(__file__), '..', 'static'),
+        'sw.js',
+        mimetype='application/javascript'
+    ))
+    response.headers['Service-Worker-Allowed'] = '/'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return response
 
 @bp.route('/manifest.json')
 def manifest():
-    """Serve dynamic manifest with versioned icons to fix caching"""
+    """Serve a stable, standards-compliant web app manifest."""
     from app.models import SiteSettings
-    import time
     
     settings = SiteSettings.get_settings()
-    # Use current timestamp as version to force refresh if logo changed recently
-    # Or better, use a stored timestamp. For now, we'll use a simple cache buster
-    version = int(time.time())
-    
-    logo_url = settings.logo_path or '/static/images/logo.png'
-    logo_url_with_version = f"{logo_url}?v={version}"
     
     manifest_data = {
+        "id": "/customer/",
         "name": settings.site_name or "Silver Clean Car Wash",
         "short_name": settings.site_name or "Silver Clean",
         "description": "Silver Clean - خدمة غسيل سيارات متنقلة",
-        "start_url": "/",
+        "start_url": "/customer/",
         "scope": "/",
         "display": "standalone",
+        "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
         "orientation": "portrait",
         "background_color": settings.primary_color or "#1F1F1F",
         "theme_color": settings.accent_color or "#10B981",
         "categories": ["lifestyle", "business"],
         "icons": [
             {
-                "src": logo_url_with_version,
+                "src": "/static/images/pwa-icon-192.png",
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any maskable"
             },
             {
-                "src": logo_url_with_version,
+                "src": "/static/images/pwa-icon-512.png",
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any maskable"
@@ -58,7 +58,10 @@ def manifest():
         "gcm_sender_id": "103953800507"
     }
     
-    return jsonify(manifest_data)
+    response = jsonify(manifest_data)
+    response.headers['Content-Type'] = 'application/manifest+json'
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 @bp.route('/.well-known/appspecific/com.chrome.devtools.json')
 def chrome_devtools_config():
