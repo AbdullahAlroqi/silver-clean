@@ -1,9 +1,10 @@
-from flask import render_template, Blueprint, request, jsonify, send_from_directory, make_response
+from flask import render_template, Blueprint, request, jsonify, send_from_directory, make_response, redirect, url_for, flash
 from flask_login import login_required, current_user
 from app.models import Notification, PushSubscription
 from app import db
 from app.main import bp
 import os
+from datetime import datetime, timedelta
 
 @bp.route('/')
 def index():
@@ -71,11 +72,52 @@ def chrome_devtools_config():
 @login_required
 def notifications():
     notifications = current_user.notifications.order_by(Notification.created_at.desc()).all()
+    old_notifications_count = current_user.notifications.filter(
+        Notification.created_at < datetime.utcnow() - timedelta(days=30)
+    ).count()
     # Mark as read
     for n in notifications:
         n.read = True
     db.session.commit()
-    return render_template('notifications.html', notifications=notifications)
+    if current_user.role == 'customer':
+        layout_template = 'customer/base.html'
+    elif current_user.role in ('admin', 'supervisor'):
+        layout_template = 'admin/base.html'
+    else:
+        layout_template = 'base.html'
+    return render_template(
+        'notifications.html',
+        notifications=notifications,
+        old_notifications_count=old_notifications_count,
+        layout_template=layout_template
+    )
+
+
+@bp.route('/notifications/<int:notification_id>/delete', methods=['POST'])
+@login_required
+def delete_notification(notification_id):
+    notification = Notification.query.filter_by(
+        id=notification_id, user_id=current_user.id
+    ).first_or_404()
+    db.session.delete(notification)
+    db.session.commit()
+    flash('تم حذف الإشعار', 'success')
+    return redirect(url_for('main.notifications'))
+
+
+@bp.route('/notifications/delete-old', methods=['POST'])
+@login_required
+def delete_old_notifications():
+    cutoff = datetime.utcnow() - timedelta(days=30)
+    deleted_count = current_user.notifications.filter(
+        Notification.created_at < cutoff
+    ).delete(synchronize_session=False)
+    db.session.commit()
+    if deleted_count:
+        flash(f'تم حذف {deleted_count} من الإشعارات القديمة', 'success')
+    else:
+        flash('لا توجد إشعارات أقدم من 30 يومًا', 'info')
+    return redirect(url_for('main.notifications'))
 
 @bp.route('/api/notifications/unread-count')
 @login_required
