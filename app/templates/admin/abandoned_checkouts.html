@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+        <h2 class="text-2xl font-bold text-white">السلات المتروكة</h2>
+        <p class="text-sm text-gray-400 mt-1">طلبات لم يكتمل نشاطها منذ {{ cutoff_minutes }} دقيقة أو أكثر</p>
+    </div>
+    <form method="GET" class="flex flex-col sm:flex-row gap-2">
+        <input type="text" name="q" value="{{ search }}" placeholder="اسم العميل أو الجوال"
+            class="bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600">
+        <select name="flow_type" class="bg-gray-700 text-white rounded-lg px-3 py-2 border border-gray-600">
+            <option value="">كل أنواع الطلبات</option>
+            {% for value, label in [
+                ('booking', 'حجز خدمة'),
+                ('subscription', 'اشتراك'),
+                ('subscription_wash', 'غسلة اشتراك'),
+                ('polishing', 'تلميع'),
+                ('gift_wash', 'هدية غسلة'),
+                ('gift_subscription', 'هدية اشتراك'),
+                ('gift_polishing', 'هدية تلميع')
+            ] %}
+            <option value="{{ value }}" {% if selected_flow == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button class="bg-accent hover:bg-blue-600 text-white px-4 py-2 rounded-lg">بحث</button>
+    </form>
+</div>
+
+<div class="space-y-4">
+    {% for row in rows %}
+    {% set checkout = row.checkout %}
+    <article class="bg-primary rounded-xl border border-gray-700 p-5 shadow-lg">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+            <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                    <h3 class="text-lg font-bold text-white">{{ checkout.customer.username }}</h3>
+                    <span class="bg-orange-500/20 text-orange-300 text-xs px-2 py-1 rounded-full">
+                        {{ checkout.page_name }}
+                    </span>
+                    <span class="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded-full">
+                        {{ checkout.step_name }}
+                    </span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    <div class="bg-darkbg rounded-lg p-3">
+                        <span class="text-gray-500 block mb-1">بيانات العميل</span>
+                        <span class="text-gray-200">{{ checkout.customer.phone or '-' }}</span>
+                        <span class="text-gray-400 block">{{ checkout.customer.email or '-' }}</span>
+                    </div>
+                    <div class="bg-darkbg rounded-lg p-3">
+                        <span class="text-gray-500 block mb-1">المنطقة</span>
+                        <span class="text-gray-200">
+                            {% if checkout.neighborhood %}
+                            {{ checkout.neighborhood.city.name_ar }} - {{ checkout.neighborhood.name_ar }}
+                            {% elif checkout.city %}{{ checkout.city.name_ar }}{% else %}لم تُحدد{% endif %}
+                        </span>
+                    </div>
+                    <div class="bg-darkbg rounded-lg p-3">
+                        <span class="text-gray-500 block mb-1">آخر نشاط</span>
+                        <span class="text-gray-200">{{ checkout.last_activity_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        {% if checkout.estimated_total is not none %}
+                        <span class="text-green-400 block">{{ "%.2f"|format(checkout.estimated_total) }} ريال</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if row.data %}
+                <details class="mt-4 bg-darkbg rounded-lg p-3">
+                    <summary class="cursor-pointer text-accent font-bold">البيانات التي أدخلها العميل</summary>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-3 text-sm">
+                        {% for key, value in row.data.items() %}
+                        <div class="border border-gray-700 rounded p-2 min-w-0">
+                            <span class="text-gray-500 block">{{ key }}</span>
+                            <span class="text-gray-200 break-words">{{ value }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
+            </div>
+
+            {% if checkout.customer.phone %}
+            {% set phone = checkout.customer.phone|replace('+', '')|replace(' ', '') %}
+            <a href="https://wa.me/{{ phone }}?text={{ ('مرحباً ' ~ checkout.customer.username ~ '، لاحظنا أنك لم تكمل طلبك في ' ~ checkout.page_name ~ '. هل يمكننا مساعدتك؟')|urlencode }}"
+                target="_blank" rel="noopener"
+                class="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg whitespace-nowrap">
+                <i class="fab fa-whatsapp"></i>
+                تواصل واتساب
+            </a>
+            {% endif %}
+        </div>
+    </article>
+    {% else %}
+    <div class="bg-primary rounded-xl p-10 text-center text-gray-400">
+        <i class="fas fa-shopping-cart text-4xl mb-3 text-gray-600"></i>
+        <p>لا توجد سلات متروكة مطابقة.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% include "admin/_pagination.html" %}
+{% endblock %}

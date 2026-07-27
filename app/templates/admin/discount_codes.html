@@ -18,6 +18,7 @@
                     <th class="py-3 px-4 text-right">الكود</th>
                     <th class="py-3 px-4 text-right">نوع الخصم</th>
                     <th class="py-3 px-4 text-right">القيمة</th>
+                    <th class="py-3 px-4 text-right">النطاق</th>
                     <th class="py-3 px-4 text-right">صالح من</th>
                     <th class="py-3 px-4 text-right">صالح حتى</th>
                     <th class="py-3 px-4 text-right">الحالة</th>
@@ -37,6 +38,11 @@
                         {% else %}
                         {{ "%.2f"|format(code.value) }} ريال
                         {% endif %}
+                    </td>
+                    <td class="py-3 px-4">
+                        {% if code.neighborhood %}{{ code.neighborhood.city.name_ar }} - {{ code.neighborhood.name_ar }}
+                        {% elif code.city %}{{ code.city.name_ar }}
+                        {% else %}جميع المناطق{% endif %}
                     </td>
                     <td class="py-3 px-4">{{ code.valid_from.strftime('%Y-%m-%d') }}</td>
                     <td class="py-3 px-4">{{ code.valid_until.strftime('%Y-%m-%d') }}</td>
@@ -70,7 +76,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7" class="py-8 text-center text-gray-400">
+                    <td colspan="8" class="py-8 text-center text-gray-400">
                         لا توجد أكواد خصم متاحة
                     </td>
                 </tr>

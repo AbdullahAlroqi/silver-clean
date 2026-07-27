@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "customer/base.html" %}
 
 {% block content %}
 <!-- Back Button -->
@@ -272,6 +272,7 @@
             }
         }
         currentStep = step;
+        document.dispatchEvent(new CustomEvent('checkout:step', { detail: { step: `الخطوة ${step} من 3` } }));
         
         if (step === 3) updateSummary();
         if (step === 1 && locMap) {

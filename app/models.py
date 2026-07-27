@@ -350,10 +350,27 @@ class DiscountCode(db.Model):
     used_count = db.Column('usage_count', db.Integer, default=0)
     max_uses_per_customer = db.Column(db.Integer, nullable=True, default=1)  # الحد الأقصى للاستخدام لكل عميل
     is_active = db.Column('active', db.Boolean, default=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True, index=True)
+    neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True, index=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+
+    city = db.relationship('City', foreign_keys=[city_id])
+    neighborhood = db.relationship('Neighborhood', foreign_keys=[neighborhood_id])
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
     
     # Influencer specifics
     is_influencer = db.Column(db.Boolean, default=False)
     influencer_name = db.Column(db.String(100), nullable=True)
+
+    def applies_to(self, neighborhood):
+        """Return whether this code can be used in the selected booking location."""
+        if not neighborhood:
+            return self.city_id is None and self.neighborhood_id is None
+        if self.neighborhood_id is not None:
+            return self.neighborhood_id == neighborhood.id
+        if self.city_id is not None:
+            return self.city_id == neighborhood.city_id
+        return True
 
 class Season(db.Model):
     """Seasonal periods where custom prices apply (e.g., Eid, National Day)"""
@@ -444,6 +461,31 @@ class PolishingOrder(db.Model):
     vehicle = db.relationship('Vehicle')
     neighborhood = db.relationship('Neighborhood')
     package = db.relationship('SubscriptionPackage')
+
+
+class CheckoutSession(db.Model):
+    """Tracks an authenticated customer's unfinished checkout journey."""
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(36), unique=True, nullable=False, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    flow_type = db.Column(db.String(30), nullable=False, index=True)
+    page_name = db.Column(db.String(100), nullable=False)
+    step_name = db.Column(db.String(100), nullable=True)
+    form_data = db.Column(db.Text, nullable=True)
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True, index=True)
+    neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True, index=True)
+    estimated_total = db.Column(db.Float, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default='active', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_activity_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False, index=True
+    )
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    customer = db.relationship('User', foreign_keys=[customer_id])
+    city = db.relationship('City', foreign_keys=[city_id])
+    neighborhood = db.relationship('Neighborhood', foreign_keys=[neighborhood_id])
+
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)

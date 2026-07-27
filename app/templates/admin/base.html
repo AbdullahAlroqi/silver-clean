@@ -342,6 +342,18 @@
                         <span>التقييمات</span>
                     </a>
 
+                    <a href="{{ url_for('admin.discount_codes') }}"
+                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-percent ml-3"></i>
+                        <span>أكواد الخصم</span>
+                    </a>
+
+                    <a href="{{ url_for('admin.abandoned_checkouts') }}"
+                        class="flex items-center px-6 py-3 text-orange-300 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-cart-arrow-down ml-3"></i>
+                        <span>السلات المتروكة</span>
+                    </a>
+
                     {% if current_user.role == 'admin' %}
                     <a href="{{ url_for('admin.customers') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
@@ -352,11 +364,6 @@
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-user-shield ml-3"></i>
                         <span>المسؤولين</span>
-                    </a>
-                    <a href="{{ url_for('admin.discount_codes') }}"
-                        class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
-                        <i class="fas fa-percent ml-3"></i>
-                        <span>أكواد الخصم</span>
                     </a>
                     <a href="{{ url_for('admin.loyalty_settings') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">

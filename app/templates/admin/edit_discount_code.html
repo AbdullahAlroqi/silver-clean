@@ -37,6 +37,26 @@
                 </div>
 
                 <div>
+                    <div class="mb-4">
+                        <label class="block text-gray-300 mb-2">نطاق كود الخصم</label>
+                        <select name="scope_type" id="scope_type" required class="w-full bg-gray-700 text-white px-4 py-2 rounded">
+                            {% if current_user.role == 'admin' %}<option value="global" {% if not code.city_id and not code.neighborhood_id %}selected{% endif %}>جميع المدن والأحياء</option>{% endif %}
+                            {% if cities %}<option value="city" {% if code.city_id %}selected{% endif %}>مدينة محددة</option>{% endif %}
+                            {% if neighborhoods %}<option value="neighborhood" {% if code.neighborhood_id %}selected{% endif %}>حي محدد</option>{% endif %}
+                        </select>
+                    </div>
+                    <div id="city_scope" class="mb-4">
+                        <label class="block text-gray-300 mb-2">المدينة</label>
+                        <select name="city_id" class="w-full bg-gray-700 text-white px-4 py-2 rounded">
+                            {% for city in cities %}<option value="{{ city.id }}" {% if code.city_id == city.id %}selected{% endif %}>{{ city.name_ar }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div id="neighborhood_scope" class="mb-4">
+                        <label class="block text-gray-300 mb-2">الحي</label>
+                        <select name="neighborhood_id" class="w-full bg-gray-700 text-white px-4 py-2 rounded">
+                            {% for neighborhood in neighborhoods %}<option value="{{ neighborhood.id }}" {% if code.neighborhood_id == neighborhood.id %}selected{% endif %}>{{ neighborhood.city.name_ar }} - {{ neighborhood.name_ar }}</option>{% endfor %}
+                        </select>
+                    </div>
                     <label class="block text-gray-300 mb-2">صالح حتى</label>
                     <input type="date" name="valid_until" value="{{ code.valid_until.strftime('%Y-%m-%d') }}" required
                         class="w-full bg-gray-700 text-white px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-accent">
@@ -74,4 +94,13 @@
         </form>
     </div>
 </div>
+<script>
+    const scopeSelect = document.getElementById('scope_type');
+    function updateScopeFields() {
+        document.getElementById('city_scope').style.display = scopeSelect.value === 'city' ? 'block' : 'none';
+        document.getElementById('neighborhood_scope').style.display = scopeSelect.value === 'neighborhood' ? 'block' : 'none';
+    }
+    scopeSelect.addEventListener('change', updateScopeFields);
+    updateScopeFields();
+</script>
 {% endblock %}

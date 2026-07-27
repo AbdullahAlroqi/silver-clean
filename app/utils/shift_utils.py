@@ -1,6 +1,23 @@
 from datetime import datetime, timedelta, date, time
 from app.models import EmployeeSchedule
 
+
+def get_booking_work_date(booking, schedules):
+    """Return the workday a booking belongs to for overnight employee shifts."""
+    if not booking.date or not booking.time:
+        return booking.date
+
+    previous_date = booking.date - timedelta(days=1)
+    for schedule in schedules:
+        if (
+            schedule.day_of_week == previous_date.weekday()
+            and schedule.is_active
+            and schedule.end_time <= schedule.start_time
+            and booking.time < schedule.end_time
+        ):
+            return previous_date
+    return booking.date
+
 def get_employee_current_shift_date(employee_id, current_datetime=None):
     """
     Determines the "logical date" for an employee's current shift.

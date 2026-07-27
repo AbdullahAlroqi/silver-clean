@@ -6,10 +6,25 @@ from app.customer.forms import VehicleForm, BookingForm, EditProfileForm, Change
 from app.models import (
     Vehicle, Service, Booking, City, Neighborhood, VehicleSize, SiteSettings, 
     BookingItem, DiscountCode, Season, CityServicePrice, 
-    CityProductPrice, CityPackagePrice, PolishingOrder
+    CityProductPrice, CityPackagePrice, PolishingOrder, CheckoutSession
 )
 from app.utils.employee_breaks import employee_break_overlaps
 from app.notifications import notify_area_supervisors
+import json
+import uuid
+
+
+def _complete_checkout_session():
+    """Mark the checkout attached to the submitted form as completed."""
+    token = request.form.get('checkout_token', '').strip()
+    if not token:
+        return
+    checkout = CheckoutSession.query.filter_by(
+        token=token, customer_id=current_user.id, status='active'
+    ).first()
+    if checkout:
+        checkout.status = 'completed'
+        checkout.completed_at = datetime.utcnow()
 
 def _get_repeatable_booking():
     return current_user.bookings.filter(
@@ -214,6 +229,83 @@ def before_request():
     except Exception as e:
         # print(f"Error checking expired bookings: {e}")
         pass
+
+
+@bp.route('/api/checkout-progress', methods=['POST'])
+def checkout_progress():
+    """Create or update the current customer's checkout journey."""
+    payload = request.get_json(silent=True) or {}
+    flow_type = str(payload.get('flow_type', '')).strip()[:30]
+    page_name = str(payload.get('page_name', '')).strip()[:100]
+    step_name = str(payload.get('step_name', '')).strip()[:100]
+    token = str(payload.get('token', '')).strip()[:36]
+    allowed_flows = {
+        'booking', 'subscription', 'subscription_wash', 'polishing',
+        'gift_wash', 'gift_subscription', 'gift_polishing'
+    }
+    if flow_type not in allowed_flows or not page_name:
+        return jsonify({'ok': False, 'message': 'بيانات التتبع غير صالحة'}), 400
+
+    form_data = payload.get('form_data') or {}
+    if not isinstance(form_data, dict):
+        form_data = {}
+    clean_data = {}
+    for key, value in list(form_data.items())[:100]:
+        key = str(key)[:80]
+        if key in {'csrf_token', 'checkout_token'}:
+            continue
+        if isinstance(value, list):
+            clean_data[key] = [str(item)[:500] for item in value[:20]]
+        else:
+            clean_data[key] = str(value)[:500]
+
+    checkout = None
+    if token:
+        checkout = CheckoutSession.query.filter_by(
+            token=token, customer_id=current_user.id, status='active'
+        ).first()
+    if not checkout:
+        new_token = token
+        try:
+            uuid.UUID(new_token)
+        except (ValueError, TypeError, AttributeError):
+            new_token = str(uuid.uuid4())
+        if CheckoutSession.query.filter_by(token=new_token).first():
+            new_token = str(uuid.uuid4())
+        checkout = CheckoutSession(
+            token=new_token,
+            customer_id=current_user.id,
+            flow_type=flow_type,
+            page_name=page_name,
+            status='active'
+        )
+        db.session.add(checkout)
+
+    checkout.flow_type = flow_type
+    checkout.page_name = page_name
+    checkout.step_name = step_name or page_name
+    checkout.form_data = json.dumps(clean_data, ensure_ascii=False)
+    checkout.last_activity_at = datetime.utcnow()
+
+    city_id = clean_data.get('city_id')
+    neighborhood_id = clean_data.get('neighborhood_id') or clean_data.get('detected_neighborhood_id')
+    try:
+        checkout.city_id = int(city_id) if city_id else None
+    except (TypeError, ValueError):
+        checkout.city_id = None
+    try:
+        checkout.neighborhood_id = int(neighborhood_id) if neighborhood_id else None
+    except (TypeError, ValueError):
+        checkout.neighborhood_id = None
+
+    total = clean_data.get('estimated_total') or clean_data.get('total_price')
+    try:
+        checkout.estimated_total = float(total) if total else None
+    except (TypeError, ValueError):
+        checkout.estimated_total = None
+
+    db.session.commit()
+    return jsonify({'ok': True, 'token': checkout.token})
 
 @bp.route('/')
 def index():
@@ -1048,6 +1140,11 @@ def book():
                     flash('كود الخصم غير صحيح أو غير فعال')
                     return redirect(url_for('customer.book'))
                 
+                discount_neighborhood = Neighborhood.query.get(neighborhood_id)
+                if not discount_code.applies_to(discount_neighborhood):
+                    flash('كود الخصم غير متاح في المدينة أو الحي المحدد', 'error')
+                    return redirect(url_for('customer.book'))
+
                 # Check validity period
                 from app.utils.timezone import get_saudi_time
                 now = get_saudi_time().replace(tzinfo=None)
@@ -1386,6 +1483,7 @@ def book():
                 discount_code.used_count += 1
                 flash(f'تم تطبيق كود الخصم: {discount_code.code}')
             
+            _complete_checkout_session()
             db.session.commit()
             notify_area_supervisors(
                 neighborhood_id=booking.neighborhood_id,
@@ -1601,6 +1699,13 @@ def verify_discount():
         if not discount_code or not discount_code.is_active:
             return jsonify({'valid': False, 'message': 'كود الخصم غير صحيح أو غير فعال'})
         
+        neighborhood_id = request.json.get('neighborhood_id')
+        neighborhood = Neighborhood.query.get(neighborhood_id) if neighborhood_id else None
+        if (discount_code.city_id or discount_code.neighborhood_id) and not neighborhood:
+            return jsonify({'valid': False, 'message': 'يرجى تحديد المدينة والحي أولًا'})
+        if not discount_code.applies_to(neighborhood):
+            return jsonify({'valid': False, 'message': 'كود الخصم غير متاح في المدينة أو الحي المحدد'})
+
         # Check validity period
         now = datetime.now()
         if discount_code.valid_from and now < discount_code.valid_from:
@@ -1991,6 +2096,7 @@ def subscribe_details(package_id):
         )
         
         db.session.add(subscription)
+        _complete_checkout_session()
         db.session.commit()
         notify_area_supervisors(
             neighborhood_id=subscription.neighborhood_id,
@@ -2070,6 +2176,7 @@ def request_polishing(package_id):
             status='pending'
         )
         db.session.add(order)
+        _complete_checkout_session()
         db.session.commit()
         notify_area_supervisors(
             neighborhood_id=order.neighborhood_id,
@@ -2339,6 +2446,7 @@ def book_subscription_wash(subscription_id):
         if subscription.remaining_washes == 0:
             subscription.status = 'expired'
         
+        _complete_checkout_session()
         db.session.commit()
         notify_area_supervisors(
             neighborhood_id=booking.neighborhood_id,
@@ -2621,6 +2729,7 @@ def gift_wash():
                 )
                 db.session.add(gift_product)
         
+        _complete_checkout_session()
         db.session.commit()
         notify_area_supervisors(
             neighborhood_id=gift_order.neighborhood_id,
@@ -2674,6 +2783,7 @@ def gift_subscription():
             status='pending'
         )
         db.session.add(gift_order)
+        _complete_checkout_session()
         db.session.commit()
         notify_area_supervisors(
             neighborhood_id=gift_order.neighborhood_id,
@@ -2730,6 +2840,7 @@ def gift_polishing():
             status='pending'
         )
         db.session.add(gift_order)
+        _complete_checkout_session()
         db.session.commit()
         notify_area_supervisors(
             neighborhood_id=gift_order.neighborhood_id,

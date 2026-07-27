@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse, CheckoutSession
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -127,7 +127,11 @@ def index():
             employees_count = User.query.filter_by(role='employee').join(User.neighborhoods).filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).distinct().count()
             # Fix AmbiguousForeignKeysError by specifying join condition
             customers_count = User.query.filter_by(role='customer').join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).distinct().count()
-            bookings_count = Booking.query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids), Booking.date == selected_date).count()
+            bookings_count = Booking.query.filter(
+                Booking.neighborhood_id.in_(supervisor_neighborhood_ids),
+                Booking.date == selected_date,
+                Booking.status != 'cancelled'
+            ).count()
         else:
             employees_count = 0
             customers_count = 0
@@ -135,7 +139,10 @@ def index():
     else:
         employees_count = User.query.filter_by(role='employee').count()
         customers_count = User.query.filter_by(role='customer').count()
-        bookings_count = Booking.query.filter(Booking.date == selected_date).count()
+        bookings_count = Booking.query.filter(
+            Booking.date == selected_date,
+            Booking.status != 'cancelled'
+        ).count()
     
     # Calculate total revenue from completed bookings
     completed_bookings_query = Booking.query.filter_by(status='completed', date=selected_date)
@@ -788,15 +795,23 @@ def employee_stats(id):
         except ValueError:
             pass
     
-    # Build bookings query with date filter
+    # Load one additional calendar day so bookings after midnight can be
+    # attributed to the previous overnight work shift.
     bookings_query = Booking.query.filter_by(employee_id=employee.id)
-    
     if from_date:
         bookings_query = bookings_query.filter(Booking.date >= from_date)
     if to_date:
-        bookings_query = bookings_query.filter(Booking.date <= to_date)
-    
-    bookings = bookings_query.order_by(Booking.date.desc(), Booking.time.desc()).all()
+        bookings_query = bookings_query.filter(Booking.date <= to_date + timedelta(days=1))
+
+    candidate_bookings = bookings_query.order_by(Booking.date.desc(), Booking.time.desc()).all()
+    schedules = employee.schedules.filter_by(is_active=True).all()
+    from app.utils.shift_utils import get_booking_work_date
+
+    bookings = [
+        booking for booking in candidate_bookings
+        if (not from_date or get_booking_work_date(booking, schedules) >= from_date)
+        and (not to_date or get_booking_work_date(booking, schedules) <= to_date)
+    ]
     
     # Get all assigned subscriptions (with date filter if specified)
     subscriptions_query = Subscription.query.filter_by(employee_id=employee.id)
@@ -805,9 +820,6 @@ def employee_stats(id):
     if to_date:
         subscriptions_query = subscriptions_query.filter(Subscription.start_date <= to_date)
     subscriptions = subscriptions_query.all()
-    
-    # Get work schedule
-    schedules = employee.schedules.all()
     
     # Get assigned neighborhoods
     neighborhoods = employee.neighborhoods
@@ -866,7 +878,7 @@ def employee_stats(id):
         'total_bookings': len(non_cancelled_bookings),  # Exclude cancelled
         'cancelled_bookings': len([b for b in bookings if b.status == 'cancelled']),
         'completed_bookings': len(completed_bookings),
-        'pending_bookings': len([b for b in bookings if b.status in ['pending', 'assigned', 'en_route', 'in_progress']]),
+        'pending_bookings': len([b for b in bookings if b.status in ['pending', 'assigned', 'en_route', 'arrived', 'in_progress']]),
         'active_subscriptions': active_subscriptions,
         'total_subscriptions': len(subscriptions),
         'total_earnings': total_earnings,
@@ -4280,25 +4292,134 @@ def send_notification():
 
 
 # --- Discount Code Management ---
+def _discount_location_choices():
+    if current_user.role == 'admin':
+        return (
+            City.query.order_by(City.name_ar).all(),
+            Neighborhood.query.join(City).order_by(City.name_ar, Neighborhood.name_ar).all()
+        )
+    city_ids = {city.id for city in current_user.supervisor_cities}
+    neighborhood_ids = set(_supervisor_neighborhood_ids() or [])
+    cities = City.query.filter(City.id.in_(city_ids)).order_by(City.name_ar).all() if city_ids else []
+    neighborhoods = (Neighborhood.query.filter(Neighborhood.id.in_(neighborhood_ids))
+                     .join(City).order_by(City.name_ar, Neighborhood.name_ar).all()
+                     if neighborhood_ids else [])
+    return cities, neighborhoods
+
+
+def _get_scoped_discount_or_404(code_id):
+    query = DiscountCode.query.filter_by(id=code_id)
+    if current_user.role == 'supervisor':
+        query = query.filter_by(created_by_id=current_user.id)
+    return query.first_or_404()
+
+
+def _parse_discount_location():
+    scope_type = request.form.get('scope_type', 'global')
+    city_id = request.form.get('city_id', type=int)
+    neighborhood_id = request.form.get('neighborhood_id', type=int)
+    cities, neighborhoods = _discount_location_choices()
+    allowed_city_ids = {city.id for city in cities}
+    allowed_neighborhood_ids = {neighborhood.id for neighborhood in neighborhoods}
+    if current_user.role == 'supervisor' and scope_type == 'global':
+        raise ValueError('يجب على المشرف تحديد مدينة أو حي ضمن نطاقه.')
+    if scope_type == 'city':
+        if city_id not in allowed_city_ids:
+            raise ValueError('المدينة المحددة خارج نطاق صلاحياتك.')
+        return city_id, None
+    if scope_type == 'neighborhood':
+        if neighborhood_id not in allowed_neighborhood_ids:
+            raise ValueError('الحي المحدد خارج نطاق صلاحياتك.')
+        return None, neighborhood_id
+    if scope_type != 'global' or current_user.role != 'admin':
+        raise ValueError('نطاق كود الخصم غير صالح.')
+    return None, None
+
+
 @bp.route('/discount_codes')
 def discount_codes():
     page = request.args.get('page', 1, type=int)
     query = DiscountCode.query.filter(or_(DiscountCode.is_influencer == False, DiscountCode.is_influencer == None))
+    if current_user.role == 'supervisor':
+        query = query.filter(DiscountCode.created_by_id == current_user.id)
     pagination = query.order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.id.desc()).paginate(page=page, per_page=50, error_out=False)
     codes = pagination.items
     return render_template('admin/discount_codes.html', discount_codes=codes, pagination=pagination)
 
+
+@bp.route('/abandoned-checkouts')
+def abandoned_checkouts():
+    cutoff = datetime.utcnow() - timedelta(minutes=30)
+    query = CheckoutSession.query.filter(
+        CheckoutSession.status == 'active',
+        CheckoutSession.last_activity_at <= cutoff
+    )
+    if current_user.role == 'supervisor':
+        allowed_city_ids = {city.id for city in current_user.supervisor_cities}
+        allowed_neighborhood_ids = set(_supervisor_neighborhood_ids() or [])
+        scope_filters = []
+        if allowed_neighborhood_ids:
+            scope_filters.append(CheckoutSession.neighborhood_id.in_(allowed_neighborhood_ids))
+        if allowed_city_ids:
+            scope_filters.append(CheckoutSession.city_id.in_(allowed_city_ids))
+        if scope_filters:
+            query = query.filter(or_(*scope_filters))
+        else:
+            query = query.filter(CheckoutSession.id == -1)
+
+    search = request.args.get('q', '').strip()
+    flow_type = request.args.get('flow_type', '').strip()
+    if search:
+        query = query.join(User, CheckoutSession.customer_id == User.id).filter(or_(
+            User.username.ilike(f'%{search}%'),
+            User.phone.ilike(f'%{search}%'),
+            User.email.ilike(f'%{search}%')
+        ))
+    if flow_type:
+        query = query.filter(CheckoutSession.flow_type == flow_type)
+
+    page = request.args.get('page', 1, type=int)
+    pagination = query.order_by(CheckoutSession.last_activity_at.desc()).paginate(
+        page=page, per_page=50, error_out=False
+    )
+    rows = []
+    for checkout in pagination.items:
+        try:
+            data = json.loads(checkout.form_data or '{}')
+        except (TypeError, ValueError):
+            data = {}
+        rows.append({'checkout': checkout, 'data': data})
+
+    return render_template(
+        'admin/abandoned_checkouts.html',
+        rows=rows,
+        pagination=pagination,
+        search=search,
+        selected_flow=flow_type,
+        cutoff_minutes=30
+    )
+
 @bp.route('/discount_codes/add', methods=['GET', 'POST'])
 def add_discount_code():
+    cities, neighborhoods = _discount_location_choices()
     if request.method == 'POST':
-        code = request.form.get('code')
+        code = request.form.get('code', '').strip().upper()
         discount_type = request.form.get('discount_type', 'percentage').lower()
         value = float(request.form.get('value', 0))
         valid_until_str = request.form.get('valid_until')
         usage_limit = request.form.get('usage_limit')
         max_uses_per_customer = request.form.get('max_uses_per_customer')
         
-        valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d')
+        try:
+            if not code or discount_type not in ('percentage', 'fixed') or value <= 0:
+                raise ValueError('بيانات كود الخصم غير صالحة.')
+            if discount_type == 'percentage' and value > 100:
+                raise ValueError('نسبة الخصم لا يمكن أن تتجاوز 100%.')
+            city_id, neighborhood_id = _parse_discount_location()
+            valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d')
+        except (ValueError, TypeError) as exc:
+            flash(str(exc), 'error')
+            return render_template('admin/add_discount_code.html', cities=cities, neighborhoods=neighborhoods)
         
         new_code = DiscountCode(
             code=code,
@@ -4306,7 +4427,10 @@ def add_discount_code():
             value=value,
             valid_until=valid_until,
             usage_limit=int(usage_limit) if usage_limit else None,
-            max_uses_per_customer=int(max_uses_per_customer) if max_uses_per_customer else 1
+            max_uses_per_customer=int(max_uses_per_customer) if max_uses_per_customer else 1,
+            city_id=city_id,
+            neighborhood_id=neighborhood_id,
+            created_by_id=current_user.id
         )
         
         try:
@@ -4318,19 +4442,29 @@ def add_discount_code():
             db.session.rollback()
             flash('حدث خطأ أثناء إضافة الكود. ربما الكود موجود مسبقاً.', 'error')
             
-    return render_template('admin/add_discount_code.html')
+    return render_template('admin/add_discount_code.html', cities=cities, neighborhoods=neighborhoods)
 
 @bp.route('/discount_codes/edit/<int:id>', methods=['GET', 'POST'])
 def edit_discount_code(id):
-    code = DiscountCode.query.get_or_404(id)
+    code = _get_scoped_discount_or_404(id)
+    cities, neighborhoods = _discount_location_choices()
     
     if request.method == 'POST':
-        code.code = request.form.get('code')
+        code.code = request.form.get('code', '').strip().upper()
         discount_type = request.form.get('discount_type', 'percentage').lower()
         code.discount_type = discount_type
         code.value = float(request.form.get('value', 0))
         valid_until_str = request.form.get('valid_until')
-        code.valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d')
+        try:
+            if not code.code or discount_type not in ('percentage', 'fixed') or code.value <= 0:
+                raise ValueError('بيانات كود الخصم غير صالحة.')
+            if discount_type == 'percentage' and code.value > 100:
+                raise ValueError('نسبة الخصم لا يمكن أن تتجاوز 100%.')
+            code.city_id, code.neighborhood_id = _parse_discount_location()
+            code.valid_until = datetime.strptime(valid_until_str, '%Y-%m-%d')
+        except (ValueError, TypeError) as exc:
+            flash(str(exc), 'error')
+            return render_template('admin/edit_discount_code.html', code=code, cities=cities, neighborhoods=neighborhoods)
         
         usage_limit = request.form.get('usage_limit')
         code.usage_limit = int(usage_limit) if usage_limit else None
@@ -4348,11 +4482,11 @@ def edit_discount_code(id):
             db.session.rollback()
             flash('حدث خطأ أثناء تحديث الكود.', 'error')
             
-    return render_template('admin/edit_discount_code.html', code=code)
+    return render_template('admin/edit_discount_code.html', code=code, cities=cities, neighborhoods=neighborhoods)
 
 @bp.route('/discount_codes/delete/<int:id>', methods=['POST'])
 def delete_discount_code(id):
-    code = DiscountCode.query.get_or_404(id)
+    code = _get_scoped_discount_or_404(id)
     db.session.delete(code)
     db.session.commit()
     flash('تم حذف كود الخصم بنجاح', 'success')
@@ -4360,7 +4494,7 @@ def delete_discount_code(id):
 
 @bp.route('/discount_codes/stats/<int:id>')
 def discount_code_stats(id):
-    code = DiscountCode.query.get_or_404(id)
+    code = _get_scoped_discount_or_404(id)
     bookings = Booking.query.filter_by(discount_code_id=id).all()
     total_savings = sum((b.service.price or 0) * ((code.value or 0) / 100) if code.discount_type == 'percentage' else (code.value or 0) for b in bookings if b.service)
     

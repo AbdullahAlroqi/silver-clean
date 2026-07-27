@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "customer/base.html" %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
@@ -463,6 +463,7 @@
             }
         }
         currentStep = step;
+        document.dispatchEvent(new CustomEvent('checkout:step', { detail: { step: `الخطوة ${step} من 4` } }));
 
         if (step === 4) updateOrderReview();
         if (step === 2 && !document.getElementById('time-select').value) loadAvailableTimes();
@@ -1166,7 +1167,10 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken
             },
-            body: JSON.stringify({ code: code })
+            body: JSON.stringify({
+                code: code,
+                neighborhood_id: document.getElementById('neighborhood-select').value
+            })
         })
             .then(r => r.json())
             .then(data => {
