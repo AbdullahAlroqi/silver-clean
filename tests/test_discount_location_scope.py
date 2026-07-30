@@ -89,3 +89,39 @@ def test_location_scoped_code_only_applies_to_matching_neighborhood(app):
         db.session.commit()
         assert code.applies_to(matching)
         assert not code.applies_to(other)
+
+
+def test_customer_cannot_verify_code_after_switching_to_another_city(app):
+    with app.app_context():
+        customer = User(username='location-customer', role='customer')
+        city = City(name_ar='الرياض')
+        other_city = City(name_ar='جدة')
+        db.session.add_all([customer, city, other_city])
+        db.session.flush()
+        matching = Neighborhood(name_ar='العليا', city_id=city.id)
+        other = Neighborhood(name_ar='الروضة', city_id=other_city.id)
+        db.session.add_all([matching, other])
+        db.session.flush()
+        code = DiscountCode(
+            code='CITYONLY10', discount_type='percentage', value=10,
+            valid_until=datetime.utcnow() + timedelta(days=7),
+            is_active=True, city_id=city.id, assigned_customer_id=customer.id
+        )
+        db.session.add(code)
+        db.session.commit()
+        customer_id = customer.id
+        other_neighborhood_id = other.id
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, customer_id))
+
+    response = client.post('/customer/api/verify-discount', json={
+        'code': 'CITYONLY10',
+        'neighborhood_id': other_neighborhood_id
+    })
+    assert response.status_code == 200
+    assert response.get_json() == {
+        'valid': False,
+        'message': 'كود الخصم غير متاح في المدينة أو الحي المحدد'
+    }

@@ -20,21 +20,21 @@
                 <div id="step1-indicator"
                     class="w-10 h-10 bg-accent rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     1</div>
-                <p class="text-xs text-gray-400">الموقع والموعد</p>
+                <p class="text-xs text-gray-400">الموقع </p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line1"></div>
             <div class="flex-1 text-center">
                 <div id="step2-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     2</div>
-                <p class="text-xs text-gray-400">الخدمة  و الوقت</p>
+                <p class="text-xs text-gray-400">الخدمة</p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line2"></div>
             <div class="flex-1 text-center">
                 <div id="step3-indicator"
                     class="w-10 h-10 bg-gray-700 rounded-full mx-auto flex items-center justify-center text-white font-bold mb-2 text-sm">
                     3</div>
-                <p class="text-xs text-gray-400"> المنتجات و الدفع</p>
+                <p class="text-xs text-gray-400"> المنتجات </p>
             </div>
             <div class="flex-1 h-1 bg-gray-700" id="line3"></div>
             <div class="flex-1 text-center">
@@ -95,14 +95,6 @@
                             <option value="">اختر الحي</option>
                         </select>
                     </div>
-                </div>
-
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-300 mb-2">
-                        <i class="fas fa-calendar-alt ml-1 text-accent"></i> اختر التاريخ
-                    </label>
-                    {{ form.date(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
-                    focus:outline-none focus:ring-2 focus:ring-accent", type="date", id="date-input") }}
                 </div>
 
                 <div class="mt-6 flex justify-end">
@@ -183,6 +175,13 @@
                 </div>
                 <!-- Available Times Section -->
                 <div class="mt-6 border-t border-gray-700 pt-6">
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-300 mb-2">
+                            <i class="fas fa-calendar-alt ml-1 text-accent"></i> اختر التاريخ
+                        </label>
+                        {{ form.date(class="w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white
+                        focus:outline-none focus:ring-2 focus:ring-accent", type="date", id="date-input") }}
+                    </div>
                     <h4 class="text-lg font-bold text-white mb-4 flex items-center">
                         <i class="fas fa-clock ml-2 text-accent"></i>
                         أوقات متاحة
@@ -476,8 +475,6 @@
             const neighborhood = document.getElementById('neighborhood-select').value;
             const lat = document.getElementById('location_lat').value;
             const lng = document.getElementById('location_lng').value;
-            const date = dateInput.value;
-            
             if (!city || !neighborhood) {
                 alert('الرجاء اختيار المدينة والحي');
                 return;
@@ -490,12 +487,11 @@
                 alert('عذراً الموقع المحدد يقع خارج حدود الحي المختار! يرجى تحريك الدبوس إلى داخل المنطقة المظللة للاستمرار.');
                 return;
             }
-            if (!date) {
+        } else if (currentStep === 2) {
+            if (!dateInput.value) {
                 alert('الرجاء اختيار التاريخ');
                 return;
             }
-            
-        } else if (currentStep === 2) {
             const rows = document.querySelectorAll('.vehicle-row');
             let valid = true;
             rows.forEach(row => {
@@ -814,6 +810,17 @@
     const serviceDurations = {{ (service_durations or { }) | tojson | safe }};
     const userHasFreeWashes = {{ 'true' if current_user.free_washes > 0 else 'false' }};
 
+    function resetDiscountForLocationChange() {
+        if (!discountCodeInput || !discountCodeInput.value.trim()) return;
+        discountCodeInput.value = '';
+        document.getElementById('discount_verified').value = '0';
+        document.getElementById('discount_value').value = '0';
+        document.getElementById('discount_type').value = '';
+        document.getElementById('discount_message').innerHTML =
+            '<span class="text-yellow-400"><i class="fas fa-info-circle mr-1"></i>تم إلغاء كود الخصم بسبب تغيير المدينة أو الحي. أدخل كودًا صالحًا للمنطقة الجديدة.</span>';
+        if (freeWashCheckbox) freeWashCheckbox.disabled = false;
+    }
+
     async function fetchNeighborhoods(cityId) {
         neighborhoodSelect.innerHTML = '<option value="">اختر الحي</option>';
         timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
@@ -886,6 +893,7 @@
 
     if (citySelect) {
         citySelect.addEventListener('change', async function () {
+            resetDiscountForLocationChange();
             await fetchNeighborhoods(this.value);
             fetchPrices(); // Fetch city prices immediately
             const cityName = citySelect.options[citySelect.selectedIndex].text;
@@ -897,6 +905,7 @@
 
     if (neighborhoodSelect) {
         neighborhoodSelect.addEventListener('change', function () {
+            resetDiscountForLocationChange();
             const neighName = neighborhoodSelect.options[neighborhoodSelect.selectedIndex].text;
             const cityName = citySelect.options[citySelect.selectedIndex].text;
             const opt = neighborhoodSelect.options[neighborhoodSelect.selectedIndex];
@@ -1175,7 +1184,8 @@
             .then(r => r.json())
             .then(data => {
                 if (data.valid) {
-                    msgDiv.innerHTML = `<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>${data.message} (${data.discount_value}${data.discount_type === 'percentage' ? '%' : ' ريال'})</span>`;
+                    const scopeText = data.scope_label ? ` — صالح في: ${data.scope_label}` : '';
+                    msgDiv.innerHTML = `<span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>${data.message} (${data.discount_value}${data.discount_type === 'percentage' ? '%' : ' ريال'})${scopeText}</span>`;
                     document.getElementById('discount_verified').value = '1';
                     document.getElementById('discount_value').value = data.discount_value;
                     document.getElementById('discount_type').value = data.discount_type;

@@ -353,10 +353,12 @@ class DiscountCode(db.Model):
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True, index=True)
     neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True, index=True)
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    assigned_customer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
 
     city = db.relationship('City', foreign_keys=[city_id])
     neighborhood = db.relationship('Neighborhood', foreign_keys=[neighborhood_id])
     created_by = db.relationship('User', foreign_keys=[created_by_id])
+    assigned_customer = db.relationship('User', foreign_keys=[assigned_customer_id])
     
     # Influencer specifics
     is_influencer = db.Column(db.Boolean, default=False)
@@ -371,6 +373,21 @@ class DiscountCode(db.Model):
         if self.city_id is not None:
             return self.city_id == neighborhood.city_id
         return True
+
+    def is_available_to(self, customer):
+        """A recovery code may only be used by the customer it was issued to."""
+        return self.assigned_customer_id is None or (
+            customer is not None and self.assigned_customer_id == customer.id
+        )
+
+    @property
+    def scope_label(self):
+        if self.neighborhood:
+            city_name = self.neighborhood.city.name_ar if self.neighborhood.city else ''
+            return f'{city_name} - {self.neighborhood.name_ar}'.strip(' -')
+        if self.city:
+            return self.city.name_ar
+        return None
 
 class Season(db.Model):
     """Seasonal periods where custom prices apply (e.g., Eid, National Day)"""
@@ -474,6 +491,9 @@ class CheckoutSession(db.Model):
     form_data = db.Column(db.Text, nullable=True)
     city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True, index=True)
     neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True, index=True)
+    recovery_discount_code_id = db.Column(
+        db.Integer, db.ForeignKey('discount_code.id'), nullable=True, index=True
+    )
     estimated_total = db.Column(db.Float, nullable=True)
     status = db.Column(db.String(20), nullable=False, default='active', index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
@@ -485,6 +505,9 @@ class CheckoutSession(db.Model):
     customer = db.relationship('User', foreign_keys=[customer_id])
     city = db.relationship('City', foreign_keys=[city_id])
     neighborhood = db.relationship('Neighborhood', foreign_keys=[neighborhood_id])
+    recovery_discount_code = db.relationship(
+        'DiscountCode', foreign_keys=[recovery_discount_code_id]
+    )
 
 
 class Notification(db.Model):

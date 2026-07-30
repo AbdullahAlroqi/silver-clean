@@ -252,9 +252,16 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=3"></script>
+    <!-- يظهر فقط عندما يحتاج العميل إلى منح صلاحية الإشعارات -->
+    <button id="enable-notifications-btn" type="button"
+        class="hidden fixed bottom-40 right-4 bg-blue-600 text-white px-4 py-3 rounded-full shadow-2xl hover:bg-blue-700 transition z-[95]">
+        <i class="fas fa-bell ml-2"></i>
+        <span class="text-sm font-bold">تفعيل الإشعارات</span>
+    </button>
+
+    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=4"></script>
     <script src="{{ url_for('static', filename='js/install-prompt.js') }}?v=4"></script>
-    <script src="{{ url_for('static', filename='js/checkout-tracker.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/checkout-tracker.js') }}?v=2"></script>
     {% block scripts %}{% endblock %}
 </body>
 

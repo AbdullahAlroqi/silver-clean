@@ -35,6 +35,16 @@
             <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2 mb-3">
                     <h3 class="text-lg font-bold text-white">{{ checkout.customer.username }}</h3>
+                    <span class="bg-purple-500/20 text-purple-300 text-xs px-2 py-1 rounded-full">
+                        {{ row.attempts_count }} محاولة
+                    </span>
+                    {% if row.used_recovery_discount %}
+                    <span class="bg-green-500/20 text-green-300 border border-green-600/40 text-xs px-2 py-1 rounded-full"
+                        title="سبق لهذا العميل استخدام كود خصم صادر من السلات المتروكة">
+                        <i class="fas fa-check-circle ml-1"></i>
+                        استفاد سابقًا من كود استعادة
+                    </span>
+                    {% endif %}
                     <span class="bg-orange-500/20 text-orange-300 text-xs px-2 py-1 rounded-full">
                         {{ checkout.page_name }}
                     </span>
@@ -78,17 +88,117 @@
                     </div>
                 </details>
                 {% endif %}
+
+                {% if row.attempts_count > 1 %}
+                <details class="mt-4 bg-darkbg rounded-lg p-3 border border-purple-800/40">
+                    <summary class="cursor-pointer text-purple-300 font-bold">
+                        عرض جميع المحاولات المتروكة ({{ row.attempts_count }})
+                    </summary>
+                    <div class="space-y-2 mt-3">
+                        {% for attempt_row in row.attempts %}
+                        {% set attempt = attempt_row.checkout %}
+                        <div class="border border-gray-700 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
+                            <div>
+                                <span class="text-white font-bold">{{ attempt.page_name }}</span>
+                                <span class="text-blue-300 block">{{ attempt.step_name or '-' }}</span>
+                            </div>
+                            <div class="text-gray-400 sm:text-left">
+                                <span class="block">{{ attempt.last_activity_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                {% if attempt.neighborhood %}
+                                <span>{{ attempt.neighborhood.city.name_ar }} - {{ attempt.neighborhood.name_ar }}</span>
+                                {% elif attempt.city %}
+                                <span>{{ attempt.city.name_ar }}</span>
+                                {% endif %}
+                                {% if attempt.recovery_discount_code %}
+                                <span class="text-green-400 block">كود: {{ attempt.recovery_discount_code.code }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endif %}
             </div>
 
-            {% if checkout.customer.phone %}
-            {% set phone = checkout.customer.phone|replace('+', '')|replace(' ', '') %}
-            <a href="https://wa.me/{{ phone }}?text={{ ('مرحباً ' ~ checkout.customer.username ~ '، لاحظنا أنك لم تكمل طلبك في ' ~ checkout.page_name ~ '. هل يمكننا مساعدتك؟')|urlencode }}"
-                target="_blank" rel="noopener"
-                class="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg whitespace-nowrap">
-                <i class="fab fa-whatsapp"></i>
-                تواصل واتساب
-            </a>
-            {% endif %}
+            <div class="w-full lg:w-72 space-y-3">
+                {% if not row.promo_code %}
+                <form method="POST"
+                    action="{{ url_for('admin.create_abandoned_checkout_discount', checkout_id=checkout.id) }}"
+                    class="bg-darkbg border border-gray-700 rounded-lg p-3 space-y-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <p class="text-sm font-bold text-white">
+                        <i class="fas fa-tag ml-1 text-yellow-400"></i>
+                        كود لاستعادة الطلب
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select name="discount_type"
+                            class="bg-gray-700 text-white rounded-lg px-2 py-2 border border-gray-600 text-sm">
+                            <option value="percentage">نسبة %</option>
+                            <option value="fixed">مبلغ ثابت</option>
+                        </select>
+                        <input type="number" name="value" min="0.01" step="0.01" required
+                            placeholder="قيمة الخصم"
+                            class="bg-gray-700 text-white rounded-lg px-2 py-2 border border-gray-600 text-sm">
+                    </div>
+                    <button type="submit"
+                        class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-sm font-bold">
+                        إنشاء كود خصم
+                    </button>
+                    <p class="text-xs text-gray-500">صالح 7 أيام ولاستخدام واحد، ومقيد بمنطقة السلة.</p>
+                </form>
+                {% endif %}
+
+                {% if row.promo_code %}
+                <div class="bg-green-900/30 border border-green-700 rounded-lg p-3 text-center space-y-3">
+                    <span class="text-xs text-green-300 block">تم إنشاء الكود</span>
+                    <strong class="text-lg text-white tracking-wider">{{ row.promo_code.code }}</strong>
+                    <span class="text-xs text-green-300 block">
+                        {% if row.promo_code.discount_type == 'percentage' %}
+                        خصم {{ row.promo_code.value|round(2) }}%
+                        {% else %}
+                        خصم {{ row.promo_code.value|round(2) }} ريال
+                        {% endif %}
+                    </span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <a href="{{ url_for('admin.edit_discount_code', id=row.promo_code.id) }}"
+                            class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 text-sm font-bold">
+                            <i class="fas fa-edit ml-1"></i> تعديل
+                        </a>
+                        <form method="POST"
+                            action="{{ url_for('admin.delete_abandoned_checkout_discount', checkout_id=checkout.id) }}"
+                            onsubmit="return confirm('هل تريد حذف كود الخصم من هذه السلة؟')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit"
+                                class="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg px-3 py-2 text-sm font-bold">
+                                <i class="fas fa-trash ml-1"></i> حذف
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if checkout.customer.phone %}
+                {% set phone = checkout.customer.phone|replace('+', '')|replace(' ', '') %}
+                {% set whatsapp_message = 'مرحباً ' ~ checkout.customer.username ~ '، لاحظنا أنك لم تكمل طلبك في ' ~ checkout.page_name ~ '. هل يمكننا مساعدتك؟' %}
+                {% if row.promo_code %}
+                    {% if row.promo_code.discount_type == 'percentage' %}
+                        {% set discount_label = (row.promo_code.value|round(2)|string) ~ '%' %}
+                    {% else %}
+                        {% set discount_label = (row.promo_code.value|round(2)|string) ~ ' ريال' %}
+                    {% endif %}
+                    {% set whatsapp_message = whatsapp_message ~ ' يسعدنا تقديم خصم ' ~ discount_label ~ ' باستخدام الكود: ' ~ row.promo_code.code %}
+                    {% if row.promo_code.scope_label %}
+                        {% set whatsapp_message = whatsapp_message ~ '، صالح في: ' ~ row.promo_code.scope_label %}
+                    {% endif %}
+                {% endif %}
+                <a href="https://wa.me/{{ phone }}?text={{ whatsapp_message|urlencode }}"
+                    target="_blank" rel="noopener"
+                    class="w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg">
+                    <i class="fab fa-whatsapp"></i>
+                    تواصل واتساب{% if row.promo_code %} مع الكود{% endif %}
+                </a>
+                {% endif %}
+            </div>
         </div>
     </article>
     {% else %}

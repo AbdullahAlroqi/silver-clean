@@ -108,7 +108,7 @@
     <h3 class="text-lg font-bold text-white mb-4 text-right">اختر الخدمة</h3>
     <div class="grid grid-cols-2 gap-4">
         <!-- Book Service -->
-        <a href="{{ url_for('customer.book') }}" class="service-card p-4 rounded-2xl text-center">
+        <a href="{{ url_for('customer.book', new_checkout=1) }}" class="service-card p-4 rounded-2xl text-center">
             <div class="w-16 h-16 mx-auto mb-3 bg-accent/20 rounded-full flex items-center justify-center">
                 <i class="fas fa-car text-accent text-2xl"></i>
             </div>
@@ -117,7 +117,7 @@
         </a>
 
         <!-- Subscribe -->
-        <a href="{{ url_for('customer.subscribe_flow') }}" class="service-card p-4 rounded-2xl text-center">
+        <a href="{{ url_for('customer.subscribe_flow', new_checkout=1) }}" class="service-card p-4 rounded-2xl text-center">
             <div class="w-16 h-16 mx-auto mb-3 bg-purple-500/20 rounded-full flex items-center justify-center">
                 <i class="fas fa-crown text-purple-400 text-2xl"></i>
             </div>
@@ -126,7 +126,7 @@
         </a>
 
         <!-- Polishing -->
-        <a href="{{ url_for('customer.polishing_packages') }}" class="service-card col-span-2 p-4 rounded-2xl text-center">
+        <a href="{{ url_for('customer.polishing_packages', new_checkout=1) }}" class="service-card col-span-2 p-4 rounded-2xl text-center">
             <div class="w-16 h-16 mx-auto mb-3 bg-amber-500/20 rounded-full flex items-center justify-center">
                 <i class="fas fa-wand-magic-sparkles text-amber-400 text-2xl"></i>
             </div>

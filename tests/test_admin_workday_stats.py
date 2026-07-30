@@ -3,7 +3,7 @@ from datetime import date, time
 from flask import template_rendered
 
 from app import db
-from app.models import Booking, EmployeeSchedule
+from app.models import Booking, City, EmployeeSchedule, Neighborhood
 from app.utils.shift_utils import get_booking_work_date
 
 from test_discount_location_scope import TestConfig, app, login  # noqa: F401
@@ -54,3 +54,96 @@ def test_dashboard_total_excludes_cancelled_bookings(app):
 
     assert response.status_code == 200
     assert rendered[-1]['bookings_count'] == 1
+
+
+def test_dashboard_groups_after_midnight_booking_with_previous_shift(app):
+    from app.models import Service, User
+
+    with app.app_context():
+        admin = User(username='admin', role='admin')
+        employee = User(username='employee', role='employee')
+        customer = User(username='customer', role='customer')
+        service = Service(name_ar='غسيل', name_en='Wash', price=50, duration=30)
+        db.session.add_all([admin, employee, customer, service])
+        db.session.flush()
+        db.session.add(EmployeeSchedule(
+            employee_id=employee.id, day_of_week=3,
+            start_time=time(20), end_time=time(2), is_active=True
+        ))
+        db.session.add(Booking(
+            customer_id=customer.id, employee_id=employee.id, service_id=service.id,
+            date=date(2026, 7, 31), time=time(1), status='completed'
+        ))
+        db.session.commit()
+        admin_id = admin.id
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, admin_id))
+
+    rendered = []
+
+    def record_template(sender, template, context, **extra):
+        rendered.append(context)
+
+    template_rendered.connect(record_template, app)
+    try:
+        response = client.get('/admin/?date=2026-07-30')
+    finally:
+        template_rendered.disconnect(record_template, app)
+
+    assert response.status_code == 200
+    assert rendered[-1]['bookings_count'] == 1
+    assert rendered[-1]['total_revenue'] == 50
+
+
+def test_reports_group_after_midnight_completion_with_previous_shift(app):
+    from app.models import Service, User
+
+    with app.app_context():
+        admin = User(username='admin', role='admin')
+        employee = User(username='employee', role='employee')
+        customer = User(username='customer', role='customer')
+        city = City(name_ar='الرياض')
+        service = Service(name_ar='غسيل', name_en='Wash', price=75, duration=30)
+        db.session.add_all([admin, employee, customer, city, service])
+        db.session.flush()
+        neighborhood = Neighborhood(name_ar='العليا', city_id=city.id)
+        db.session.add(neighborhood)
+        db.session.flush()
+        db.session.add(EmployeeSchedule(
+            employee_id=employee.id, day_of_week=3,
+            start_time=time(20), end_time=time(2), is_active=True
+        ))
+        db.session.add(Booking(
+            customer_id=customer.id, employee_id=employee.id,
+            service_id=service.id, neighborhood_id=neighborhood.id,
+            date=date(2026, 7, 31), time=time(1), status='completed',
+            payment_method='cash'
+        ))
+        db.session.commit()
+        admin_id = admin.id
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, admin_id))
+
+    rendered = []
+
+    def record_template(sender, template, context, **extra):
+        rendered.append(context)
+
+    template_rendered.connect(record_template, app)
+    try:
+        response = client.get(
+            '/admin/reports?from_date=2026-07-30&to_date=2026-07-30'
+        )
+    finally:
+        template_rendered.disconnect(record_template, app)
+
+    assert response.status_code == 200
+    context = rendered[-1]
+    assert context['completed_bookings'] == 1
+    assert context['cash_count'] == 1
+    assert context['service_revenue'] == 75
+    assert context['employee_stats'][0]['completed'] == 1

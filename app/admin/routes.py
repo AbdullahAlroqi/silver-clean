@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify, current_app
+from flask import render_template, redirect, url_for, flash, request, jsonify, current_app, abort
 from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
@@ -11,7 +11,12 @@ from urllib.parse import quote
 import os
 from pywebpush import webpush, WebPushException
 import json
+import secrets
+import string
 from app.utils.employee_breaks import employee_on_break_at, employee_break_overlaps
+from app.utils.shift_utils import get_booking_work_date
+
+ABANDONED_CHECKOUT_RETENTION_DAYS = 2
 
 @bp.before_request
 def before_request():
@@ -64,6 +69,41 @@ def _booking_has_scope_access(booking):
     if neighborhood_ids is None:
         return True
     return bool(booking and booking.neighborhood_id in neighborhood_ids)
+
+
+def _checkout_has_scope_access(checkout):
+    if current_user.role != 'supervisor':
+        return True
+    allowed_city_ids = {city.id for city in current_user.supervisor_cities}
+    allowed_neighborhood_ids = set(_supervisor_neighborhood_ids() or [])
+    return bool(
+        checkout
+        and (
+            checkout.neighborhood_id in allowed_neighborhood_ids
+            or checkout.city_id in allowed_city_ids
+        )
+    )
+
+
+def _filter_bookings_by_work_date(bookings, from_date, to_date=None):
+    """Filter bookings by the employee shift date, including overnight work."""
+    to_date = to_date or from_date
+    employee_ids = {booking.employee_id for booking in bookings if booking.employee_id}
+    schedules_by_employee = {employee_id: [] for employee_id in employee_ids}
+    if employee_ids:
+        schedules = EmployeeSchedule.query.filter(
+            EmployeeSchedule.employee_id.in_(employee_ids),
+            EmployeeSchedule.is_active == True
+        ).all()
+        for schedule in schedules:
+            schedules_by_employee.setdefault(schedule.employee_id, []).append(schedule)
+
+    return [
+        booking for booking in bookings
+        if from_date <= get_booking_work_date(
+            booking, schedules_by_employee.get(booking.employee_id, [])
+        ) <= to_date
+    ]
 
 def _supervisor_city_ids(neighborhood_ids=None):
     neighborhood_ids = _supervisor_neighborhood_ids() if neighborhood_ids is None else neighborhood_ids
@@ -127,11 +167,12 @@ def index():
             employees_count = User.query.filter_by(role='employee').join(User.neighborhoods).filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).distinct().count()
             # Fix AmbiguousForeignKeysError by specifying join condition
             customers_count = User.query.filter_by(role='customer').join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).distinct().count()
-            bookings_count = Booking.query.filter(
+            dashboard_candidates = Booking.query.filter(
                 Booking.neighborhood_id.in_(supervisor_neighborhood_ids),
-                Booking.date == selected_date,
+                Booking.date.in_([selected_date, selected_date + timedelta(days=1)]),
                 Booking.status != 'cancelled'
-            ).count()
+            ).all()
+            bookings_count = len(_filter_bookings_by_work_date(dashboard_candidates, selected_date))
         else:
             employees_count = 0
             customers_count = 0
@@ -139,13 +180,17 @@ def index():
     else:
         employees_count = User.query.filter_by(role='employee').count()
         customers_count = User.query.filter_by(role='customer').count()
-        bookings_count = Booking.query.filter(
-            Booking.date == selected_date,
+        dashboard_candidates = Booking.query.filter(
+            Booking.date.in_([selected_date, selected_date + timedelta(days=1)]),
             Booking.status != 'cancelled'
-        ).count()
+        ).all()
+        bookings_count = len(_filter_bookings_by_work_date(dashboard_candidates, selected_date))
     
     # Calculate total revenue from completed bookings
-    completed_bookings_query = Booking.query.filter_by(status='completed', date=selected_date)
+    completed_bookings_query = Booking.query.filter(
+        Booking.status == 'completed',
+        Booking.date.in_([selected_date, selected_date + timedelta(days=1)])
+    )
     
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
@@ -153,11 +198,15 @@ def index():
         else:
             completed_bookings_query = completed_bookings_query.filter_by(id=-1) # Empty result
             
-    completed_bookings = completed_bookings_query.all()
+    completed_bookings = _filter_bookings_by_work_date(
+        completed_bookings_query.all(), selected_date
+    )
     total_revenue = sum(b.service.price for b in completed_bookings if b.service)
     
     # Get recent bookings
-    recent_bookings_query = Booking.query.filter(Booking.date == selected_date).order_by(Booking.time.desc())
+    recent_bookings_query = Booking.query.filter(
+        Booking.date.in_([selected_date, selected_date + timedelta(days=1)])
+    ).order_by(Booking.date.desc(), Booking.time.desc())
     
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
@@ -165,7 +214,9 @@ def index():
         else:
             recent_bookings_query = recent_bookings_query.filter_by(id=-1)
             
-    recent_bookings = recent_bookings_query.limit(5).all()
+    recent_bookings = _filter_bookings_by_work_date(
+        recent_bookings_query.all(), selected_date
+    )[:5]
     
     return render_template('admin/index.html', 
                            employees_count=employees_count, 
@@ -3797,7 +3848,7 @@ def reports():
     
     completed_bookings_query = Booking.query.join(Neighborhood).filter(
         Booking.date >= from_date,
-        Booking.date <= to_date,
+        Booking.date <= to_date + timedelta(days=1),
         Booking.status == 'completed'
     )
     
@@ -3821,14 +3872,14 @@ def reports():
     # Payment Method Stats
     cash_bookings = Booking.query.join(Neighborhood).filter(
         Booking.date >= from_date,
-        Booking.date <= to_date,
+        Booking.date <= to_date + timedelta(days=1),
         Booking.status == 'completed',
         Booking.payment_method == 'cash'
     )
     
     card_bookings = Booking.query.join(Neighborhood).filter(
         Booking.date >= from_date,
-        Booking.date <= to_date,
+        Booking.date <= to_date + timedelta(days=1),
         Booking.status == 'completed',
         Booking.payment_method == 'card'
     )
@@ -3850,12 +3901,18 @@ def reports():
             cash_bookings = cash_bookings.filter(Booking.id == -1)
             card_bookings = card_bookings.filter(Booking.id == -1)
         
-    cash_count = cash_bookings.count()
-    card_count = card_bookings.count()
+    cash_bookings_list = _filter_bookings_by_work_date(
+        cash_bookings.all(), from_date, to_date
+    )
+    card_bookings_list = _filter_bookings_by_work_date(
+        card_bookings.all(), from_date, to_date
+    )
+    cash_count = len(cash_bookings_list)
+    card_count = len(card_bookings_list)
     
     # Calculate totals for cash/card
     cash_total = 0
-    for b in cash_bookings.all():
+    for b in cash_bookings_list:
         if not b.service:
             continue
             
@@ -3886,7 +3943,7 @@ def reports():
         cash_total += price
 
     card_total = 0
-    for b in card_bookings.all():
+    for b in card_bookings_list:
         if not b.service:
             continue
             
@@ -3936,13 +3993,14 @@ def reports():
             subscriptions_query = subscriptions_query.filter_by(id=-1)
 
     total_bookings = bookings_query.count()
-    completed_bookings = completed_bookings_query.count()
+    completed_bookings_list = _filter_bookings_by_work_date(
+        completed_bookings_query.all(), from_date, to_date
+    )
+    completed_bookings = len(completed_bookings_list)
     total_customers = customers_query.count()
     active_subscriptions = subscriptions_query.count()
     
     # Revenue calculations with accurate pricing
-    completed_bookings_list = completed_bookings_query.all()
-    
     service_revenue = 0
     product_revenue = 0
     
@@ -4026,33 +4084,45 @@ def reports():
     .order_by(func.count(Booking.id).desc())\
     .limit(5).all()
     
-    # Employee performance (in date range)
-    from sqlalchemy import case
-    employee_stats_query = db.session.query(
-        User.username,
-        func.count(Booking.id).label('total'),
-        func.sum(case((Booking.status == 'completed', 1), else_=0)).label('completed')
-    ).join(Booking, User.id == Booking.employee_id)\
-    .join(Neighborhood, Booking.neighborhood_id == Neighborhood.id)\
-    .filter(
+    # Employee performance uses the logical shift date, so work completed
+    # after midnight remains attached to the shift that started the day before.
+    employee_bookings_query = Booking.query.join(
+        User, User.id == Booking.employee_id
+    ).join(
+        Neighborhood, Booking.neighborhood_id == Neighborhood.id
+    ).filter(
         User.role == 'employee',
         Booking.date >= from_date,
-        Booking.date <= to_date
+        Booking.date <= to_date + timedelta(days=1)
     )
     
     if city_id:
-        employee_stats_query = employee_stats_query.filter(Neighborhood.city_id == city_id)
+        employee_bookings_query = employee_bookings_query.filter(Neighborhood.city_id == city_id)
         
     if neighborhood_id:
-        employee_stats_query = employee_stats_query.filter(Booking.neighborhood_id == neighborhood_id)
+        employee_bookings_query = employee_bookings_query.filter(Booking.neighborhood_id == neighborhood_id)
     
     if current_user.role == 'supervisor':
         if supervisor_neighborhood_ids:
-            employee_stats_query = employee_stats_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
+            employee_bookings_query = employee_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
-            employee_stats_query = employee_stats_query.filter(Booking.id == -1)
-        
-    employee_stats = employee_stats_query.group_by(User.id).all()
+            employee_bookings_query = employee_bookings_query.filter(Booking.id == -1)
+
+    employee_bookings = _filter_bookings_by_work_date(
+        employee_bookings_query.all(), from_date, to_date
+    )
+    employee_totals = {}
+    for booking in employee_bookings:
+        row = employee_totals.setdefault(
+            booking.employee_id,
+            {'username': booking.employee.username, 'total': 0, 'completed': 0}
+        )
+        row['total'] += 1
+        if booking.status == 'completed':
+            row['completed'] += 1
+    employee_stats = sorted(
+        employee_totals.values(), key=lambda row: row['completed'], reverse=True
+    )
     
     # City performance (in date range)
     city_performance = {} # {city_name: {'count': 0, 'revenue': 0}}
@@ -4349,10 +4419,20 @@ def discount_codes():
 
 @bp.route('/abandoned-checkouts')
 def abandoned_checkouts():
+    expiry_cutoff = datetime.utcnow() - timedelta(days=ABANDONED_CHECKOUT_RETENTION_DAYS)
+    CheckoutSession.query.filter(
+        CheckoutSession.status == 'active',
+        CheckoutSession.created_at < expiry_cutoff
+    ).delete(synchronize_session=False)
+    db.session.commit()
+
     cutoff = datetime.utcnow() - timedelta(minutes=30)
     query = CheckoutSession.query.filter(
         CheckoutSession.status == 'active',
-        CheckoutSession.last_activity_at <= cutoff
+        or_(
+            CheckoutSession.last_activity_at <= cutoff,
+            CheckoutSession.recovery_discount_code_id.isnot(None)
+        )
     )
     if current_user.role == 'supervisor':
         allowed_city_ids = {city.id for city in current_user.supervisor_cities}
@@ -4379,16 +4459,60 @@ def abandoned_checkouts():
         query = query.filter(CheckoutSession.flow_type == flow_type)
 
     page = request.args.get('page', 1, type=int)
-    pagination = query.order_by(CheckoutSession.last_activity_at.desc()).paginate(
+    customer_query = query.with_entities(
+        CheckoutSession.customer_id,
+        func.max(CheckoutSession.last_activity_at).label('latest_activity')
+    ).group_by(CheckoutSession.customer_id).order_by(
+        func.max(CheckoutSession.last_activity_at).desc()
+    )
+    pagination = customer_query.paginate(
         page=page, per_page=50, error_out=False
     )
+    customer_ids = [item.customer_id for item in pagination.items]
+    used_recovery_discount_customer_ids = set()
+    if customer_ids:
+        used_recovery_discount_customer_ids = {
+            customer_id for (customer_id,) in db.session.query(
+                Booking.customer_id
+            ).join(
+                DiscountCode, Booking.discount_code_id == DiscountCode.id
+            ).filter(
+                Booking.customer_id.in_(customer_ids),
+                Booking.status != 'cancelled',
+                DiscountCode.code.like('BACK%')
+            ).distinct().all()
+        }
+    grouped_checkouts = {customer_id: [] for customer_id in customer_ids}
+    if customer_ids:
+        checkouts = query.filter(
+            CheckoutSession.customer_id.in_(customer_ids)
+        ).order_by(
+            CheckoutSession.last_activity_at.desc()
+        ).all()
+        for checkout in checkouts:
+            grouped_checkouts.setdefault(checkout.customer_id, []).append(checkout)
+
     rows = []
-    for checkout in pagination.items:
-        try:
-            data = json.loads(checkout.form_data or '{}')
-        except (TypeError, ValueError):
-            data = {}
-        rows.append({'checkout': checkout, 'data': data})
+    for customer_id in customer_ids:
+        customer_checkouts = grouped_checkouts.get(customer_id, [])
+        if not customer_checkouts:
+            continue
+        checkout = customer_checkouts[0]
+        attempts = []
+        for attempt in customer_checkouts:
+            try:
+                attempt_data = json.loads(attempt.form_data or '{}')
+            except (TypeError, ValueError):
+                attempt_data = {}
+            attempts.append({'checkout': attempt, 'data': attempt_data})
+        rows.append({
+            'checkout': checkout,
+            'data': attempts[0]['data'],
+            'promo_code': checkout.recovery_discount_code,
+            'attempts': attempts,
+            'attempts_count': len(attempts),
+            'used_recovery_discount': customer_id in used_recovery_discount_customer_ids
+        })
 
     return render_template(
         'admin/abandoned_checkouts.html',
@@ -4398,6 +4522,85 @@ def abandoned_checkouts():
         selected_flow=flow_type,
         cutoff_minutes=30
     )
+
+
+@bp.route('/abandoned-checkouts/<int:checkout_id>/create-discount', methods=['POST'])
+def create_abandoned_checkout_discount(checkout_id):
+    checkout = CheckoutSession.query.get_or_404(checkout_id)
+    if checkout.status != 'active' or not _checkout_has_scope_access(checkout):
+        abort(404)
+    if checkout.recovery_discount_code:
+        flash('يوجد كود خصم مرتبط بهذه السلة بالفعل. يمكنك تعديله أو حذفه.', 'info')
+        return redirect(url_for('admin.abandoned_checkouts'))
+    customer_last_activity = checkout.last_activity_at
+
+    discount_type = request.form.get('discount_type', 'percentage').strip().lower()
+    try:
+        value = float(request.form.get('value', 0))
+    except (TypeError, ValueError):
+        value = 0
+    if discount_type not in ('percentage', 'fixed') or value <= 0:
+        flash('يرجى تحديد قيمة خصم صحيحة.', 'error')
+        return redirect(url_for('admin.abandoned_checkouts'))
+    if discount_type == 'percentage' and value > 100:
+        flash('نسبة الخصم لا يمكن أن تتجاوز 100%.', 'error')
+        return redirect(url_for('admin.abandoned_checkouts'))
+
+    alphabet = string.ascii_uppercase + string.digits
+    while True:
+        code_text = 'BACK' + ''.join(secrets.choice(alphabet) for _ in range(6))
+        if not DiscountCode.query.filter_by(code=code_text).first():
+            break
+
+    # Give the recovery code the narrowest location known for this cart.
+    neighborhood_id = checkout.neighborhood_id
+    city_id = None if neighborhood_id else checkout.city_id
+    code = DiscountCode(
+        code=code_text,
+        discount_type=discount_type,
+        value=value,
+        valid_from=datetime.utcnow(),
+        valid_until=datetime.utcnow() + timedelta(days=7),
+        usage_limit=1,
+        max_uses_per_customer=1,
+        is_active=True,
+        assigned_customer_id=checkout.customer_id,
+        city_id=city_id,
+        neighborhood_id=neighborhood_id,
+        created_by_id=current_user.id
+    )
+    db.session.add(code)
+    db.session.flush()
+    checkout.recovery_discount_code_id = code.id
+    db.session.flush()
+    # Administrative actions must not make an abandoned cart look active again.
+    CheckoutSession.query.filter_by(id=checkout.id).update(
+        {'last_activity_at': customer_last_activity}, synchronize_session=False
+    )
+    db.session.commit()
+    flash('تم إنشاء كود الخصم، وستتم إضافته تلقائيًا إلى رسالة واتساب.', 'success')
+    return redirect(url_for('admin.abandoned_checkouts'))
+
+
+@bp.route('/abandoned-checkouts/<int:checkout_id>/delete-discount', methods=['POST'])
+def delete_abandoned_checkout_discount(checkout_id):
+    checkout = CheckoutSession.query.get_or_404(checkout_id)
+    if not _checkout_has_scope_access(checkout):
+        abort(404)
+    code = checkout.recovery_discount_code
+    if code:
+        customer_last_activity = checkout.last_activity_at
+        checkout.recovery_discount_code_id = None
+        db.session.flush()
+        abandoned_cutoff = datetime.utcnow() - timedelta(minutes=31)
+        CheckoutSession.query.filter_by(id=checkout.id).update(
+            {'last_activity_at': min(customer_last_activity, abandoned_cutoff)},
+            synchronize_session=False
+        )
+        db.session.delete(code)
+        db.session.commit()
+        flash('تم حذف كود الخصم من السلة.', 'success')
+    return redirect(url_for('admin.abandoned_checkouts'))
 
 @bp.route('/discount_codes/add', methods=['GET', 'POST'])
 def add_discount_code():
@@ -4487,6 +4690,9 @@ def edit_discount_code(id):
 @bp.route('/discount_codes/delete/<int:id>', methods=['POST'])
 def delete_discount_code(id):
     code = _get_scoped_discount_or_404(id)
+    CheckoutSession.query.filter_by(recovery_discount_code_id=code.id).update(
+        {'recovery_discount_code_id': None}, synchronize_session=False
+    )
     db.session.delete(code)
     db.session.commit()
     flash('تم حذف كود الخصم بنجاح', 'success')

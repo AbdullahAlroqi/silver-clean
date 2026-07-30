@@ -12,6 +12,9 @@ from app.utils.employee_breaks import employee_break_overlaps
 from app.notifications import notify_area_supervisors
 import json
 import uuid
+from datetime import datetime
+
+ABANDONED_CHECKOUT_RETENTION_DAYS = 2
 
 
 def _complete_checkout_session():
@@ -239,6 +242,7 @@ def checkout_progress():
     page_name = str(payload.get('page_name', '')).strip()[:100]
     step_name = str(payload.get('step_name', '')).strip()[:100]
     token = str(payload.get('token', '')).strip()[:36]
+    initial_load = bool(payload.get('initial_load'))
     allowed_flows = {
         'booking', 'subscription', 'subscription_wash', 'polishing',
         'gift_wash', 'gift_subscription', 'gift_polishing'
@@ -264,6 +268,8 @@ def checkout_progress():
         checkout = CheckoutSession.query.filter_by(
             token=token, customer_id=current_user.id, status='active'
         ).first()
+    if checkout and initial_load:
+        return jsonify({'ok': True, 'token': checkout.token})
     if not checkout:
         new_token = token
         try:
@@ -307,9 +313,19 @@ def checkout_progress():
     db.session.commit()
     return jsonify({'ok': True, 'token': checkout.token})
 
+
 @bp.route('/')
 def index():
     from app.models import Announcement, SiteSettings
+    from datetime import timedelta
+
+    checkout_expiry = datetime.utcnow() - timedelta(days=ABANDONED_CHECKOUT_RETENTION_DAYS)
+    CheckoutSession.query.filter(
+        CheckoutSession.customer_id == current_user.id,
+        CheckoutSession.status == 'active',
+        CheckoutSession.created_at < checkout_expiry
+    ).delete(synchronize_session=False)
+    db.session.commit()
     
     upcoming_bookings = current_user.bookings.filter(~Booking.status.in_(['completed', 'cancelled'])).all()
     repeatable_booking = _get_repeatable_booking()
@@ -1139,6 +1155,9 @@ def book():
                 if not discount_code or not discount_code.is_active:
                     flash('كود الخصم غير صحيح أو غير فعال')
                     return redirect(url_for('customer.book'))
+                if not discount_code.is_available_to(current_user):
+                    flash('هذا الكود مخصص لعميل آخر ولا يمكن استخدامه')
+                    return redirect(url_for('customer.book'))
                 
                 discount_neighborhood = Neighborhood.query.get(neighborhood_id)
                 if not discount_code.applies_to(discount_neighborhood):
@@ -1698,6 +1717,8 @@ def verify_discount():
         discount_code = DiscountCode.query.filter_by(code=code).first()
         if not discount_code or not discount_code.is_active:
             return jsonify({'valid': False, 'message': 'كود الخصم غير صحيح أو غير فعال'})
+        if not discount_code.is_available_to(current_user):
+            return jsonify({'valid': False, 'message': 'هذا الكود مخصص لعميل آخر'})
         
         neighborhood_id = request.json.get('neighborhood_id')
         neighborhood = Neighborhood.query.get(neighborhood_id) if neighborhood_id else None
@@ -1719,7 +1740,6 @@ def verify_discount():
             
         # Check per-customer usage limit
         if discount_code.max_uses_per_customer:
-            from flask_login import current_user
             from app.models import Booking
             
             if current_user.is_authenticated:
@@ -1735,7 +1755,8 @@ def verify_discount():
             'valid': True,
             'message': 'كود الخصم صالح!',
             'discount_value': discount_code.value,
-            'discount_type': discount_code.discount_type
+            'discount_type': discount_code.discount_type,
+            'scope_label': discount_code.scope_label
         })
     except Exception as e:
         # print(f"Error in verify_discount: {str(e)}")

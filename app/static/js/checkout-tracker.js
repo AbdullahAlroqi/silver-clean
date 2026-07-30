@@ -25,10 +25,17 @@
     if (!config) return;
 
     const storageKey = 'checkout_token_' + config.flow;
-    let token = localStorage.getItem(storageKey)
+    const queryParams = new URLSearchParams(window.location.search);
+    if (queryParams.get('new_checkout') === '1') {
+        localStorage.removeItem(storageKey);
+    }
+    const storedToken = localStorage.getItem(storageKey);
+    let token = storedToken
         || (window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : '');
     if (token) localStorage.setItem(storageKey, token);
     let timer = null;
+    const isExistingSession = Boolean(storedToken);
+    let hasInteracted = false;
 
     function collectFormData() {
         const result = {};
@@ -69,7 +76,8 @@
         });
     }
 
-    function sendProgress() {
+    function sendProgress(initialLoad = false) {
+        if (isExistingSession && !hasInteracted) return;
         const csrf = document.querySelector('meta[name="csrf-token"]');
         fetch('/customer/api/checkout-progress', {
             method: 'POST',
@@ -82,7 +90,8 @@
                 flow_type: config.flow,
                 page_name: config.page,
                 step_name: config.step,
-                form_data: collectFormData()
+                form_data: collectFormData(),
+                initial_load: initialLoad
             }),
             keepalive: true
         })
@@ -103,6 +112,9 @@
 
     document.addEventListener('change', scheduleProgress);
     document.addEventListener('input', scheduleProgress);
+    document.addEventListener('click', () => {
+        hasInteracted = true;
+    }, true);
     document.addEventListener('checkout:step', (event) => {
         if (event.detail && event.detail.step) config.step = event.detail.step;
         sendProgress();
@@ -110,5 +122,5 @@
     document.addEventListener('submit', ensureTokenFields);
 
     ensureTokenFields();
-    sendProgress();
+    sendProgress(true);
 })();
