@@ -27,7 +27,7 @@
     </script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-screen.css') }}?v=2">
     <!-- Custom CSS -->
     <style>
@@ -143,7 +143,7 @@
 
             .admin-main {
                 padding: 1rem;
-                padding-bottom: 6.25rem;
+                padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
             }
 
             .sidebar-link {
@@ -154,6 +154,8 @@
                 -webkit-overflow-scrolling: touch;
                 margin-inline: -0.5rem;
                 padding-inline: 0.5rem;
+                padding-bottom: 0.75rem;
+                margin-bottom: 0.75rem;
             }
 
             .admin-main :where(.overflow-hidden):has(> table),
