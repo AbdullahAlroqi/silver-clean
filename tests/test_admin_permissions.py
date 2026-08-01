@@ -26,7 +26,12 @@ def test_supervisor_can_use_operational_pages(app):
     with app.app_context():
         login(client, db.session.get(User, supervisor_id))
 
-    assert client.get('/admin/bookings').status_code == 200
+    response = client.get('/admin/bookings')
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    assert 'href="/notifications"' in page
+    assert 'id="notification-badge"' in page
+    assert 'id="enable-notifications-btn"' in page
     assert client.get('/admin/customers').status_code == 200
     assert client.get('/admin/products').status_code == 200
     assert client.get('/admin/management-reports').status_code == 200
@@ -65,4 +70,6 @@ def test_admin_keeps_full_access(app):
     with app.app_context():
         login(admin_client, db.session.get(User, admin_id))
     assert admin_client.get('/admin/services').status_code == 200
-    assert admin_client.get('/admin/settings').status_code == 200
+    response = admin_client.get('/admin/settings')
+    assert response.status_code == 200
+    assert 'id="enable-notifications-btn"' in response.get_data(as_text=True)

@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 
 @bp.route('/')
 def index():
+    if current_user.is_authenticated:
+        from app.auth.routes import get_post_login_redirect
+        return redirect(get_post_login_redirect(current_user))
     return render_template('index.html')
 
 @bp.route('/sw.js')

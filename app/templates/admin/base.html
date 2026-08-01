@@ -434,7 +434,14 @@
                             {% block header %}{% endblock %}
                         </h2>
                     </div>
-                    <div class="flex items-center">
+                    <div class="flex items-center gap-4">
+                        <a href="{{ url_for('main.notifications') }}"
+                            class="relative w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center transition"
+                            aria-label="الإشعارات" title="الإشعارات">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span id="notification-badge"
+                                class="hidden absolute -top-1 -left-1 bg-red-500 text-white text-xs rounded-full min-w-5 h-5 px-1 flex items-center justify-center"></span>
+                        </a>
                         <div class="relative">
                             <button id="userMenuButton" class="flex items-center focus:outline-none">
                                 <span class="admin-user-name mr-2 text-sm text-white">{{ current_user.username }}</span>
@@ -499,14 +506,12 @@
         </a>
     </nav>
 
-    {% if current_user.role == 'supervisor' %}
-    <button id="enable-notifications-btn"
+    <button id="enable-notifications-btn" type="button"
         class="hidden fixed bottom-24 left-6 bg-blue-600 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-500 transition z-[100]">
         <i class="fas fa-bell ml-2"></i>
-        <span>تفعيل إشعارات الطلبات</span>
+        <span>تفعيل الإشعارات</span>
     </button>
-    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=4"></script>
-    {% endif %}
+    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=5"></script>
 
     <!-- JavaScript -->
     <script>

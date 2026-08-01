@@ -72,7 +72,12 @@ def create_app(config_class=Config):
             if getattr(settings, 'maintenance_mode', False):
                 auth_endpoint = request.endpoint in ['auth.login', 'auth.logout']
                 admin_settings_endpoint = request.endpoint == 'admin.settings'
-                allowed_endpoint = auth_endpoint or admin_settings_endpoint
+                authenticated_entry_endpoint = (
+                    request.endpoint == 'main.index'
+                    and current_user.is_authenticated
+                    and current_user.role in ['admin', 'supervisor']
+                )
+                allowed_endpoint = auth_endpoint or admin_settings_endpoint or authenticated_entry_endpoint
 
                 if not allowed_endpoint:
                     return render_template('maintenance.html', settings=settings), 503
