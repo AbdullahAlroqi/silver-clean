@@ -207,7 +207,10 @@ def test_admin_can_create_one_use_discount_for_abandoned_checkout(app):
     )
 
     assert response.status_code == 200
-    assert 'حجز خدمة' in response.get_data(as_text=True)
+    response_text = response.get_data(as_text=True)
+    assert 'حجز خدمة' in response_text
+    assert 'https://wa.me/966500000000?text=' in response_text
+    assert '%0A' in response_text
     with app.app_context():
         code = DiscountCode.query.one()
         assert code.value == 15
@@ -235,7 +238,10 @@ def test_admin_can_create_one_use_discount_for_abandoned_checkout(app):
         follow_redirects=True
     )
     assert response.status_code == 200
-    assert 'حجز خدمة' in response.get_data(as_text=True)
+    response_text = response.get_data(as_text=True)
+    assert 'حجز خدمة' in response_text
+    assert 'https://wa.me/966500000000?text=' in response_text
+    assert '%0A' in response_text
     with app.app_context():
         assert DiscountCode.query.count() == 0
         checkout = db.session.get(CheckoutSession, checkout_id)

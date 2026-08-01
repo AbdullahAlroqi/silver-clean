@@ -178,18 +178,20 @@
                 {% endif %}
 
                 {% if row.whatsapp_phone %}
-                {% set whatsapp_message = 'مرحباً ' ~ checkout.customer.username ~ '، لاحظنا أنك لم تكمل طلبك في ' ~ checkout.page_name ~ '. هل يمكننا مساعدتك؟' %}
+                {% set whatsapp_message = 'مرحباً ' ~ checkout.customer.username ~ ' 👋\n\nلاحظنا أنك لم تكمل طلبك في «' ~ checkout.page_name ~ '» 🚘✨\nهل واجهتك مشكلة؟ نحن جاهزون لمساعدتك وإكمال الطلب بكل سهولة.' %}
                 {% if row.promo_code %}
                     {% if row.promo_code.discount_type == 'percentage' %}
                         {% set discount_label = (row.promo_code.value|round(2)|string) ~ '%' %}
                     {% else %}
                         {% set discount_label = (row.promo_code.value|round(2)|string) ~ ' ريال' %}
                     {% endif %}
-                    {% set whatsapp_message = whatsapp_message ~ ' يسعدنا تقديم خصم ' ~ discount_label ~ ' باستخدام الكود: ' ~ row.promo_code.code %}
+                    {% set whatsapp_message = whatsapp_message ~ '\n\n🎁 خصم خاص لك: ' ~ discount_label ~ '\n🏷️ استخدم الكود: *' ~ row.promo_code.code ~ '*' %}
                     {% if row.promo_code.scope_label %}
-                        {% set whatsapp_message = whatsapp_message ~ '، صالح في: ' ~ row.promo_code.scope_label %}
+                        {% set whatsapp_message = whatsapp_message ~ '\n📍 صالح في: ' ~ row.promo_code.scope_label %}
                     {% endif %}
+                    {% set whatsapp_message = whatsapp_message ~ '\n⏳ صالح لمدة 7 أيام ولاستخدام واحد.' %}
                 {% endif %}
+                {% set whatsapp_message = whatsapp_message ~ '\n\nلإكمال طلبك، رد على هذه الرسالة وسنساعدك فوراً.\nفريق ' ~ (site_settings.site_name or 'Silver Clean') ~ ' 💙' %}
                 <a href="https://wa.me/{{ row.whatsapp_phone }}?text={{ whatsapp_message|urlencode }}"
                     target="_blank" rel="noopener"
                     class="w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg">
