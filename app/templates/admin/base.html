@@ -130,7 +130,12 @@
                 position: sticky;
                 top: 0;
                 z-index: 30;
-                padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+                padding-top: 0;
+            }
+
+            .admin-topbar-inner {
+                min-height: 52px;
+                padding: calc(0.6rem + env(safe-area-inset-top, 0px)) 0.85rem 0.6rem;
             }
 
             .admin-page-title {
@@ -152,7 +157,36 @@
 
             .admin-main {
                 padding: 1rem;
-                padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
+                padding-bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+            }
+
+            .admin-main::after {
+                content: '';
+                display: block;
+                width: 100%;
+                height: 1.5rem;
+                clear: both;
+            }
+
+            .sidebar-header {
+                padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+            }
+
+            .admin-notification-link {
+                width: 2.25rem;
+                height: 2.25rem;
+            }
+
+            .admin-notification-link > i {
+                font-size: 1rem;
+            }
+
+            .admin-notification-badge {
+                min-width: 1rem;
+                width: auto;
+                height: 1rem;
+                padding-inline: 0.2rem;
+                font-size: 0.6rem;
             }
 
             .sidebar-link {
@@ -283,7 +317,7 @@
     <div class="admin-shell flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <div id="adminSidebar" class="sidebar bg-primary text-white w-64 flex-shrink-0 h-screen overflow-y-auto">
-            <div class="p-4 border-b border-gray-700">
+            <div class="sidebar-header p-4 border-b border-gray-700">
                 <h1 class="text-2xl font-bold text-center">لوحة التحكم</h1>
             </div>
             <nav class="mt-6 pb-20">
@@ -452,7 +486,7 @@
         <div class="content overflow-y-auto flex-1">
             <!-- Top Navigation -->
             <header class="admin-topbar bg-primary shadow-sm border-b border-gray-700">
-                <div class="flex items-center justify-between p-4">
+                <div class="admin-topbar-inner flex items-center justify-between p-4">
                     <div class="flex items-center">
                         <button id="sidebarToggle" type="button" class="text-gray-300 focus:outline-none hover:text-white" aria-label="فتح القائمة" aria-controls="adminSidebar" aria-expanded="false">
                             <i class="fas fa-bars text-xl"></i>
@@ -463,11 +497,11 @@
                     </div>
                     <div class="flex items-center gap-4">
                         <a href="{{ url_for('main.notifications') }}"
-                            class="relative w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center transition"
+                            class="admin-notification-link relative w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 text-white flex items-center justify-center transition shrink-0"
                             aria-label="الإشعارات" title="الإشعارات">
                             <i class="fas fa-bell text-lg"></i>
                             <span id="notification-badge"
-                                class="hidden absolute -top-1 -left-1 bg-red-500 text-white text-xs rounded-full min-w-5 h-5 px-1 flex items-center justify-center"></span>
+                                class="admin-notification-badge hidden absolute -top-1 -left-1 bg-red-500 text-white text-xs rounded-full min-w-5 h-5 px-1 flex items-center justify-center"></span>
                         </a>
                         <div class="relative">
                             <button id="userMenuButton" class="flex items-center focus:outline-none">
