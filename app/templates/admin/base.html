@@ -335,6 +335,11 @@
                         <i class="fas fa-chart-line ml-3"></i>
                         <span>التقارير</span>
                     </a>
+                    <a href="{{ url_for('admin.management_reports') }}"
+                        class="flex items-center px-6 py-3 text-cyan-300 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-chart-pie ml-3"></i>
+                        <span>التقارير الإدارية</span>
+                    </a>
 
                     <a href="{{ url_for('admin.ratings') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
@@ -354,12 +359,12 @@
                         <span>السلات المتروكة</span>
                     </a>
 
-                    {% if current_user.role == 'admin' %}
                     <a href="{{ url_for('admin.customers') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-users ml-3"></i>
                         <span>العملاء</span>
                     </a>
+                    {% if current_user.role == 'admin' %}
                     <a href="{{ url_for('admin.admins') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-user-shield ml-3"></i>

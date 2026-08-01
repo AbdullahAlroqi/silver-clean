@@ -124,7 +124,7 @@
                             <i class="fas fa-calendar-alt"></i>
                         </a>
                         {% endif %}
-                        <form action="{{ url_for('admin.delete_employee', id=emp.id) }}" method="post"
+                        {% if current_user.role == 'admin' %}<form action="{{ url_for('admin.delete_employee', id=emp.id) }}" method="post"
                             style="display:inline;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                             <button type="submit" class="text-red-400 hover:text-red-300"
@@ -132,7 +132,7 @@
                                 title="&#1581;&#1584;&#1601;">
                                 <i class="fas fa-trash"></i>
                             </button>
-                        </form>
+                        </form>{% endif %}
                     </div>
                 </td>
             </tr>

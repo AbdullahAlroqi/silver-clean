@@ -175,6 +175,22 @@
                 </div>
                 <!-- Available Times Section -->
                 <div class="mt-6 border-t border-gray-700 pt-6">
+                    <div id="nearest-appointment-card" class="mb-5 bg-cyan-900/20 border border-cyan-600 rounded-xl p-5">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h4 class="text-white font-bold"><i class="fas fa-bolt text-yellow-400 ml-2"></i>اقتراح أقرب موعد</h4>
+                                <p id="nearest-appointment-text" class="text-gray-400 text-sm mt-1">سيظهر أقرب موعد تلقائيًا بعد اختيار الحي والمركبات والخدمات.</p>
+                            </div>
+                            <button type="button" id="find-nearest-btn" onclick="findNearestAppointment()"
+                                class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-5 py-3 rounded-lg whitespace-nowrap">
+                                <i class="fas fa-rotate ml-1"></i> تحديث الاقتراح
+                            </button>
+                        </div>
+                        <button type="button" id="use-nearest-btn" onclick="useNearestAppointment()"
+                            class="hidden mt-4 w-full bg-green-600 hover:bg-green-500 text-white font-bold px-5 py-3 rounded-lg">
+                            اختيار هذا الموعد
+                        </button>
+                    </div>
                     <div class="mb-5">
                         <label class="block text-sm font-medium text-gray-300 mb-2">
                             <i class="fas fa-calendar-alt ml-1 text-accent"></i> اختر التاريخ
@@ -307,6 +323,17 @@
                     </div>
                 </div>
 
+                <div class="mt-6 bg-gradient-to-r from-blue-900 to-purple-900 p-6 rounded-xl border-2 border-accent">
+                    <h4 class="font-bold text-white text-lg mb-4"><i class="fas fa-calculator ml-2"></i>السعر النهائي</h4>
+                    <div class="space-y-3 text-white">
+                        <div class="flex justify-between"><span>الخدمات:</span><strong id="live-services-total">0.00 ريال</strong></div>
+                        <div class="flex justify-between"><span>المنتجات:</span><strong id="live-products-total">0.00 ريال</strong></div>
+                        <div id="live-discount-row" class="hidden flex justify-between text-green-400"><span>الخصم:</span><strong id="live-discount-total">- 0.00 ريال</strong></div>
+                        <div class="border-t border-white/20 pt-3 flex justify-between text-xl"><span class="font-bold">المبلغ المطلوب:</span><strong id="live-final-total" class="text-accent">0.00 ريال</strong></div>
+                    </div>
+                    <p class="text-gray-300 text-xs mt-3">يتحدث المبلغ تلقائيًا عند تغيير المنتجات أو الخصم أو الغسلة المجانية.</p>
+                </div>
+
                 <div class="mt-6 flex justify-between">
                     <button type="button" onclick="prevStep(2)"
                         class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg transition">
@@ -417,6 +444,10 @@
     let servicePrice = 0;
     let vehicleSizePrice = 0;
     let productsData = [];
+    let nearestAppointment = null;
+    let nearestSearchTimer = null;
+    let nearestSearchToken = 0;
+    let isApplyingNearestAppointment = false;
 
     const dateInput = document.getElementById('date-input');
     const bookingDaysLimit = {{ site_settings.booking_days_limit or 7 }};
@@ -465,8 +496,14 @@
         document.dispatchEvent(new CustomEvent('checkout:step', { detail: { step: `الخطوة ${step} من 4` } }));
 
         if (step === 4) updateOrderReview();
-        if (step === 2 && !document.getElementById('time-select').value) loadAvailableTimes();
-        if (step === 3) loadProducts();
+        if (step === 2 && !document.getElementById('time-select').value) {
+            loadAvailableTimes();
+            scheduleNearestAppointmentSearch();
+        }
+        if (step === 3) {
+            refreshLivePrice();
+            loadProducts();
+        }
     }
 
     function nextStep(step) {
@@ -672,7 +709,26 @@
                 document.getElementById('review-discount-row').style.display = 'none';
             }
         }
+        total = Math.max(0, total);
         document.getElementById('review-total').textContent = total.toFixed(2) + ' ريال';
+        document.getElementById('live-services-total').textContent = servicePrice.toFixed(2) + ' ريال';
+        document.getElementById('live-products-total').textContent = productsTotal.toFixed(2) + ' ريال';
+        document.getElementById('live-final-total').textContent = total.toFixed(2) + ' ريال';
+        const liveDiscountRow = document.getElementById('live-discount-row');
+        const reviewDiscountVisible = document.getElementById('review-discount-row').style.display !== 'none';
+        const freeWashVisible = document.getElementById('review-free-wash-row').style.display !== 'none';
+        liveDiscountRow.classList.toggle('hidden', !reviewDiscountVisible && !freeWashVisible);
+        document.getElementById('live-discount-total').textContent = freeWashVisible
+            ? 'غسلة مجانية'
+            : document.getElementById('review-discount').textContent;
+    }
+
+    function refreshLivePrice() {
+        servicePrice = Array.from(document.querySelectorAll('.service-select')).reduce((sum, select) => {
+            const option = select.options[select.selectedIndex];
+            return sum + (option ? parseFloat(option.getAttribute('data-price') || 0) : 0);
+        }, 0);
+        updateTotals();
     }
 
     let vehicleRowIndex = 1;
@@ -701,6 +757,8 @@
             delBtn.innerHTML = '<i class="fas fa-trash"></i>';
             delBtn.onclick = function() {
                 newRow.remove();
+                refreshLivePrice();
+                resetNearestAppointment();
             };
             newRow.appendChild(delBtn);
         }
@@ -797,7 +855,10 @@
         }
         
         // Refresh available times when service changes
+        refreshLivePrice();
+        resetNearestAppointment();
         loadAvailableTimes();
+        scheduleNearestAppointmentSearch();
     }
 
     const citySelect = document.getElementById('city-select');
@@ -934,8 +995,7 @@
         });
     }
 
-    function loadAvailableTimes() {
-        const date = dateInput.value;
+    function buildAvailabilityParams(date) {
         const nId = neighborhoodSelect.value;
         const rows = document.querySelectorAll('.service-select');
         
@@ -952,8 +1012,7 @@
             }
         });
 
-        timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
-        if (!date || !nId || selectedServicesCount === 0) return;
+        if (!date || !nId || selectedServicesCount === 0) return null;
 
         const params = new URLSearchParams({ 
             date: date, 
@@ -969,29 +1028,152 @@
                 params.append('vehicle_ids[]', select.value);
             }
         });
-        fetch('/customer/api/available-times?' + params)
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    timeSelect.innerHTML = `<option value="">${data.error}</option>`;
-                    // Optionally show a separate alert or message div if available
-                    return;
-                }
-                
-                const times = Array.isArray(data) ? data : (data.available_times || []);
-                
-                if (times.length === 0) {
-                    timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة (قد يكون اليوم محجوز بالكامل)</option>';
-                } else {
-                    times.forEach(time => {
-                        const option = document.createElement('option');
-                        option.value = time;
-                        option.textContent = time;
-                        option.className = "bg-darkbg text-white";
-                        timeSelect.appendChild(option);
-                    });
-                }
-            });
+        return params;
+    }
+
+    async function fetchAvailableTimesForDate(date) {
+        const params = buildAvailabilityParams(date);
+        if (!params) return { times: [], error: null };
+        const response = await fetch('/customer/api/available-times?' + params);
+        const data = await response.json();
+        return {
+            times: Array.isArray(data) ? data : (data.available_times || []),
+            error: data.error || null
+        };
+    }
+
+    async function loadAvailableTimes() {
+        const date = dateInput.value;
+        timeSelect.innerHTML = '<option value="">اختر الوقت المتاح</option>';
+        if (!buildAvailabilityParams(date)) return [];
+        try {
+            const result = await fetchAvailableTimesForDate(date);
+            if (result.error) {
+                timeSelect.innerHTML = `<option value="">${result.error}</option>`;
+                return [];
+            }
+            if (!result.times.length) {
+                timeSelect.innerHTML = '<option value="">لا توجد أوقات متاحة (قد يكون اليوم محجوز بالكامل)</option>';
+            } else {
+                result.times.forEach(time => timeSelect.add(new Option(time, time)));
+            }
+            return result.times;
+        } catch (error) {
+            timeSelect.innerHTML = '<option value="">تعذر تحميل الأوقات، حاول مجددًا</option>';
+            return [];
+        }
+    }
+
+    function localDateString(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function resetNearestAppointment() {
+        nearestSearchToken++;
+        nearestAppointment = null;
+        document.getElementById('use-nearest-btn').classList.add('hidden');
+        document.getElementById('nearest-appointment-text').textContent = 'جاري تجهيز اقتراح أقرب موعد...';
+    }
+
+    function scheduleNearestAppointmentSearch() {
+        clearTimeout(nearestSearchTimer);
+        nearestSearchTimer = setTimeout(() => {
+            if (isApplyingNearestAppointment) return;
+            const today = localDateString(new Date());
+            if (neighborhoodSelect.value && buildAvailabilityParams(today)) {
+                findNearestAppointment(true);
+            }
+        }, 350);
+    }
+
+    async function findNearestAppointment(automatic = false) {
+        const text = document.getElementById('nearest-appointment-text');
+        const button = document.getElementById('find-nearest-btn');
+        if (!neighborhoodSelect.value || !buildAvailabilityParams(localDateString(new Date()))) {
+            text.textContent = 'اختر الحي والمركبات والخدمات أولاً.';
+            return;
+        }
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin ml-1"></i> جاري التحقق...';
+        nearestAppointment = null;
+        document.getElementById('use-nearest-btn').classList.add('hidden');
+        const searchToken = ++nearestSearchToken;
+        text.innerHTML = '<span class="text-cyan-300"><i class="fas fa-spinner fa-spin ml-1"></i>نتحقق من أقرب موعد متاح...</span>';
+        try {
+            const start = new Date();
+            const candidates = [];
+            for (let offset = 0; offset <= bookingDaysLimit; offset++) {
+                const candidate = new Date(start);
+                candidate.setDate(start.getDate() + offset);
+                candidates.push({ date: candidate, dateString: localDateString(candidate) });
+            }
+            // Check all allowed days together, then retain the earliest result.
+            const results = await Promise.all(candidates.map(async candidate => ({
+                ...candidate,
+                result: await fetchAvailableTimesForDate(candidate.dateString)
+            })));
+            if (searchToken !== nearestSearchToken) return;
+            const nearest = results.find(item => item.result.times.length);
+            if (nearest) {
+                nearestAppointment = { date: nearest.dateString, time: nearest.result.times[0] };
+                const dateLabel = nearest.date.toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long' });
+                text.innerHTML = `أقرب موعد متاح: <strong class="text-white">${dateLabel} — ${nearest.result.times[0]}</strong>`;
+                document.getElementById('use-nearest-btn').classList.remove('hidden');
+                return;
+            }
+            text.textContent = 'لا يوجد موعد متاح خلال فترة الحجز الحالية.';
+        } catch (error) {
+            if (searchToken === nearestSearchToken) text.textContent = 'تعذر البحث الآن، حاول مرة أخرى.';
+        } finally {
+            if (searchToken === nearestSearchToken) {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-rotate ml-1"></i> تحديث الاقتراح';
+            }
+        }
+    }
+
+    async function useNearestAppointment() {
+        if (!nearestAppointment) return;
+        // Keep a copy because refreshing the date also refreshes services and
+        // deliberately clears the old suggestion state.
+        const appointment = { ...nearestAppointment };
+        const useButton = document.getElementById('use-nearest-btn');
+        const text = document.getElementById('nearest-appointment-text');
+        useButton.disabled = true;
+        isApplyingNearestAppointment = true;
+        useButton.innerHTML = '<i class="fas fa-spinner fa-spin ml-1"></i> جاري تطبيق الموعد...';
+        // Reflect the choice immediately; the asynchronous refresh below verifies it.
+        dateInput.value = appointment.date;
+        if (!Array.from(timeSelect.options).some(option => option.value === appointment.time)) {
+            timeSelect.add(new Option(appointment.time, appointment.time));
+        }
+        timeSelect.value = appointment.time;
+        dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+        timeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        text.innerHTML = `<span class="text-cyan-300"><i class="fas fa-spinner fa-spin ml-1"></i>تم اختيار ${appointment.date} — ${appointment.time}، جاري التأكيد...</span>`;
+        const availableTimes = await handleBookingDateChange();
+        const selectedTime = availableTimes.includes(appointment.time)
+            ? appointment.time
+            : availableTimes[0];
+        if (!selectedTime) {
+            text.innerHTML = '<span class="text-red-400">لم يعد الموعد متاحًا، ابحث مرة أخرى.</span>';
+            useButton.disabled = false;
+            useButton.innerHTML = 'البحث مرة أخرى';
+            useButton.onclick = findNearestAppointment;
+            isApplyingNearestAppointment = false;
+            return;
+        }
+        timeSelect.value = selectedTime;
+        dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+        timeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        nearestAppointment = { date: appointment.date, time: selectedTime };
+        text.innerHTML = `<span class="text-green-400"><i class="fas fa-check-circle ml-1"></i>تم اختيار ${appointment.date} — ${selectedTime}</span>`;
+        useButton.disabled = false;
+        useButton.classList.add('hidden');
+        isApplyingNearestAppointment = false;
     }
 
     // Since we now have multiple services, we need to adapt price fetching
@@ -1077,12 +1259,17 @@
 
             const checkbox = card.querySelector('input[type="checkbox"]');
             const qty = card.querySelector('input[type="number"]');
-            checkbox.addEventListener('change', () => qty.disabled = !checkbox.checked);
+            checkbox.addEventListener('change', () => {
+                qty.disabled = !checkbox.checked;
+                refreshLivePrice();
+            });
+            qty.addEventListener('input', refreshLivePrice);
             productsContainer.appendChild(card);
         });
+        refreshLivePrice();
     }
 
-    if (dateInput) dateInput.addEventListener('change', async () => {
+    async function handleBookingDateChange() {
         // Refresh service options if vehicle is already selected because prices might be date-dependent (seasons)
         for (const row of document.querySelectorAll('.vehicle-row')) {
             const vSelect = row.querySelector('.vehicle-select');
@@ -1096,10 +1283,15 @@
                 }
             }
         }
-        loadAvailableTimes();
-    });
+        return loadAvailableTimes();
+    }
+    if (dateInput) dateInput.addEventListener('change', handleBookingDateChange);
 
-    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', loadAvailableTimes);
+    if (neighborhoodSelect) neighborhoodSelect.addEventListener('change', () => {
+        loadAvailableTimes();
+        resetNearestAppointment();
+        scheduleNearestAppointmentSearch();
+    });
 
     function updateServiceDurationText() {
         const sId = serviceSelect.value;
@@ -1145,6 +1337,7 @@
             } else {
                 discountCodeInput.disabled = false;
             }
+            refreshLivePrice();
         });
     }
 
@@ -1154,6 +1347,7 @@
             document.getElementById('discount_verified').value = '0';
             document.getElementById('discount_value').value = '0';
             document.getElementById('discount_type').value = '';
+            refreshLivePrice();
         });
     }
 
@@ -1190,12 +1384,14 @@
                     document.getElementById('discount_value').value = data.discount_value;
                     document.getElementById('discount_type').value = data.discount_type;
                     if (freeWashCheckbox) freeWashCheckbox.disabled = true;
+                    refreshLivePrice();
                 } else {
                     msgDiv.innerHTML = `<span class="text-red-400"><i class="fas fa-times-circle mr-1"></i>${data.message}</span>`;
                     document.getElementById('discount_verified').value = '0';
                     document.getElementById('discount_value').value = '0';
                     document.getElementById('discount_type').value = '';
                     if (freeWashCheckbox) freeWashCheckbox.disabled = false;
+                    refreshLivePrice();
                 }
             })
             .catch(() => msgDiv.innerHTML = '<span class="text-red-400"><i class="fas fa-exclamation-circle mr-1"></i>حدث خطأ في التحقق</span>');

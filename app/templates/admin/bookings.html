@@ -120,13 +120,14 @@
                             </div>
                         </div>
                         {% if booking.items.count() > 1 %}
-                        <form action="{{ url_for('admin.delete_booking_item', booking_id=booking.id, item_id=item.id) }}" method="post" 
+                        {% if current_user.role == 'admin' %}<form action="{{ url_for('admin.delete_booking_item', booking_id=booking.id, item_id=item.id) }}" method="post"
                               onsubmit="return confirm('هل أنت متأكد من حذف هذه المركبة من الحجز؟ سيتم إعادة حساب الإجمالي.')" class="inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="text-red-500 hover:text-red-400 text-xs" title="حذف المركبة">
                                 <i class="fas fa-minus-circle"></i>
                             </button>
                         </form>
+                        {% endif %}
                         {% endif %}
                     </div>
                     {% else %}
@@ -326,15 +327,14 @@
                                 title="{{ 'إنهاء الخدمة' if booking.status == 'in_progress' else 'نقل للخطوة التالية' }}">
                                 <i class="fas {{ 'fa-check-circle' if booking.status == 'in_progress' else 'fa-step-forward' }}"></i>
                             </button>
-                        </form>
-                        {% endif %}
-                        <form action="{{ url_for('admin.delete_booking', id=booking.id) }}" method="post"
+                        </form>{% endif %}
+                        {% if current_user.role == 'admin' %}<form action="{{ url_for('admin.delete_booking', id=booking.id) }}" method="post"
                             onsubmit="return confirm('هل أنت متأكد من حذف هذا الحجز نهائياً؟')" style="display:inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="text-red-400 hover:text-red-300" title="حذف">
                                 <i class="fas fa-trash"></i>
                             </button>
-                        </form>
+                        </form>{% endif %}
                         {% if booking.status != 'cancelled' %}
                         <form action="{{ url_for('admin.cancel_booking', id=booking.id) }}" method="post" class="inline"
                             style="display:inline;">

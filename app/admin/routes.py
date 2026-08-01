@@ -18,10 +18,41 @@ from app.utils.shift_utils import get_booking_work_date
 
 ABANDONED_CHECKOUT_RETENTION_DAYS = 2
 
+# Supervisors run day-to-day operations. Configuration, pricing, account
+# administration, backups, and irreversible deletes remain admin-only.
+ADMIN_ONLY_ENDPOINTS = {
+    'admin.seasons', 'admin.add_season', 'admin.edit_season', 'admin.delete_season',
+    'admin.services', 'admin.add_service', 'admin.edit_service', 'admin.delete_service',
+    'admin.vehicle_sizes', 'admin.add_vehicle_size', 'admin.edit_vehicle_size',
+    'admin.delete_vehicle_size', 'admin.locations', 'admin.add_city', 'admin.edit_city',
+    'admin.delete_city', 'admin.add_neighborhood', 'admin.edit_neighborhood',
+    'admin.delete_neighborhood', 'admin.packages', 'admin.add_package',
+    'admin.edit_package', 'admin.delete_package', 'admin.assign_package_to_city',
+    'admin.update_package_city_price', 'admin.remove_package_city_price',
+    'admin.get_city_package_prices', 'admin.add_product', 'admin.edit_product',
+    'admin.delete_product', 'admin.add_warehouse', 'admin.edit_warehouse',
+    'admin.delete_warehouse', 'admin.assign_service_to_city_size',
+    'admin.update_service_city_price', 'admin.remove_service_city_price',
+    'admin.get_city_service_prices', 'admin.duplicate_service',
+    'admin.assign_product_to_city', 'admin.update_product_city_price',
+    'admin.remove_product_city_price', 'admin.get_city_product_prices',
+    'admin.duplicate_product', 'admin.loyalty_settings', 'admin.backup_json',
+    'admin.settings', 'admin.admins', 'admin.add_admin', 'admin.edit_admin',
+    'admin.delete_admin', 'admin.send_notification', 'admin.announcements',
+    'admin.add_announcement', 'admin.edit_announcement', 'admin.delete_announcement',
+    'admin.toggle_announcement', 'admin.referral_tracking', 'admin.influencer_codes',
+    'admin.add_influencer_code', 'admin.edit_influencer_code',
+    'admin.toggle_influencer_code', 'admin.delete_influencer_code',
+    'admin.delete_employee', 'admin.delete_customer', 'admin.delete_subscription',
+    'admin.delete_polishing_order', 'admin.delete_booking_item', 'admin.delete_booking',
+}
+
 @bp.before_request
 def before_request():
     if not current_user.is_authenticated or current_user.role not in ['admin', 'supervisor']:
         return redirect(url_for('auth.login'))
+    if current_user.role == 'supervisor' and request.endpoint in ADMIN_ONLY_ENDPOINTS:
+        abort(403)
 
 def _supervisor_neighborhood_ids(user=None):
     user = user or current_user
@@ -131,6 +162,23 @@ def _warehouse_has_scope_access(warehouse):
     allowed_city_ids = set(_supervisor_city_ids(neighborhood_ids))
     warehouse_city_ids = {c.id for c in warehouse.cities}
     return bool(warehouse_city_ids.intersection(allowed_city_ids))
+
+def _normalize_whatsapp_phone(phone):
+    """Return a digits-only international number suitable for wa.me links."""
+    if not phone:
+        return ''
+    translated = str(phone).translate(str.maketrans(
+        '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹',
+        '01234567890123456789'
+    ))
+    digits = ''.join(character for character in translated if character.isdigit())
+    if digits.startswith('00'):
+        digits = digits[2:]
+    if digits.startswith('0'):
+        digits = '966' + digits[1:]
+    elif len(digits) == 9 and digits.startswith('5'):
+        digits = '966' + digits
+    return digits
 
 def _scoped_warehouses():
     warehouses = Warehouse.query.filter_by(is_active=True).order_by(Warehouse.id.desc()).all()
@@ -4219,6 +4267,158 @@ def reports():
                            cities=cities,
                            neighborhoods=neighborhoods)
 
+@bp.route('/management-reports')
+def management_reports():
+    """Decision-focused operational reports; intentionally excludes profitability."""
+    today = datetime.now().date()
+    try:
+        from_date = datetime.strptime(request.args.get('from_date', ''), '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        from_date = today - timedelta(days=29)
+    try:
+        to_date = datetime.strptime(request.args.get('to_date', ''), '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        to_date = today
+    if from_date > to_date:
+        from_date, to_date = to_date, from_date
+
+    city_id = request.args.get('city_id', type=int)
+    neighborhood_id = request.args.get('neighborhood_id', type=int)
+    scoped_ids = _supervisor_neighborhood_ids()
+    allowed_city_ids = None
+    if scoped_ids is not None:
+        allowed_city_ids = {n.city_id for n in Neighborhood.query.filter(Neighborhood.id.in_(scoped_ids)).all()} if scoped_ids else set()
+        if neighborhood_id not in (scoped_ids or []):
+            neighborhood_id = None
+        if city_id not in (allowed_city_ids or set()):
+            city_id = None
+
+    def scoped_booking_query(start, end):
+        query = Booking.query.outerjoin(Neighborhood).filter(Booking.date.between(start, end))
+        if city_id:
+            query = query.filter(Neighborhood.city_id == city_id)
+        if neighborhood_id:
+            query = query.filter(Booking.neighborhood_id == neighborhood_id)
+        if scoped_ids is not None:
+            query = query.filter(Booking.neighborhood_id.in_(scoped_ids)) if scoped_ids else query.filter(Booking.id == -1)
+        return query
+
+    bookings = scoped_booking_query(from_date, to_date).all()
+    total = len(bookings)
+    completed = sum(b.status == 'completed' for b in bookings)
+    cancelled = sum(b.status == 'cancelled' for b in bookings)
+    completion_rate = round(completed * 100 / total, 1) if total else 0
+    cancellation_rate = round(cancelled * 100 / total, 1) if total else 0
+    ratings = [b.rating for b in bookings if b.rating is not None]
+    average_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0
+
+    period_days = (to_date - from_date).days + 1
+    previous_end = from_date - timedelta(days=1)
+    previous_start = previous_end - timedelta(days=period_days - 1)
+    previous_total = scoped_booking_query(previous_start, previous_end).count()
+    booking_growth = round((total - previous_total) * 100 / previous_total, 1) if previous_total else (100 if total else 0)
+
+    customer_counts = {}
+    for booking in bookings:
+        if booking.customer_id:
+            customer_counts[booking.customer_id] = customer_counts.get(booking.customer_id, 0) + 1
+    new_customers = 0
+    for customer_id in customer_counts:
+        first_date = db.session.query(func.min(Booking.date)).filter(Booking.customer_id == customer_id).scalar()
+        if first_date and from_date <= first_date <= to_date:
+            new_customers += 1
+    returning_customers = sum(count > 1 for count in customer_counts.values())
+
+    employee_map, service_map, city_map, hour_counts = {}, {}, {}, {hour: 0 for hour in range(24)}
+    cancellation_reasons = {}
+    discount_map = {}
+    durations = []
+    for booking in bookings:
+        if booking.time:
+            hour_counts[booking.time.hour] += 1
+        if booking.employee:
+            row = employee_map.setdefault(booking.employee_id, {'name': booking.employee.username, 'total': 0, 'completed': 0, 'rating_sum': 0, 'rating_count': 0})
+            row['total'] += 1
+            row['completed'] += booking.status == 'completed'
+            if booking.rating is not None:
+                row['rating_sum'] += booking.rating
+                row['rating_count'] += 1
+        if booking.service:
+            row = service_map.setdefault(booking.service_id, {'name': booking.service.name_ar, 'count': 0})
+            row['count'] += 1
+        if booking.neighborhood and booking.neighborhood.city:
+            row = city_map.setdefault(booking.neighborhood.city_id, {'name': booking.neighborhood.city.name_ar, 'total': 0, 'completed': 0, 'cancelled': 0})
+            row['total'] += 1
+            row['completed'] += booking.status == 'completed'
+            row['cancelled'] += booking.status == 'cancelled'
+        if booking.status == 'cancelled':
+            reason = (booking.cancellation_reason or 'غير محدد').strip() or 'غير محدد'
+            cancellation_reasons[reason] = cancellation_reasons.get(reason, 0) + 1
+        if booking.discount_code:
+            code = booking.discount_code.code
+            discount_map[code] = discount_map.get(code, 0) + 1
+        if booking.started_at and booking.completed_at and booking.completed_at >= booking.started_at:
+            durations.append((booking.completed_at - booking.started_at).total_seconds() / 60)
+
+    employee_stats = []
+    for row in employee_map.values():
+        row['rate'] = round(row['completed'] * 100 / row['total'], 1)
+        row['rating'] = round(row['rating_sum'] / row['rating_count'], 1) if row['rating_count'] else 0
+        employee_stats.append(row)
+    employee_stats.sort(key=lambda row: (row['completed'], row['rating']), reverse=True)
+    service_stats = sorted(service_map.values(), key=lambda row: row['count'], reverse=True)[:10]
+    city_stats = sorted(city_map.values(), key=lambda row: row['total'], reverse=True)
+    for row in city_stats:
+        row['completion_rate'] = round(row['completed'] * 100 / row['total'], 1) if row['total'] else 0
+
+    subscription_query = Subscription.query.filter(Subscription.start_date.between(from_date, to_date))
+    if city_id:
+        subscription_query = subscription_query.join(Neighborhood).filter(Neighborhood.city_id == city_id)
+    if neighborhood_id:
+        subscription_query = subscription_query.filter(Subscription.neighborhood_id == neighborhood_id)
+    if scoped_ids is not None:
+        subscription_query = subscription_query.filter(Subscription.neighborhood_id.in_(scoped_ids)) if scoped_ids else subscription_query.filter(Subscription.id == -1)
+    subscriptions = subscription_query.all()
+    active_subscriptions = sum(s.status == 'active' for s in subscriptions)
+    expiring_subscriptions = Subscription.query.filter(Subscription.status == 'active', Subscription.end_date.between(today, today + timedelta(days=7)))
+    if scoped_ids is not None:
+        expiring_subscriptions = expiring_subscriptions.filter(Subscription.neighborhood_id.in_(scoped_ids)) if scoped_ids else expiring_subscriptions.filter(Subscription.id == -1)
+    expiring_count = expiring_subscriptions.count()
+
+    alerts = []
+    if cancellation_rate >= 15:
+        alerts.append(f'نسبة الإلغاء مرتفعة ({cancellation_rate}%)')
+    if booking_growth <= -15:
+        alerts.append(f'انخفضت الطلبات {abs(booking_growth)}% عن الفترة السابقة')
+    if average_rating and average_rating < 4:
+        alerts.append(f'متوسط التقييم منخفض ({average_rating} من 5)')
+    if expiring_count:
+        alerts.append(f'{expiring_count} اشتراك سينتهي خلال 7 أيام')
+
+    cities_query = City.query.filter_by(is_active=True)
+    if allowed_city_ids is not None:
+        cities_query = cities_query.filter(City.id.in_(allowed_city_ids)) if allowed_city_ids else cities_query.filter(City.id == -1)
+    cities = cities_query.order_by(City.name_ar).all()
+    neighborhoods_query = Neighborhood.query.filter_by(is_active=True)
+    if city_id:
+        neighborhoods_query = neighborhoods_query.filter_by(city_id=city_id)
+    if scoped_ids is not None:
+        neighborhoods_query = neighborhoods_query.filter(Neighborhood.id.in_(scoped_ids)) if scoped_ids else neighborhoods_query.filter(Neighborhood.id == -1)
+
+    return render_template('admin/management_reports.html',
+        from_date=from_date, to_date=to_date, city_id=city_id, neighborhood_id=neighborhood_id,
+        cities=cities, neighborhoods=neighborhoods_query.order_by(Neighborhood.name_ar).all(),
+        total=total, completed=completed, cancelled=cancelled, completion_rate=completion_rate,
+        cancellation_rate=cancellation_rate, booking_growth=booking_growth, average_rating=average_rating,
+        unique_customers=len(customer_counts), new_customers=new_customers, returning_customers=returning_customers,
+        average_duration=round(sum(durations) / len(durations)) if durations else 0,
+        employee_stats=employee_stats[:10], service_stats=service_stats, city_stats=city_stats,
+        peak_hours=sorted(hour_counts.items(), key=lambda item: item[1], reverse=True)[:6],
+        cancellation_reasons=sorted(cancellation_reasons.items(), key=lambda item: item[1], reverse=True)[:6],
+        discount_stats=sorted(discount_map.items(), key=lambda item: item[1], reverse=True)[:6],
+        new_subscriptions=len(subscriptions), active_subscriptions=active_subscriptions,
+        expiring_subscriptions=expiring_count, alerts=alerts)
+
 # --- Settings (Loyalty, Admin Accounts, Backup) ---
 @bp.route('/settings/loyalty', methods=['GET', 'POST'])
 def loyalty_settings():
@@ -4509,6 +4709,7 @@ def abandoned_checkouts():
             'checkout': checkout,
             'data': attempts[0]['data'],
             'promo_code': checkout.recovery_discount_code,
+            'whatsapp_phone': _normalize_whatsapp_phone(checkout.customer.phone),
             'attempts': attempts,
             'attempts_count': len(attempts),
             'used_recovery_discount': customer_id in used_recovery_discount_customer_ids

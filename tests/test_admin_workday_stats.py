@@ -147,3 +147,39 @@ def test_reports_group_after_midnight_completion_with_previous_shift(app):
     assert context['cash_count'] == 1
     assert context['service_revenue'] == 75
     assert context['employee_stats'][0]['completed'] == 1
+    assert context['employee_stats'][0]['total'] == 1
+    assert b'employee' in response.data
+
+
+def test_management_reports_page_renders_operational_metrics(app):
+    from app.models import Service, User
+
+    with app.app_context():
+        admin = User(username='reports-admin', role='admin')
+        employee = User(username='reports-employee', role='employee')
+        customer = User(username='reports-customer', role='customer')
+        city = City(name_ar='مدينة الاختبار')
+        service = Service(name_ar='غسيل اختباري', name_en='Test wash', price=50, duration=30)
+        db.session.add_all([admin, employee, customer, city, service])
+        db.session.flush()
+        neighborhood = Neighborhood(name_ar='حي الاختبار', city_id=city.id)
+        db.session.add(neighborhood)
+        db.session.flush()
+        db.session.add(Booking(
+            customer_id=customer.id, employee_id=employee.id, service_id=service.id,
+            neighborhood_id=neighborhood.id, date=date(2026, 7, 30),
+            time=time(10), status='completed', rating=5
+        ))
+        db.session.commit()
+        admin_id = admin.id
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, admin_id))
+
+    response = client.get('/admin/management-reports?from_date=2026-07-30&to_date=2026-07-30')
+
+    assert response.status_code == 200
+    assert 'التقارير الإدارية' in response.get_data(as_text=True)
+    assert 'reports-employee' in response.get_data(as_text=True)
+    assert 'غسيل اختباري' in response.get_data(as_text=True)

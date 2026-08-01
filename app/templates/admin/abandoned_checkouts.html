@@ -177,8 +177,7 @@
                 </div>
                 {% endif %}
 
-                {% if checkout.customer.phone %}
-                {% set phone = checkout.customer.phone|replace('+', '')|replace(' ', '') %}
+                {% if row.whatsapp_phone %}
                 {% set whatsapp_message = 'مرحباً ' ~ checkout.customer.username ~ '، لاحظنا أنك لم تكمل طلبك في ' ~ checkout.page_name ~ '. هل يمكننا مساعدتك؟' %}
                 {% if row.promo_code %}
                     {% if row.promo_code.discount_type == 'percentage' %}
@@ -191,7 +190,7 @@
                         {% set whatsapp_message = whatsapp_message ~ '، صالح في: ' ~ row.promo_code.scope_label %}
                     {% endif %}
                 {% endif %}
-                <a href="https://wa.me/{{ phone }}?text={{ whatsapp_message|urlencode }}"
+                <a href="https://wa.me/{{ row.whatsapp_phone }}?text={{ whatsapp_message|urlencode }}"
                     target="_blank" rel="noopener"
                     class="w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg">
                     <i class="fab fa-whatsapp"></i>
