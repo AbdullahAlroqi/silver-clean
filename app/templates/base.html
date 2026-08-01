@@ -34,11 +34,14 @@
         }
     </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-screen.css') }}?v=2">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 
 <body class="bg-darkbg text-white font-sans flex flex-col min-h-screen"
     data-user-logged-in="{{ 'true' if current_user.is_authenticated else 'false' }}">
+    {% include '_loading_screen.html' %}
+    <script src="{{ url_for('static', filename='js/loading-screen.js') }}?v=2"></script>
     <nav class="bg-primary p-4 shadow-md">
         <div class="container mx-auto flex justify-between items-center">
             <a href="{{ url_for('main.index') }}" class="text-2xl font-bold text-accent flex items-center gap-2">
