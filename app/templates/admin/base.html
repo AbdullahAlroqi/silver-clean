@@ -134,25 +134,39 @@
             }
 
             .admin-topbar-inner {
-                min-height: 52px;
-                padding: calc(0.6rem + env(safe-area-inset-top, 0px)) 0.85rem 0.6rem;
+                min-height: calc(64px + env(safe-area-inset-top, 0px));
+                padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+                padding-right: 1rem !important;
+                padding-bottom: 12px !important;
+                padding-left: 1rem !important;
+                align-items: center;
             }
 
             .admin-page-title {
-                max-width: calc(100vw - 9.5rem);
+                display: -webkit-box;
+                max-width: 42vw;
                 overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                white-space: normal;
                 font-size: 1rem;
+                line-height: 1.45;
+                padding-block: 0.2rem;
             }
 
             .admin-user-name {
                 display: inline-block;
-                max-width: 5.75rem;
+                max-width: 4rem;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 vertical-align: middle;
                 white-space: nowrap;
+                font-size: 0.875rem;
+                line-height: 1.4;
+            }
+
+            .admin-topbar-inner > div:last-child {
+                gap: 0.5rem;
             }
 
             .admin-main {
@@ -169,7 +183,11 @@
             }
 
             .sidebar-header {
-                padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+                min-height: calc(70px + env(safe-area-inset-top, 0px));
+                padding-top: calc(1rem + env(safe-area-inset-top, 0px)) !important;
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
             }
 
             .admin-notification-link {
