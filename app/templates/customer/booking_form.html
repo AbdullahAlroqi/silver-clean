@@ -1244,16 +1244,16 @@
         productsContainer.innerHTML = '';
         productsData.forEach(product => {
             const card = document.createElement('div');
-            card.className = 'product-card aspect-square min-h-[145px] bg-darkbg p-2 rounded-xl border border-gray-700 transition-all duration-200 flex flex-col overflow-hidden';
+            card.className = 'product-card min-h-[210px] sm:aspect-square bg-darkbg p-2 rounded-xl border border-gray-700 transition-all duration-200 flex flex-col overflow-hidden';
             const img = product.image_url
-                ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-full h-[48%] shrink-0 object-cover rounded-lg">`
-                : '<div class="w-full h-[48%] shrink-0 bg-gray-700 rounded-lg flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
+                ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-full h-24 sm:h-[48%] shrink-0 object-cover rounded-lg">`
+                : '<div class="w-full h-24 sm:h-[48%] shrink-0 bg-gray-700 rounded-lg flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
 
             const selection = userSelections[product.id] || { checked: false, qty: 1 };
 
             card.innerHTML = img +
                 `<div class="min-w-0 mt-1.5 text-center">` +
-                    `<h5 class="font-bold text-white text-sm truncate" title="${product.name_ar}">${product.name_ar}</h5>` +
+                    `<h5 class="font-bold text-white text-sm leading-5 min-h-[2.5rem] line-clamp-2 break-words" title="${product.name_ar}">${product.name_ar}</h5>` +
                     `<p class="text-accent font-bold text-sm leading-5">${product.price} ريال</p>` +
                 `</div>` +
                 `<div class="mt-auto flex items-center gap-1">` +
