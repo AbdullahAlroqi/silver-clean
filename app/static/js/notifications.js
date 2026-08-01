@@ -1,4 +1,4 @@
-const publicVapidKey = 'BEWyGqMWafmjeAy4CHHd2iUAeTlpE7kxSh3GDa6NyMeZ3e3_363xUdx-5mw1yl9l_6bMsBi7EyhUCyNZB1NvR1c';
+const publicVapidKey = document.querySelector('meta[name="vapid-public-key"]')?.content || '';
 
 document.addEventListener('DOMContentLoaded', () => {
     const enableBtn = document.getElementById('enable-notifications-btn');
@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function isPushSupported() {
         return 'serviceWorker' in navigator &&
             'PushManager' in window &&
-            'Notification' in window;
+            'Notification' in window &&
+            Boolean(publicVapidKey);
     }
 
     function checkNotificationPermission() {

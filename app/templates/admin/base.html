@@ -3,9 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>لوحة التحكم - {% block title %}{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="vapid-public-key" content="{{ config.get('VAPID_PUBLIC_KEY', '') }}">
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
     <!-- Tailwind CSS -->
@@ -26,6 +27,7 @@
     </script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-screen.css') }}?v=2">
     <!-- Custom CSS -->
     <style>
@@ -119,6 +121,7 @@
                 position: sticky;
                 top: 0;
                 z-index: 30;
+                padding-top: calc(1rem + env(safe-area-inset-top, 0px));
             }
 
             .admin-page-title {
@@ -214,8 +217,8 @@
                 z-index: 35;
                 display: grid;
                 grid-template-columns: repeat(5, minmax(0, 1fr));
-                gap: 0.25rem;
-                padding: 0.5rem 0.45rem calc(0.5rem + env(safe-area-inset-bottom));
+                gap: 0;
+                padding-bottom: env(safe-area-inset-bottom);
                 background: rgba(48, 48, 48, 0.96);
                 border-top: 1px solid rgba(255, 255, 255, 0.08);
                 backdrop-filter: blur(12px);
@@ -224,19 +227,19 @@
             .admin-bottom-nav a {
                 display: flex;
                 min-width: 0;
-                min-height: 52px;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 0.25rem;
-                border-radius: 0.5rem;
+                padding: 14px 8px 12px;
                 color: #d1d5db;
-                font-size: 0.72rem;
-                line-height: 1.15;
+                font-size: 0.75rem;
+                font-weight: 600;
+                line-height: 1.2;
             }
 
             .admin-bottom-nav i {
-                font-size: 1rem;
+                margin-bottom: 6px;
+                font-size: 1.5rem;
             }
 
             .admin-bottom-nav a.active {

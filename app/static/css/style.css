@@ -1,7 +1,89 @@
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap');
 
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 body {
     font-family: 'Tajawal', sans-serif;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 100dvh;
+    overflow-x: hidden;
+}
+
+/* Shared responsive safeguards for customer, employee and admin pages. */
+main,
+section,
+article,
+form,
+.container,
+.grid > *,
+.flex > * {
+    min-width: 0;
+}
+
+img,
+video,
+canvas,
+svg {
+    max-width: 100%;
+}
+
+img,
+video {
+    height: auto;
+}
+
+input,
+select,
+textarea,
+button {
+    max-width: 100%;
+}
+
+button,
+a,
+label,
+input[type="button"],
+input[type="submit"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+:where(h1, h2, h3, h4, h5, h6, p, td, th, label, a, button) {
+    overflow-wrap: anywhere;
+}
+
+:where(.overflow-x-auto, [class*="overflow-x-auto"]) {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
+}
+
+@media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+        font-size: 16px;
+    }
+
+    [role="dialog"],
+    dialog,
+    :where([class*="fixed"][class*="inset-0"]) > div {
+        max-width: calc(100vw - 1rem);
+        max-height: calc(100dvh - 1rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    }
 }
 
 /* PWA Install Banner Animations */

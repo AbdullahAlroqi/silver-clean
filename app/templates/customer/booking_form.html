@@ -46,7 +46,7 @@
         </div>
     </div>
 
-    <div class="bg-primary p-8 rounded-lg shadow-lg">
+    <div class="bg-primary p-3 sm:p-6 md:p-8 rounded-lg shadow-lg">
         <form method="post" id="bookingForm" class="space-y-6">
             {{ form.hidden_tag() }}
 
@@ -318,7 +318,7 @@
                     </h4>
                     <p class="text-gray-400 text-sm mb-4">أضف منتجات إضافية لحجزك</p>
 
-                    <div id="products-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div id="products-container" class="grid grid-cols-2 gap-2 sm:gap-3 -mx-1 sm:mx-0">
                         <!-- Products loaded via JavaScript -->
                     </div>
                 </div>
@@ -1244,26 +1244,66 @@
         productsContainer.innerHTML = '';
         productsData.forEach(product => {
             const card = document.createElement('div');
-            card.className = 'bg-darkbg p-4 rounded-lg border border-gray-700 hover:border-accent transition';
+            card.className = 'product-card aspect-square min-h-[145px] bg-darkbg p-2 rounded-xl border border-gray-700 transition-all duration-200 flex flex-col overflow-hidden';
             const img = product.image_url
-                ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-20 h-20 object-cover rounded-lg mb-3">`
-                : '<div class="w-20 h-20 bg-gray-700 rounded-lg mb-3 flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
+                ? `<img src="${product.image_url}" alt="${product.name_ar}" class="w-full h-[48%] shrink-0 object-cover rounded-lg">`
+                : '<div class="w-full h-[48%] shrink-0 bg-gray-700 rounded-lg flex items-center justify-center"><i class="fas fa-box text-gray-500 text-2xl"></i></div>';
 
             const selection = userSelections[product.id] || { checked: false, qty: 1 };
 
-            card.innerHTML = img + `<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-white">${product.name_ar}</h5><span class="text-accent font-bold">${product.price} ريال</span></div>` +
-                `<div class="flex items-center gap-3 mt-3"><label class="flex items-center cursor-pointer">` +
-                `<input type="checkbox" name="product_${product.id}" value="${product.id}" class="ml-2 w-5 h-5" ${selection.checked ? 'checked' : ''}>` +
-                `<span class="text-gray-300">إضافة</span></label>` +
-                `<input type="number" name="quantity_${product.id}" min="1" value="${selection.qty}" ${selection.checked ? '' : 'disabled'} class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-sm"></div>`;
+            card.innerHTML = img +
+                `<div class="min-w-0 mt-1.5 text-center">` +
+                    `<h5 class="font-bold text-white text-sm truncate" title="${product.name_ar}">${product.name_ar}</h5>` +
+                    `<p class="text-accent font-bold text-sm leading-5">${product.price} ريال</p>` +
+                `</div>` +
+                `<div class="mt-auto flex items-center gap-1">` +
+                    `<label class="product-toggle flex items-center justify-center flex-1 h-8 rounded-lg cursor-pointer font-bold text-xs transition-colors select-none touch-manipulation ${selection.checked ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-200'}">` +
+                        `<input type="checkbox" name="product_${product.id}" value="${product.id}" class="sr-only" ${selection.checked ? 'checked' : ''}>` +
+                        `<span>${selection.checked ? '<i class="fas fa-check ml-1"></i>مضاف' : 'تفعيل'}</span>` +
+                    `</label>` +
+                    `<div class="quantity-control flex items-center justify-between flex-1 h-8 rounded-lg border border-gray-600 bg-gray-800 ${selection.checked ? '' : 'opacity-40'}">` +
+                        `<button type="button" class="qty-minus w-7 h-full text-white disabled:text-gray-600 touch-manipulation" aria-label="إنقاص كمية ${product.name_ar}" ${selection.checked ? '' : 'disabled'}><i class="fas fa-minus text-[10px]"></i></button>` +
+                        `<input type="number" name="quantity_${product.id}" min="1" max="99" value="${selection.qty}" readonly ${selection.checked ? '' : 'disabled'} class="w-5 bg-transparent border-0 p-0 text-center text-white font-bold text-xs focus:outline-none">` +
+                        `<button type="button" class="qty-plus w-7 h-full text-white disabled:text-gray-600 touch-manipulation" aria-label="زيادة كمية ${product.name_ar}" ${selection.checked ? '' : 'disabled'}><i class="fas fa-plus text-[10px]"></i></button>` +
+                    `</div>` +
+                `</div>`;
 
             const checkbox = card.querySelector('input[type="checkbox"]');
             const qty = card.querySelector('input[type="number"]');
+            const toggle = card.querySelector('.product-toggle');
+            const toggleText = toggle.querySelector('span');
+            const quantityControl = card.querySelector('.quantity-control');
+            const minusButton = card.querySelector('.qty-minus');
+            const plusButton = card.querySelector('.qty-plus');
+
+            const updateCardState = () => {
+                const enabled = checkbox.checked;
+                qty.disabled = !enabled;
+                minusButton.disabled = !enabled;
+                plusButton.disabled = !enabled;
+                card.classList.toggle('border-accent', enabled);
+                card.classList.toggle('shadow-lg', enabled);
+                toggle.classList.toggle('bg-green-600', enabled);
+                toggle.classList.toggle('text-white', enabled);
+                toggle.classList.toggle('bg-gray-700', !enabled);
+                toggle.classList.toggle('text-gray-200', !enabled);
+                quantityControl.classList.toggle('opacity-40', !enabled);
+                toggleText.innerHTML = enabled ? '<i class="fas fa-check ml-1"></i>مضاف' : 'تفعيل';
+            };
+
             checkbox.addEventListener('change', () => {
-                qty.disabled = !checkbox.checked;
+                updateCardState();
                 refreshLivePrice();
             });
-            qty.addEventListener('input', refreshLivePrice);
+            minusButton.addEventListener('click', () => {
+                qty.value = Math.max(1, (parseInt(qty.value, 10) || 1) - 1);
+                refreshLivePrice();
+            });
+            plusButton.addEventListener('click', () => {
+                qty.value = Math.min(99, (parseInt(qty.value, 10) || 1) + 1);
+                refreshLivePrice();
+            });
+            updateCardState();
             productsContainer.appendChild(card);
         });
         refreshLivePrice();

@@ -2,14 +2,9 @@ import json
 from pywebpush import webpush, WebPushException
 from app.models import PushSubscription
 
-# VAPID keys for Web Push
-VAPID_PRIVATE_KEY = "ihwqu8ewAWxBRs8J85o6g8VO9FG5RK8kCLUzB2qvqr0"
-VAPID_PUBLIC_KEY = "BEWyGqMWafmjeAy4CHHd2iUAeTlpE7kxSh3GDa6NyMeZ3e3_363xUdx-5mw1yl9l_6bMsBi7EyhUCyNZB1NvR1c"
-VAPID_EMAIL = "mailto:admin@silverclean.com"
-
 import threading
 from flask import current_app
-from app import create_app, db
+from app import db
 
 def _send_async(app, user_id, notification_data, subscription_data):
     """Background task to send notifications and clean up invalid subscriptions"""
@@ -37,9 +32,9 @@ def _send_async(app, user_id, notification_data, subscription_data):
                 webpush(
                     subscription_info=push_info,
                     data=json.dumps(notification_data),
-                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_private_key=app.config['VAPID_PRIVATE_KEY'],
                     vapid_claims={
-                        "sub": VAPID_EMAIL
+                        "sub": app.config['VAPID_CLAIM_EMAIL']
                     }
                 )
                 success_count += 1
