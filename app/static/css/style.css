@@ -62,8 +62,25 @@ input[type="submit"] {
     -webkit-tap-highlight-color: transparent;
 }
 
-:where(h1, h2, h3, h4, h5, h6, p, td, th, label, a, button) {
+:where(h1, h2, h3, h4, h5, h6, p, label, a, button) {
     overflow-wrap: anywhere;
+}
+
+table {
+    font-family: 'Tajawal', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+th,
+td {
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+th {
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 :where(.overflow-x-auto, [class*="overflow-x-auto"]) {
@@ -72,6 +89,16 @@ input[type="submit"] {
 }
 
 @media (max-width: 767px) {
+    table {
+        font-size: 0.8125rem;
+        line-height: 1.55;
+    }
+
+    th,
+    td {
+        white-space: nowrap;
+    }
+
     input:not([type="checkbox"]):not([type="radio"]),
     select,
     textarea {

@@ -27,7 +27,7 @@
     </script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-screen.css') }}?v=2">
     <!-- Custom CSS -->
     <style>
@@ -235,6 +235,9 @@
                 font-size: 0.75rem;
                 font-weight: 600;
                 line-height: 1.2;
+                white-space: nowrap;
+                overflow-wrap: normal;
+                word-break: keep-all;
             }
 
             .admin-bottom-nav i {
@@ -245,6 +248,13 @@
             .admin-bottom-nav a.active {
                 background: rgba(77, 168, 218, 0.18);
                 color: #fff;
+            }
+        }
+
+        @media (max-width: 359px) {
+            .admin-bottom-nav a {
+                padding-inline: 3px;
+                font-size: 0.68rem;
             }
         }
 
