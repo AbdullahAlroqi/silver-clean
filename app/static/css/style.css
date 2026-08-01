@@ -21,6 +21,14 @@ body {
     min-width: 0;
     min-height: 100dvh;
     overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+}
+
+body > * {
+    max-width: 100%;
 }
 
 /* Shared responsive safeguards for customer, employee and admin pages. */
@@ -90,6 +98,15 @@ th {
 }
 
 @media (max-width: 767px) {
+    main {
+        max-width: 100%;
+    }
+
+    :where(.overflow-x-auto, [class*="overflow-x-auto"]) {
+        width: 100%;
+        max-width: 100%;
+    }
+
     table {
         font-size: 0.8125rem;
         line-height: 1.55;

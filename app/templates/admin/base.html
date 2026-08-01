@@ -27,7 +27,7 @@
     </script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-screen.css') }}?v=2">
     <!-- Custom CSS -->
     <style>
@@ -44,6 +44,15 @@
             transition: all 0.3s;
             width: 100%;
             min-width: 0;
+            min-height: 0;
+            height: 100%;
+            overflow-y: auto;
+            overscroll-behavior-y: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .admin-shell {
+            min-height: 0;
         }
 
         .sidebar-link:hover {
@@ -152,8 +161,8 @@
 
             .admin-main .overflow-x-auto {
                 -webkit-overflow-scrolling: touch;
-                margin-inline: -0.5rem;
-                padding-inline: 0.5rem;
+                margin-inline: 0;
+                padding-inline: 0.25rem;
                 padding-bottom: 0.75rem;
                 margin-bottom: 0.75rem;
             }
@@ -587,6 +596,7 @@
             });
         }
     </script>
+    <script src="{{ url_for('static', filename='js/scroll-restoration.js') }}?v=1"></script>
     {% block scripts %}{% endblock %}
 </body>
 
