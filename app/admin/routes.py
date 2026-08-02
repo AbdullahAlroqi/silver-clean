@@ -4489,20 +4489,21 @@ def settings():
             from flask import current_app
             
             file = form.logo.data
-            filename = secure_filename(file.filename)
-            # Ensure filename is unique or standard
-            filename = 'logo.png' # Force standard name for simplicity or keep original
-            
-            # Save to static/uploads or static/images
-            upload_dir = os.path.join(current_app.root_path, 'static', 'images')
+            # Store uploaded branding outside tracked project assets. A unique
+            # name prevents git deployments and browser caches from restoring
+            # an older logo.
+            filename = f"site-logo-{int(datetime.utcnow().timestamp())}-{secrets.token_hex(4)}.png"
+            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
             if not os.path.exists(upload_dir):
                 os.makedirs(upload_dir)
                 
             file_path = os.path.join(upload_dir, filename)
-            file.save(file_path)
-            settings.logo_path = f'/static/images/{filename}'
+            from PIL import Image
+            with Image.open(file.stream) as uploaded_logo:
+                uploaded_logo.convert('RGBA').save(file_path, 'PNG', optimize=True)
+            settings.logo_path = f'/static/uploads/{filename}'
             from app.utils.pwa_icons import refresh_pwa_icons
-            refresh_pwa_icons(current_app, settings.logo_path)
+            refresh_pwa_icons(current_app, settings.logo_path, settings.primary_color or '#303030')
             
         db.session.commit()
         flash('تم تحديث إعدادات الموقع بنجاح', 'success')

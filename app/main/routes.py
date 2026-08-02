@@ -33,22 +33,23 @@ def manifest():
     settings = SiteSettings.get_settings()
     from flask import current_app
     from app.utils.pwa_icons import refresh_pwa_icons
-    refresh_pwa_icons(current_app, settings.logo_path)
+    refresh_pwa_icons(current_app, settings.logo_path, settings.primary_color or '#303030')
     icon_version = int(settings.updated_at.timestamp()) if settings.updated_at else 1
     
     manifest_data = {
-        "id": "/customer/",
+        "id": "/",
         "name": settings.site_name or "Silver Clean Car Wash",
         "short_name": settings.site_name or "Silver Clean",
         "description": "Silver Clean - خدمة غسيل سيارات متنقلة",
-        "start_url": "/customer/",
+        "start_url": "/",
         "scope": "/",
         "display": "standalone",
-        "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+        "display_override": ["standalone"],
         "orientation": "portrait",
         "background_color": settings.primary_color or "#1F1F1F",
         "theme_color": settings.accent_color or "#10B981",
         "categories": ["lifestyle", "business"],
+        "launch_handler": {"client_mode": "navigate-existing"},
         "icons": [
             {
                 "src": f"/static/images/pwa-icon-192.png?v={icon_version}",
@@ -68,7 +69,7 @@ def manifest():
     
     response = jsonify(manifest_data)
     response.headers['Content-Type'] = 'application/manifest+json'
-    response.headers['Cache-Control'] = 'public, max-age=3600'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
 
 @bp.route('/.well-known/appspecific/com.chrome.devtools.json')
