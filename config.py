@@ -1,9 +1,34 @@
 import os
+import base64
 from dotenv import load_dotenv
 from datetime import timedelta
 
 # Load environment variables from .env file
 load_dotenv()
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _resolve_vapid_private_key():
+    value = os.environ.get('VAPID_PRIVATE_KEY') or 'private_key.pem'
+    return value if os.path.isabs(value) else os.path.join(BASE_DIR, value)
+
+
+def _resolve_vapid_public_key(private_key_path):
+    configured = os.environ.get('VAPID_PUBLIC_KEY', '').strip()
+    if configured:
+        return configured
+    try:
+        from cryptography.hazmat.primitives import serialization
+        with open(private_key_path, 'rb') as key_file:
+            private_key = serialization.load_pem_private_key(key_file.read(), password=None)
+        public_bytes = private_key.public_key().public_bytes(
+            serialization.Encoding.X962,
+            serialization.PublicFormat.UncompressedPoint
+        )
+        return base64.urlsafe_b64encode(public_bytes).rstrip(b'=').decode('ascii')
+    except (OSError, ValueError, TypeError):
+        return ''
 
 
 class Config:
@@ -31,8 +56,8 @@ class Config:
     REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
 
     # VAPID Keys for Web Push Notifications
-    VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
-    VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY') or os.path.join(os.path.dirname(__file__), 'private_key.pem')
+    VAPID_PRIVATE_KEY = _resolve_vapid_private_key()
+    VAPID_PUBLIC_KEY = _resolve_vapid_public_key(VAPID_PRIVATE_KEY)
     VAPID_CLAIM_EMAIL = os.environ.get('VAPID_CLAIM_EMAIL', 'mailto:admin@silverclean.com')
 
     # Mail Settings - All from environment variables

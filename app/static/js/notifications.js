@@ -1,224 +1,166 @@
-const publicVapidKey = document.querySelector('meta[name="vapid-public-key"]')?.content || '';
+const publicVapidKey = document.querySelector('meta[name="vapid-public-key"]')?.content?.trim() || '';
 
 document.addEventListener('DOMContentLoaded', () => {
-    const enableBtn = document.getElementById('enable-notifications-btn');
+    const floatingButton = document.getElementById('enable-notifications-btn');
+    const dashboardButtons = [...document.querySelectorAll('[data-enable-notifications]')];
+    const statusElements = [...document.querySelectorAll('[data-notification-status]')];
+    let activationRunning = false;
 
-    // Detect iOS
     function isIOS() {
         return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
 
-    // Detect if running as installed PWA
     function isPWA() {
-        return window.matchMedia('(display-mode: standalone)').matches ||
-            window.navigator.standalone === true;
+        return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
     }
 
-    // Check if push is supported
-    function isPushSupported() {
-        return 'serviceWorker' in navigator &&
-            'PushManager' in window &&
-            'Notification' in window &&
-            Boolean(publicVapidKey);
+    function setStatus(message, state = 'info') {
+        statusElements.forEach(element => {
+            element.textContent = message;
+            element.classList.remove('text-gray-300', 'text-green-300', 'text-red-300', 'text-amber-300');
+            element.classList.add({success: 'text-green-300', error: 'text-red-300', warning: 'text-amber-300'}[state] || 'text-gray-300');
+        });
     }
 
-    function checkNotificationPermission() {
-        // For iOS Safari, only show if PWA and iOS 16.4+
-        if (isIOS()) {
-            if (!isPWA()) {
-                console.log('iOS: Please add to Home Screen for notifications');
-                if (enableBtn) {
-                    enableBtn.textContent = 'أضف للشاشة الرئيسية للإشعارات';
-                    enableBtn.classList.remove('hidden');
-                    enableBtn.disabled = true;
-                }
-                return;
-            }
+    function setButtons({visible = true, disabled = false, label = 'تفعيل الإشعارات'} = {}) {
+        if (floatingButton) {
+            floatingButton.classList.toggle('hidden', !visible);
+            floatingButton.disabled = disabled;
+            const labelElement = floatingButton.querySelector('span');
+            if (labelElement) labelElement.textContent = label;
         }
+        dashboardButtons.forEach(button => {
+            button.disabled = disabled;
+            const labelElement = button.querySelector('[data-notification-label]');
+            if (labelElement) labelElement.textContent = label;
+        });
+    }
 
-        if (!isPushSupported()) {
-            console.log('Push notifications not supported');
-            if (enableBtn) enableBtn.classList.add('hidden');
+    function supportError() {
+        if (!window.isSecureContext) return 'الإشعارات تحتاج اتصال HTTPS آمن';
+        if (!publicVapidKey) return 'مفتاح الإشعارات غير مضبوط على الخادم';
+        if (!('serviceWorker' in navigator)) return 'المتصفح لا يدعم Service Worker';
+        if (!('PushManager' in window) || !('Notification' in window)) return 'هذا المتصفح لا يدعم إشعارات Push';
+        if (isIOS() && !isPWA()) return 'أضف الموقع للشاشة الرئيسية ثم افتحه من الأيقونة';
+        return null;
+    }
+
+    async function activateNotifications() {
+        if (activationRunning) return;
+        const error = supportError();
+        if (error) {
+            setStatus(error, 'error');
+            setButtons({visible: true, disabled: true, label: 'تعذر تفعيل الإشعارات'});
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            setStatus('الإشعارات محظورة. فعّلها من إعدادات الهاتف ثم أعد فتح التطبيق.', 'error');
+            setButtons({visible: true, disabled: true, label: 'الإشعارات محظورة'});
             return;
         }
 
-        if (Notification.permission === 'default') {
-            if (enableBtn) {
-                enableBtn.classList.remove('hidden');
-                enableBtn.disabled = false;
-                enableBtn.addEventListener('click', async function () {
-                    try {
-                        const permission = await Notification.requestPermission();
-                        if (permission === 'granted') {
-                            console.log('Notification permission granted.');
-                            enableBtn.classList.add('hidden');
-                            await registerServiceWorker();
-                        } else {
-                            console.log('Notification permission denied');
-                        }
-                    } catch (err) {
-                        console.error('Permission request failed:', err);
-                    }
-                });
-            }
-        } else if (Notification.permission === 'granted') {
-            if (enableBtn) enableBtn.classList.add('hidden');
-            registerServiceWorker();
-        } else {
-            console.log('Notification permission denied.');
-            if (enableBtn) {
-                enableBtn.classList.remove('hidden');
-                enableBtn.textContent = 'الإشعارات محظورة - غير الإعدادات';
-                enableBtn.disabled = true;
-            }
-        }
-    }
-
-    // Initial check
-    checkNotificationPermission();
-
-    async function registerServiceWorker() {
-        if (!('serviceWorker' in navigator)) {
-            console.log('Service Worker not supported');
-            return;
-        }
-
+        activationRunning = true;
+        setButtons({visible: true, disabled: true, label: 'جارٍ ربط الهاتف...'});
+        setStatus('جارٍ تسجيل هذا الهاتف لاستقبال الإشعارات...');
         try {
-            // Use scope for better compatibility
-            const registration = await navigator.serviceWorker.register('/sw.js', {
-                scope: '/'
-            });
-            console.log('Service Worker Registered:', registration.scope);
-
-            // Wait for the service worker to be ready
+            if (Notification.permission !== 'granted') {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') throw new Error('لم يتم السماح بالإشعارات');
+            }
+            const registration = await navigator.serviceWorker.register('/sw.js', {scope: '/'});
             await navigator.serviceWorker.ready;
-            console.log('Service Worker is ready');
-
-            // Subscribe to push notifications
-            await subscribeUser(registration);
+            const subscription = await ensureSubscription(registration);
+            await saveSubscription(subscription);
+            setStatus('الإشعارات مفعلة على هذا الهاتف', 'success');
+            setButtons({visible: false, disabled: false, label: 'الإشعارات مفعلة'});
         } catch (error) {
-            console.error('Service Worker Registration Failed:', error);
+            console.error('Push activation failed:', error);
+            setStatus(error.message || 'فشل ربط الهاتف بالإشعارات', 'error');
+            setButtons({visible: true, disabled: false, label: 'إعادة محاولة التفعيل'});
+        } finally {
+            activationRunning = false;
         }
     }
 
-    async function subscribeUser(registration) {
-        if (!('PushManager' in window)) {
-            console.log('PushManager not supported');
-            return;
+    async function ensureSubscription(registration) {
+        let subscription = await registration.pushManager.getSubscription();
+        const expectedKey = urlBase64ToUint8Array(publicVapidKey);
+        if (subscription?.options?.applicationServerKey) {
+            const currentKey = new Uint8Array(subscription.options.applicationServerKey);
+            const matches = currentKey.length === expectedKey.length && currentKey.every((value, index) => value === expectedKey[index]);
+            if (!matches) {
+                await subscription.unsubscribe();
+                subscription = null;
+            }
         }
-
-        try {
-            // Check for existing subscription first
-            let subscription = await registration.pushManager.getSubscription();
-
-            // Check if existing subscription uses the correct VAPID key
-            if (subscription && subscription.options && subscription.options.applicationServerKey) {
-                const currentKey = new Uint8Array(subscription.options.applicationServerKey);
-                const expectedKey = urlBase64ToUint8Array(publicVapidKey);
-
-                let keysMatch = true;
-                if (currentKey.length !== expectedKey.length) {
-                    keysMatch = false;
-                } else {
-                    for (let i = 0; i < currentKey.length; i++) {
-                        if (currentKey[i] !== expectedKey[i]) {
-                            keysMatch = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (!keysMatch) {
-                    console.log('VAPID key mismatch. Unsubscribing from old subscription.');
-                    await subscription.unsubscribe();
-                    subscription = null;
-                }
-            }
-
-            if (!subscription) {
-                // Create new subscription
-                subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-                });
-                console.log('New push subscription created');
-            } else {
-                console.log('Using existing push subscription (Keys match)');
-            }
-
-            console.log('User is subscribed:', subscription.endpoint);
-
-            // Send subscription to server
-            const response = await fetch('/subscribe', {
-                method: 'POST',
-                body: JSON.stringify(subscription),
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
+        if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: expectedKey
             });
+        }
+        return subscription;
+    }
 
-            if (response.ok) {
-                console.log('Subscription sent to server successfully');
-            } else {
-                console.error('Failed to send subscription to server:', response.status);
-            }
-        } catch (err) {
-            console.error('Failed to subscribe the user:', err);
-            // Handle specific errors
-            if (err.name === 'NotAllowedError') {
-                console.log('Permission was denied');
-            } else if (err.name === 'AbortError') {
-                console.log('Subscription was aborted');
-            }
+    async function saveSubscription(subscription) {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const response = await fetch('/subscribe', {
+            method: 'POST',
+            body: JSON.stringify(subscription),
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf}
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.status === 'ignored') {
+            throw new Error(result.message || `فشل حفظ اشتراك الهاتف (${response.status})`);
         }
     }
 
     function urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding)
-            .replace(/\-/g, '+')
-            .replace(/_/g, '/');
-
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        return Uint8Array.from(window.atob(base64), character => character.charCodeAt(0));
     }
 
-    // Poll for unread notifications count
-    async function checkUnreadNotifications() {
-        const isLoggedIn = document.body.getAttribute('data-user-logged-in') === 'true';
-        if (!isLoggedIn) return;
+    async function initializeNotifications() {
+        const error = supportError();
+        if (error) {
+            setStatus(error, 'error');
+            setButtons({visible: true, disabled: true, label: 'تعذر تفعيل الإشعارات'});
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            setStatus('الإشعارات محظورة من إعدادات الهاتف', 'error');
+            setButtons({visible: true, disabled: true, label: 'الإشعارات محظورة'});
+            return;
+        }
+        if (Notification.permission === 'granted') {
+            // Permission alone is not enough: register and save the subscription.
+            await activateNotifications();
+        } else {
+            setStatus('اضغط لتفعيل الإشعارات على هذا الهاتف', 'warning');
+            setButtons({visible: true, disabled: false});
+        }
+    }
 
+    if (floatingButton) floatingButton.addEventListener('click', activateNotifications);
+    dashboardButtons.forEach(button => button.addEventListener('click', activateNotifications));
+    initializeNotifications();
+
+    async function checkUnreadNotifications() {
+        if (document.body.getAttribute('data-user-logged-in') !== 'true') return;
         try {
             const response = await fetch('/api/notifications/unread-count');
-            if (response.ok) {
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") !== -1) {
-                    const data = await response.json();
-                    const badge = document.getElementById('notification-badge');
-
-                    if (badge) {
-                        if (data.count > 0) {
-                            badge.textContent = data.count;
-                            badge.classList.remove('hidden');
-                        } else {
-                            badge.classList.add('hidden');
-                        }
-                    }
-                }
-            }
+            if (!response.ok) return;
+            const data = await response.json();
+            const badge = document.getElementById('notification-badge');
+            if (!badge) return;
+            badge.textContent = data.count || '';
+            badge.classList.toggle('hidden', !data.count);
         } catch (error) {
-            console.error('Error fetching unread count:', error);
+            console.error('Unread notification check failed:', error);
         }
     }
-
-    setInterval(checkUnreadNotifications, 30000);
     checkUnreadNotifications();
+    setInterval(checkUnreadNotifications, 30000);
 });
-
