@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboardButtons = [...document.querySelectorAll('[data-enable-notifications]')];
     const dashboardCards = [...document.querySelectorAll('[data-notification-card]')];
     const statusElements = [...document.querySelectorAll('[data-notification-status]')];
+    const titleElements = [...document.querySelectorAll('[data-notification-title]')];
+    const iconElements = [...document.querySelectorAll('[data-notification-icon]')];
     let activationRunning = false;
 
     function isIOS() {
@@ -33,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (labelElement) labelElement.textContent = label;
         }
         dashboardButtons.forEach(button => {
+            button.classList.toggle('hidden', !visible);
             button.disabled = disabled;
             const labelElement = button.querySelector('[data-notification-label]');
             if (labelElement) labelElement.textContent = label;
@@ -131,8 +134,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Safari on iPhone cannot receive Web Push until the site is added
             // to the Home Screen. Show installation guidance, not an error or
             // notification activation UI.
-            setStatus('من زر المشاركة اختر «إضافة إلى الشاشة الرئيسية» ثم افتح التطبيق من الأيقونة.', 'info');
-            setButtons({visible: false, disabled: false, label: 'تحميل الموقع على الشاشة'});
+            titleElements.forEach(element => element.textContent = 'تثبيت التطبيق على iPhone');
+            iconElements.forEach(element => {
+                element.className = 'fas fa-mobile-screen-button text-white text-2xl';
+            });
+            setStatus('من Safari اضغط أيقونة المشاركة، ثم اختر «إضافة إلى الشاشة الرئيسية»، وبعدها افتح التطبيق من الأيقونة.', 'info');
+            setButtons({visible: false, disabled: true});
             return;
         }
         const error = supportError();
@@ -156,17 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (floatingButton) floatingButton.addEventListener('click', () => activateNotifications(false));
-    dashboardButtons.forEach(button => button.addEventListener('click', () => {
-        if (isIOS() && !isPWA()) {
-            if (typeof window.showIOSInstallInstructions === 'function') {
-                window.showIOSInstallInstructions();
-            } else {
-                setStatus('اضغط زر المشاركة في Safari ثم اختر «إضافة إلى الشاشة الرئيسية».');
-            }
-            return;
-        }
-        activateNotifications(false);
-    }));
+    dashboardButtons.forEach(button => button.addEventListener('click', () => activateNotifications(false)));
     initializeNotifications();
 
     async function checkUnreadNotifications() {
