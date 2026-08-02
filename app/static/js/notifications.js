@@ -63,10 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         activationRunning = true;
-        if (!background) {
-            setButtons({visible: true, disabled: true, label: 'جارٍ ربط الهاتف...'});
-            setStatus('جارٍ تسجيل هذا الهاتف لاستقبال الإشعارات...');
-        }
+        // Registration is deliberately silent. Do not flash a connecting card
+        // while navigating or after the user presses the activation button.
+        setButtons({visible: false, disabled: true});
+        dashboardCards.forEach(card => card.classList.add('hidden'));
         try {
             if (Notification.permission !== 'granted') {
                 const permission = await Notification.requestPermission();
