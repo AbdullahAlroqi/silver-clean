@@ -3,6 +3,7 @@ const publicVapidKey = document.querySelector('meta[name="vapid-public-key"]')?.
 document.addEventListener('DOMContentLoaded', () => {
     const floatingButton = document.getElementById('enable-notifications-btn');
     const dashboardButtons = [...document.querySelectorAll('[data-enable-notifications]')];
+    const dashboardCards = [...document.querySelectorAll('[data-notification-card]')];
     const statusElements = [...document.querySelectorAll('[data-notification-status]')];
     let activationRunning = false;
 
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setStatus(message, state = 'info') {
+        dashboardCards.forEach(card => card.classList.remove('hidden'));
         statusElements.forEach(element => {
             element.textContent = message;
             element.classList.remove('text-gray-300', 'text-green-300', 'text-red-300', 'text-amber-300');
@@ -74,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await saveSubscription(subscription);
             setStatus('الإشعارات مفعلة على هذا الهاتف', 'success');
             setButtons({visible: false, disabled: false, label: 'الإشعارات مفعلة'});
+            dashboardCards.forEach(card => card.classList.add('hidden'));
         } catch (error) {
             console.error('Push activation failed:', error);
             setStatus(error.message || 'فشل ربط الهاتف بالإشعارات', 'error');
