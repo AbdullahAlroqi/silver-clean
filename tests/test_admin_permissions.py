@@ -32,8 +32,10 @@ def test_supervisor_can_use_operational_pages(app):
     assert 'href="/notifications"' in page
     assert 'id="notification-badge"' in page
     assert 'id="enable-notifications-btn"' in page
-    assert 'data-notification-card' in page
-    assert 'data-notification-title' in page
+    assert 'data-notification-card' not in page
+    admin_home = client.get('/admin/').get_data(as_text=True)
+    assert 'data-notification-card' in admin_home
+    assert 'data-notification-title' in admin_home
     assert 'data-enable-notifications' in client.get('/admin/').get_data(as_text=True)
     assert client.get('/admin/customers').status_code == 200
     assert client.get('/admin/products').status_code == 200

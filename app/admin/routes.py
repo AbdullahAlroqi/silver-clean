@@ -4498,9 +4498,19 @@ def settings():
                 os.makedirs(upload_dir)
                 
             file_path = os.path.join(upload_dir, filename)
-            from PIL import Image
-            with Image.open(file.stream) as uploaded_logo:
-                uploaded_logo.convert('RGBA').save(file_path, 'PNG', optimize=True)
+            try:
+                from PIL import Image
+                with Image.open(file.stream) as uploaded_logo:
+                    uploaded_logo.convert('RGBA').save(file_path, 'PNG', optimize=True)
+            except ModuleNotFoundError:
+                # Keep logo uploads working even before Pillow is installed on
+                # an existing deployment. Preserve the real file extension so
+                # the web server sends the correct content type.
+                extension = secure_filename(file.filename).rsplit('.', 1)[-1].lower()
+                filename = f"site-logo-{int(datetime.utcnow().timestamp())}-{secrets.token_hex(4)}.{extension}"
+                file_path = os.path.join(upload_dir, filename)
+                file.stream.seek(0)
+                file.save(file_path)
             settings.logo_path = f'/static/uploads/{filename}'
             from app.utils.pwa_icons import refresh_pwa_icons
             refresh_pwa_icons(current_app, settings.logo_path, settings.primary_color or '#303030')

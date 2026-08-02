@@ -1,10 +1,13 @@
 import os
 
-from PIL import Image, ImageOps
-
 
 def refresh_pwa_icons(app, logo_path, background_color='#303030'):
     """Build installable square icons from the currently configured site logo."""
+    try:
+        from PIL import Image, ImageOps
+    except ModuleNotFoundError:
+        app.logger.warning('Pillow is not installed; keeping the existing PWA icon files')
+        return False
     relative_logo = (logo_path or '/static/images/logo.png').split('?', 1)[0]
     if not relative_logo.startswith('/static/'):
         relative_logo = '/static/images/logo.png'
