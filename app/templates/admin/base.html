@@ -7,6 +7,9 @@
     <title>لوحة التحكم - {% block title %}{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="vapid-public-key" content="{{ config.get('VAPID_PUBLIC_KEY', '') }}">
+    <link rel="manifest" href="{{ url_for('main.manifest') }}">
+    <link rel="apple-touch-icon" sizes="192x192"
+        href="{{ url_for('static', filename='images/pwa-icon-192.png') }}?v={{ site_settings.updated_at.timestamp()|int if site_settings.updated_at else 1 }}">
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
     <!-- Tailwind CSS -->

@@ -4501,6 +4501,8 @@ def settings():
             file_path = os.path.join(upload_dir, filename)
             file.save(file_path)
             settings.logo_path = f'/static/images/{filename}'
+            from app.utils.pwa_icons import refresh_pwa_icons
+            refresh_pwa_icons(current_app, settings.logo_path)
             
         db.session.commit()
         flash('تم تحديث إعدادات الموقع بنجاح', 'success')

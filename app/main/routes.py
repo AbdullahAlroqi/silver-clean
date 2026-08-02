@@ -31,6 +31,10 @@ def manifest():
     from app.models import SiteSettings
     
     settings = SiteSettings.get_settings()
+    from flask import current_app
+    from app.utils.pwa_icons import refresh_pwa_icons
+    refresh_pwa_icons(current_app, settings.logo_path)
+    icon_version = int(settings.updated_at.timestamp()) if settings.updated_at else 1
     
     manifest_data = {
         "id": "/customer/",
@@ -47,13 +51,13 @@ def manifest():
         "categories": ["lifestyle", "business"],
         "icons": [
             {
-                "src": "/static/images/pwa-icon-192.png",
+                "src": f"/static/images/pwa-icon-192.png?v={icon_version}",
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any maskable"
             },
             {
-                "src": "/static/images/pwa-icon-512.png",
+                "src": f"/static/images/pwa-icon-512.png?v={icon_version}",
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any maskable"
