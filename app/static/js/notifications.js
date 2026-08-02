@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    async function activateNotifications() {
+    async function activateNotifications(background = false) {
         if (activationRunning) return;
         const error = supportError();
         if (error) {
@@ -63,8 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         activationRunning = true;
-        setButtons({visible: true, disabled: true, label: 'جارٍ ربط الهاتف...'});
-        setStatus('جارٍ تسجيل هذا الهاتف لاستقبال الإشعارات...');
+        if (!background) {
+            setButtons({visible: true, disabled: true, label: 'جارٍ ربط الهاتف...'});
+            setStatus('جارٍ تسجيل هذا الهاتف لاستقبال الإشعارات...');
+        }
         try {
             if (Notification.permission !== 'granted') {
                 const permission = await Notification.requestPermission();
@@ -139,15 +141,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (Notification.permission === 'granted') {
             // Permission alone is not enough: register and save the subscription.
-            await activateNotifications();
+            await activateNotifications(true);
         } else {
             setStatus('اضغط لتفعيل الإشعارات على هذا الهاتف', 'warning');
             setButtons({visible: true, disabled: false});
         }
     }
 
-    if (floatingButton) floatingButton.addEventListener('click', activateNotifications);
-    dashboardButtons.forEach(button => button.addEventListener('click', activateNotifications));
+    if (floatingButton) floatingButton.addEventListener('click', () => activateNotifications(false));
+    dashboardButtons.forEach(button => button.addEventListener('click', () => activateNotifications(false)));
     initializeNotifications();
 
     async function checkUnreadNotifications() {
