@@ -1,5 +1,5 @@
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing. Version 3.0');
+  console.log('Service Worker installing. Version 4.0');
   self.skipWaiting();
 });
 
@@ -26,16 +26,13 @@ self.addEventListener('push', function (event) {
   }
 
   const title = data.title || 'Silver Clean';
-  // Add random version to icon to bypass cache
-  const iconUrl = '/static/images/logo.png?v=' + Date.now();
+  const iconUrl = data.icon || '/static/images/pwa-icon-192.png';
 
   const options = {
     body: data.body || 'إشعار جديد',
     icon: iconUrl,
-    badge: iconUrl,
-    vibrate: [200, 100, 200],
-    tag: 'silver-clean-notification',
-    requireInteraction: true,
+    badge: data.badge || '/static/images/pwa-icon-192.png',
+    tag: data.tag || ('silver-clean-' + Date.now()),
     data: {
       url: data.url || '/',
       dateOfArrival: Date.now(),

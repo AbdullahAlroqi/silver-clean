@@ -254,10 +254,10 @@
     {% endif %}
 
     <!-- Notification Permission Button (shown only if permission not granted) -->
-    <button id="enable-notifications-btn"
-        class="hidden fixed bottom-24 left-6 bg-blue-500 text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-600 transition z-50">
-        <i class="fas fa-bell mr-2"></i>
-        <span class="text-sm">{{ _('Enable Notifications') }}</span>
+    <button id="enable-notifications-btn" type="button"
+        class="hidden fixed top-20 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-4 rounded-2xl shadow-2xl hover:scale-105 transition z-[100] border border-white/30 min-w-[240px]">
+        <i class="fas fa-bell text-2xl ml-3 animate-pulse"></i>
+        <span class="font-bold">{{ _('Enable Notifications') }}</span>
     </button>
 
     <script src="{{ url_for('static', filename='js/notifications.js') }}?v=3"></script>

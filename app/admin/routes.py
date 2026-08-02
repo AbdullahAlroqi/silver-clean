@@ -4517,48 +4517,41 @@ def settings():
 @login_required
 def send_notification():
     form = NotificationForm()
-    # Populate user choices
-    users = User.query.filter(User.role == 'customer').all()
-    choices = [(0, 'All Customers')] + [(u.id, f"{u.username} ({u.phone})") for u in users]
-    form.user_id.choices = choices
+    users = User.query.filter(User.role.in_(['customer', 'employee', 'supervisor', 'admin'])) \
+        .order_by(User.role, User.username).all()
+    # Keep the WTForms field valid for backwards compatibility; the enhanced
+    # interface posts a list of recipient_ids instead.
+    form.user_id.choices = [(0, 'Multiple recipients')]
 
     if form.validate_on_submit():
         title = form.title.data
         message = form.message.data
-        recipient_id = form.user_id.data
+        recipient_ids = {int(value) for value in request.form.getlist('recipient_ids') if value.isdigit()}
+        targets = [user for user in users if user.id in recipient_ids]
+        if not targets:
+            flash('اختر مستلمًا واحدًا على الأقل.', 'error')
+            return render_template('admin/notifications.html', form=form, users=users), 400
 
-        targets = []
-        if recipient_id == 0:
-            targets = users
-        else:
-            targets = [User.query.get(recipient_id)]
-
-        count = 0
         for user in targets:
-            if not user: continue
-            
-            # 1. Create DB Notification
-            notif = Notification(user_id=user.id, title=title, message=message)
-            db.session.add(notif)
-            
-            # 2. Send Web Push using the improved notification function
-            from app.notifications import send_push_notification
-            notification_data = {
-                "title": title,
-                "body": message,
-                "icon": "/static/images/logo.png",
-                "badge": "/static/images/logo.png",
-                "url": "/notifications"
-            }
-            send_push_notification(user, notification_data)
-            
-            count += 1
-        
+            db.session.add(Notification(user_id=user.id, title=title, message=message))
         db.session.commit()
-        flash(f'Notification sent to {count} users.', 'success')
+
+        from app.notifications import send_push_notification
+        payload = {
+            "title": title,
+            "body": message,
+            "icon": "/static/images/pwa-icon-192.png",
+            "badge": "/static/images/pwa-icon-192.png",
+            "url": "/notifications"
+        }
+        push_count = sum(1 for user in targets if send_push_notification(user, payload))
+        flash(
+            f'تم حفظ الإشعار لـ {len(targets)} مستلم، وقبل مزود Push الإرسال لـ {push_count} منهم.',
+            'success' if push_count else 'warning'
+        )
         return redirect(url_for('admin.send_notification'))
 
-    return render_template('admin/notifications.html', form=form)
+    return render_template('admin/notifications.html', form=form, users=users)
 
 
 # --- Discount Code Management ---

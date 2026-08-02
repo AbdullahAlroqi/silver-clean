@@ -53,7 +53,7 @@ def _send_async(app, user_id, notification_data, subscription_data):
                     except Exception as db_ex:
                         print(f"Error removing subscription: {db_ex}")
 
-def send_push_notification(user, notification_data):
+def _send_push_notification_legacy(user, notification_data):
     """Send PWA push notification to a user (asynchronously)"""
     subscriptions = user.push_subscriptions
     
@@ -83,6 +83,49 @@ def send_push_notification(user, notification_data):
     thread.start()
             
     return True # We return True immediately as we can't wait for the result
+
+
+# Reliable implementation: return success only after the provider accepts it.
+def send_push_notification(user, notification_data):
+    subscriptions = list(user.push_subscriptions)
+    if not subscriptions:
+        current_app.logger.warning(
+            "Push skipped: user %s (%s) has no browser subscription",
+            user.id, user.role
+        )
+        return False
+
+    success_count = 0
+    for subscription in subscriptions:
+        push_info = {
+            "endpoint": subscription.endpoint,
+            "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth}
+        }
+        try:
+            webpush(
+                subscription_info=push_info,
+                data=json.dumps(notification_data, ensure_ascii=False),
+                vapid_private_key=current_app.config['VAPID_PRIVATE_KEY'],
+                vapid_claims={"sub": current_app.config['VAPID_CLAIM_EMAIL']},
+                timeout=10
+            )
+            success_count += 1
+        except WebPushException as ex:
+            status = ex.response.status_code if ex.response is not None else None
+            current_app.logger.error(
+                "Push provider rejected subscription %s for user %s: status=%s error=%s",
+                subscription.id, user.id, status, ex
+            )
+            if status in (400, 404, 410):
+                db.session.delete(subscription)
+                db.session.commit()
+        except Exception:
+            current_app.logger.exception(
+                "Unexpected push failure for subscription %s and user %s",
+                subscription.id, user.id
+            )
+
+    return success_count > 0
 
 
 def notify_area_supervisors(neighborhood_id=None, city_id=None, event_type='request',

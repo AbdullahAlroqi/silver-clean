@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+import pytest
+
 from app import db
 from app.models import City, Neighborhood, Notification, PushSubscription, User
 from app.notifications import notify_area_supervisors
@@ -54,3 +56,31 @@ def test_supervisor_browser_subscription_is_saved(app):
     with app.app_context():
         subscription = PushSubscription.query.one()
         assert subscription.user_id == supervisor_id
+
+
+@pytest.mark.parametrize('role', ['customer', 'employee', 'supervisor', 'admin'])
+def test_browser_subscription_is_saved_and_refreshed_for_every_role(app, role):
+    with app.app_context():
+        user = User(username=f'push-{role}', role=role)
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, user_id))
+
+    payload = {
+        'endpoint': f'https://push.example/{role}-device',
+        'keys': {'p256dh': 'first-public-key', 'auth': 'first-auth'}
+    }
+    assert client.post('/subscribe', json=payload).status_code == 201
+
+    payload['keys'] = {'p256dh': 'rotated-public-key', 'auth': 'rotated-auth'}
+    assert client.post('/subscribe', json=payload).status_code == 200
+
+    with app.app_context():
+        subscription = PushSubscription.query.one()
+        assert subscription.user_id == user_id
+        assert subscription.p256dh == 'rotated-public-key'
+        assert subscription.auth == 'rotated-auth'

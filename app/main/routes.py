@@ -136,15 +136,19 @@ def terms():
 def subscribe():
     subscription_info = request.get_json()
     if current_user.is_authenticated:
+        if (not subscription_info or not subscription_info.get('endpoint') or
+                not subscription_info.get('keys', {}).get('p256dh') or
+                not subscription_info.get('keys', {}).get('auth')):
+            return jsonify({'status': 'invalid_subscription'}), 400
         # Check if subscription already exists
         existing = PushSubscription.query.filter_by(endpoint=subscription_info['endpoint']).first()
         if existing:
-            # Update user_id if account changed (important for account switching)
-            if existing.user_id != current_user.id:
-                existing.user_id = current_user.id
-                db.session.commit()
-                return jsonify({'status': 'updated'}), 200
-            return jsonify({'status': 'already_exists'}), 200
+            # Browsers may rotate encryption keys without changing the endpoint.
+            existing.user_id = current_user.id
+            existing.p256dh = subscription_info['keys']['p256dh']
+            existing.auth = subscription_info['keys']['auth']
+            db.session.commit()
+            return jsonify({'status': 'updated'}), 200
         else:
             # Create new subscription
             sub = PushSubscription(

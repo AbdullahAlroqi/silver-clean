@@ -1,43 +1,159 @@
 {% extends "admin/base.html" %}
 
 {% block content %}
-<div class="bg-white rounded-lg shadow-md p-6">
-    <h2 class="text-2xl font-bold mb-6 text-gray-800">إرسال إشعار جديد</h2>
+<div class="max-w-6xl mx-auto space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-white flex items-center gap-2">
+                <i class="fas fa-paper-plane text-accent"></i> إرسال إشعار جديد
+            </h1>
+            <p class="text-gray-400 mt-1">إرسال إشعار داخل النظام وإشعار Push إلى عدة مستخدمين.</p>
+        </div>
+        <a href="{{ url_for('main.notifications') }}"
+            class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition text-center">
+            <i class="fas fa-inbox ml-2"></i> صندوق إشعاراتي
+        </a>
+    </div>
 
-    <form method="POST" action="">
+    <form method="POST" id="notification-form" class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {{ form.hidden_tag() }}
+        <input type="hidden" name="user_id" value="0">
 
-        <div class="mb-4">
-            {{ form.title.label(class="block text-gray-700 text-sm font-bold mb-2") }}
-            {{ form.title(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight
-            focus:outline-none focus:shadow-outline") }}
-            {% for error in form.title.errors %}
-            <span class="text-red-500 text-xs italic">{{ error }}</span>
-            {% endfor %}
-        </div>
+        <section class="lg:col-span-2 bg-white rounded-xl shadow p-6 space-y-5">
+            <h2 class="font-bold text-gray-800 text-lg">محتوى الإشعار</h2>
+            <div>
+                <label for="title" class="block text-gray-700 text-sm font-bold mb-2">العنوان</label>
+                {{ form.title(class="border rounded-lg w-full py-3 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent", maxlength="64", placeholder="مثال: عرض جديد") }}
+                {% for error in form.title.errors %}<p class="text-red-500 text-xs mt-1">{{ error }}</p>{% endfor %}
+            </div>
+            <div>
+                <div class="flex justify-between mb-2">
+                    <label for="message" class="text-gray-700 text-sm font-bold">الرسالة</label>
+                    <span id="message-count" class="text-xs text-gray-400">0 / 255</span>
+                </div>
+                {{ form.message(class="border rounded-lg w-full py-3 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent", rows="7", maxlength="255", placeholder="اكتب نص الإشعار هنا...") }}
+                {% for error in form.message.errors %}<p class="text-red-500 text-xs mt-1">{{ error }}</p>{% endfor %}
+            </div>
+            <button type="submit" id="send-button" disabled
+                class="w-full bg-accent hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition">
+                <i class="fas fa-paper-plane ml-2"></i> إرسال إلى <span id="submit-count">0</span> مستلم
+            </button>
+        </section>
 
-        <div class="mb-4">
-            {{ form.message.label(class="block text-gray-700 text-sm font-bold mb-2") }}
-            {{ form.message(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight
-            focus:outline-none focus:shadow-outline", rows="4") }}
-            {% for error in form.message.errors %}
-            <span class="text-red-500 text-xs italic">{{ error }}</span>
-            {% endfor %}
-        </div>
+        <section class="lg:col-span-3 bg-white rounded-xl shadow overflow-hidden">
+            <div class="p-5 border-b space-y-4">
+                <div class="flex items-center justify-between gap-3">
+                    <h2 class="font-bold text-gray-800 text-lg">اختيار المستلمين</h2>
+                    <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
+                        المحدد: <b id="selected-count">0</b>
+                    </span>
+                </div>
+                <div class="relative">
+                    <i class="fas fa-search absolute right-3 top-3.5 text-gray-400"></i>
+                    <input id="recipient-search" type="search" placeholder="ابحث بالاسم أو الجوال أو البريد..."
+                        class="border rounded-lg w-full py-3 pr-10 pl-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent">
+                </div>
+                <div class="flex flex-wrap gap-2" id="role-filters">
+                    <button type="button" data-role="all" class="role-filter bg-accent text-white px-3 py-2 rounded-lg text-sm">الكل</button>
+                    <button type="button" data-role="customer" class="role-filter bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm">العملاء</button>
+                    <button type="button" data-role="employee" class="role-filter bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm">الموظفون</button>
+                    <button type="button" data-role="supervisor" class="role-filter bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm">المشرفون</button>
+                    <button type="button" data-role="admin" class="role-filter bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-sm">الإدارة</button>
+                </div>
+                <div class="flex gap-2 text-sm">
+                    <button type="button" id="select-visible" class="text-blue-600 hover:underline">تحديد النتائج الظاهرة</button>
+                    <span class="text-gray-300">|</span>
+                    <button type="button" id="clear-selection" class="text-red-600 hover:underline">إلغاء تحديد الكل</button>
+                </div>
+            </div>
 
-        <div class="mb-6">
-            {{ form.user_id.label(class="block text-gray-700 text-sm font-bold mb-2") }}
-            {{ form.user_id(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight
-            focus:outline-none focus:shadow-outline") }}
-            {% for error in form.user_id.errors %}
-            <span class="text-red-500 text-xs italic">{{ error }}</span>
-            {% endfor %}
-        </div>
-
-        <div class="flex items-center justify-between">
-            {{ form.submit(class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded
-            focus:outline-none focus:shadow-outline cursor-pointer") }}
-        </div>
+            <div id="recipient-list" class="max-h-[520px] overflow-y-auto divide-y">
+                {% for user in users %}
+                <label class="recipient-row flex items-center gap-3 p-4 hover:bg-blue-50 cursor-pointer transition"
+                    data-role="{{ user.role }}"
+                    data-search="{{ (user.username or '')|lower }} {{ (user.phone or '')|lower }} {{ (user.email or '')|lower }}">
+                    <input type="checkbox" name="recipient_ids" value="{{ user.id }}"
+                        class="recipient-checkbox w-5 h-5 accent-blue-600">
+                    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 shrink-0">
+                        <i class="fas {{ 'fa-user-tie' if user.role in ['admin', 'supervisor'] else ('fa-user-cog' if user.role == 'employee' else 'fa-user') }}"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="font-bold text-gray-800 truncate">{{ user.username }}</div>
+                        <div class="text-xs text-gray-500 truncate">{{ user.phone or user.email or 'لا توجد بيانات اتصال' }}</div>
+                    </div>
+                    <div class="text-left shrink-0">
+                        <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                            {{ {'customer':'عميل','employee':'موظف','supervisor':'مشرف','admin':'إدارة'}.get(user.role, user.role) }}
+                        </span>
+                        <div class="mt-1 text-xs {{ 'text-green-600' if user.push_subscriptions else 'text-amber-600' }}">
+                            <i class="fas {{ 'fa-bell' if user.push_subscriptions else 'fa-bell-slash' }}"></i>
+                            {{ 'Push مفعل' if user.push_subscriptions else 'داخل النظام فقط' }}
+                        </div>
+                    </div>
+                </label>
+                {% else %}
+                <div class="p-10 text-center text-gray-500">لا يوجد مستخدمون.</div>
+                {% endfor %}
+            </div>
+            <div id="no-results" class="hidden p-10 text-center text-gray-500">لا توجد نتائج مطابقة.</div>
+        </section>
     </form>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const rows = [...document.querySelectorAll('.recipient-row')];
+    const boxes = [...document.querySelectorAll('.recipient-checkbox')];
+    const search = document.getElementById('recipient-search');
+    const message = document.getElementById('message');
+    let activeRole = 'all';
+
+    function refreshRows() {
+        const term = search.value.trim().toLowerCase();
+        let visible = 0;
+        rows.forEach(row => {
+            const matchesRole = activeRole === 'all' || row.dataset.role === activeRole;
+            const matchesSearch = !term || row.dataset.search.includes(term);
+            row.classList.toggle('hidden', !(matchesRole && matchesSearch));
+            if (matchesRole && matchesSearch) visible++;
+        });
+        document.getElementById('no-results').classList.toggle('hidden', visible !== 0);
+        document.getElementById('recipient-list').classList.toggle('hidden', visible === 0);
+    }
+
+    function refreshSelection() {
+        const count = boxes.filter(box => box.checked).length;
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('submit-count').textContent = count;
+        document.getElementById('send-button').disabled = count === 0;
+    }
+
+    search.addEventListener('input', refreshRows);
+    boxes.forEach(box => box.addEventListener('change', refreshSelection));
+    document.querySelectorAll('.role-filter').forEach(button => button.addEventListener('click', () => {
+        activeRole = button.dataset.role;
+        document.querySelectorAll('.role-filter').forEach(item => {
+            item.classList.toggle('bg-accent', item === button);
+            item.classList.toggle('text-white', item === button);
+            item.classList.toggle('bg-gray-100', item !== button);
+            item.classList.toggle('text-gray-700', item !== button);
+        });
+        refreshRows();
+    }));
+    document.getElementById('select-visible').addEventListener('click', () => {
+        rows.filter(row => !row.classList.contains('hidden')).forEach(row => row.querySelector('input').checked = true);
+        refreshSelection();
+    });
+    document.getElementById('clear-selection').addEventListener('click', () => {
+        boxes.forEach(box => box.checked = false);
+        refreshSelection();
+    });
+    message.addEventListener('input', () => document.getElementById('message-count').textContent = `${message.value.length} / 255`);
+    document.getElementById('notification-form').addEventListener('submit', event => {
+        const count = boxes.filter(box => box.checked).length;
+        if (!count || !confirm(`سيتم إرسال الإشعار إلى ${count} مستلم. هل تريد المتابعة؟`)) event.preventDefault();
+    });
+    refreshSelection();
+});
+</script>
 {% endblock %}
