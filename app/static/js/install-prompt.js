@@ -194,6 +194,9 @@ function showIOSInstructions() {
   });
 }
 
+// Expose the iPhone guide to the prominent dashboard install button.
+window.showIOSInstallInstructions = showIOSInstructions;
+
 // Chrome variants and Samsung Internet may not expose beforeinstallprompt.
 // In that case provide the browser's manual installation path.
 function showAndroidInstructions() {

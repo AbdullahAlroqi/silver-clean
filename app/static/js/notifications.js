@@ -158,7 +158,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (floatingButton) floatingButton.addEventListener('click', () => activateNotifications(false));
     dashboardButtons.forEach(button => button.addEventListener('click', () => {
         if (isIOS() && !isPWA()) {
-            setStatus('اضغط زر المشاركة في Safari ثم اختر «إضافة إلى الشاشة الرئيسية».');
+            if (typeof window.showIOSInstallInstructions === 'function') {
+                window.showIOSInstallInstructions();
+            } else {
+                setStatus('اضغط زر المشاركة في Safari ثم اختر «إضافة إلى الشاشة الرئيسية».');
+            }
             return;
         }
         activateNotifications(false);
