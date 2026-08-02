@@ -1,24 +1,6 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div data-notification-card class="hidden mb-6 bg-gradient-to-r from-blue-700 to-cyan-600 rounded-2xl p-4 shadow-xl border border-white/20">
-    <div class="flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                <i data-notification-icon class="fas fa-bell text-white text-2xl"></i>
-            </div>
-            <div>
-                <h3 data-notification-title class="font-bold text-white">إشعارات الهاتف</h3>
-                <p data-notification-status class="text-sm text-gray-300">جاري التحقق من حالة الإشعارات...</p>
-            </div>
-        </div>
-        <button type="button" data-enable-notifications
-            class="bg-white text-blue-700 px-4 py-2 rounded-xl font-bold text-sm shrink-0 disabled:opacity-60">
-            <span data-notification-label>تفعيل</span>
-        </button>
-    </div>
-</div>
-
 <div class="mb-6">
     <h2 class="text-2xl font-bold text-white mb-2">{{ _('Welcome, %(username)s', username=current_user.username) }}</h2>
     <p class="text-gray-400">{{ _('Employee Dashboard') }}</p>
