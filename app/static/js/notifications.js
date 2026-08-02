@@ -44,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!publicVapidKey) return 'مفتاح الإشعارات غير مضبوط على الخادم';
         if (!('serviceWorker' in navigator)) return 'المتصفح لا يدعم Service Worker';
         if (!('PushManager' in window) || !('Notification' in window)) return 'هذا المتصفح لا يدعم إشعارات Push';
-        if (isIOS() && !isPWA()) return 'أضف الموقع للشاشة الرئيسية ثم افتحه من الأيقونة';
         return null;
     }
 
@@ -128,6 +127,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initializeNotifications() {
+        if (isIOS() && !isPWA()) {
+            // Safari on iPhone cannot receive Web Push until the site is added
+            // to the Home Screen. Show installation guidance, not an error or
+            // notification activation UI.
+            setStatus('من زر المشاركة اختر «إضافة إلى الشاشة الرئيسية» ثم افتح التطبيق من الأيقونة.', 'info');
+            setButtons({visible: false, disabled: false, label: 'تحميل الموقع على الشاشة'});
+            return;
+        }
         const error = supportError();
         if (error) {
             setStatus(error, 'error');
@@ -149,7 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (floatingButton) floatingButton.addEventListener('click', () => activateNotifications(false));
-    dashboardButtons.forEach(button => button.addEventListener('click', () => activateNotifications(false)));
+    dashboardButtons.forEach(button => button.addEventListener('click', () => {
+        if (isIOS() && !isPWA()) {
+            setStatus('اضغط زر المشاركة في Safari ثم اختر «إضافة إلى الشاشة الرئيسية».');
+            return;
+        }
+        activateNotifications(false);
+    }));
     initializeNotifications();
 
     async function checkUnreadNotifications() {

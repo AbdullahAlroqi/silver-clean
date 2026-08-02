@@ -3729,6 +3729,7 @@ def reassign_booking(id):
     from datetime import datetime, time as dt_time
     
     booking = Booking.query.get_or_404(id)
+    previous_appointment = f"{booking.date} - {booking.time.strftime('%H:%M')}"
     new_employee_id = request.form.get('employee_id')
     new_time_str = request.form.get('time')  # Optional - can change time too
     
@@ -3775,6 +3776,12 @@ def reassign_booking(id):
     
     booking.employee_id = int(new_employee_id)
     db.session.commit()
+    from app.notifications import notify_booking_supervisors
+    notify_booking_supervisors(
+        booking,
+        'rescheduled' if new_time_str else 'assigned',
+        previous_appointment=previous_appointment if new_time_str else None
+    )
     flash('تم إعادة إسناد الحجز بنجاح')
     return redirect(url_for('admin.bookings'))
 
@@ -3807,6 +3814,8 @@ def advance_booking_status(id):
         completion_message = _apply_booking_completion_effects(booking)
 
     db.session.commit()
+    from app.notifications import notify_booking_supervisors
+    notify_booking_supervisors(booking, next_status)
 
     if next_status in ['en_route', 'arrived', 'in_progress']:
         try:
@@ -3835,6 +3844,8 @@ def cancel_booking(id):
         booking.status = 'cancelled'
         booking.cancelled_at = get_saudi_time().replace(tzinfo=None)
         db.session.commit()
+        from app.notifications import notify_booking_supervisors
+        notify_booking_supervisors(booking, 'cancelled', reason=booking.cancellation_reason)
         flash('تم إلغاء الحجز وإعادة المنتجات للمخزون')
     
     return redirect(url_for('admin.bookings'))

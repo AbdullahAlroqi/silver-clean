@@ -480,7 +480,12 @@ def cancel_booking(booking_id):
             booking.subscription.status = 'active'
     
     db.session.commit()
-    
+    try:
+        from app.notifications import notify_booking_supervisors
+        notify_booking_supervisors(booking, 'cancelled', reason=cancellation_reason)
+    except Exception as e:
+        print(f"Failed to notify supervisors about cancellation: {e}")
+
     flash('تم إلغاء الحجز بنجاح', 'success')
     return redirect(url_for('customer.my_bookings'))
 
@@ -654,6 +659,7 @@ def reschedule_booking(booking_id):
         return redirect(url_for('customer.my_bookings'))
 
     old_employee_id = booking.employee_id
+    previous_appointment = f"{booking.date} - {booking.time.strftime('%H:%M')}"
     booking.date = actual_date
     booking.time = actual_time
     booking.employee_id = employee.id
@@ -661,6 +667,12 @@ def reschedule_booking(booking_id):
         booking.status = 'assigned'
 
     db.session.commit()
+
+    try:
+        from app.notifications import notify_booking_supervisors
+        notify_booking_supervisors(booking, 'rescheduled', previous_appointment=previous_appointment)
+    except Exception as e:
+        print(f"Failed to notify supervisors about reschedule: {e}")
 
     try:
         from app.notifications import send_push_notification

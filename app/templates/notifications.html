@@ -22,8 +22,23 @@
 
     <div class="space-y-4">
         {% for notification in notifications %}
+        {% set event_color = 'border-accent' %}
+        {% set event_bg = 'bg-blue-500/10' %}
+        {% if '❌' in notification.title %}
+            {% set event_color = 'border-red-500' %}{% set event_bg = 'bg-red-500/10' %}
+        {% elif '✅' in notification.title %}
+            {% set event_color = 'border-green-500' %}{% set event_bg = 'bg-green-500/10' %}
+        {% elif '📍' in notification.title %}
+            {% set event_color = 'border-orange-500' %}{% set event_bg = 'bg-orange-500/10' %}
+        {% elif '🚗' in notification.title %}
+            {% set event_color = 'border-yellow-500' %}{% set event_bg = 'bg-yellow-500/10' %}
+        {% elif '🧼' in notification.title %}
+            {% set event_color = 'border-cyan-500' %}{% set event_bg = 'bg-cyan-500/10' %}
+        {% elif '🗓️' in notification.title %}
+            {% set event_color = 'border-purple-500' %}{% set event_bg = 'bg-purple-500/10' %}
+        {% endif %}
         <div
-            class="bg-primary p-4 rounded-lg shadow border-r-4 {% if notification.read %}border-gray-600{% else %}border-accent{% endif %}">
+            class="bg-primary p-4 rounded-lg shadow border-r-4 {{ event_color }}">
             <div class="flex justify-between items-start gap-3">
                 <div class="min-w-0">
                     <h3 class="font-bold text-white mb-1">{{ notification.title }}</h3>
@@ -38,7 +53,11 @@
                     </button>
                 </form>
             </div>
-            <p class="text-gray-300 text-sm">{{ notification.message }}</p>
+            <div class="flex flex-wrap gap-2 mt-3">
+                {% for detail in notification.message.split(' | ') %}
+                <span class="{{ event_bg }} text-gray-200 border border-white/10 rounded-lg px-2.5 py-1.5 text-sm">{{ detail }}</span>
+                {% endfor %}
+            </div>
         </div>
         {% else %}
         <div class="text-center text-gray-500 py-8">

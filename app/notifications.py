@@ -186,3 +186,61 @@ def notify_area_supervisors(neighborhood_id=None, city_id=None, event_type='requ
     for supervisor in supervisors.values():
         send_push_notification(supervisor, payload)
     return len(supervisors)
+
+
+def notify_booking_supervisors(booking, event_type, previous_appointment=None, reason=None):
+    """Send differentiated booking updates to assigned area supervisors."""
+    from app.models import Notification
+
+    neighborhood = booking.neighborhood
+    city = neighborhood.city if neighborhood else None
+    supervisors = {}
+    if neighborhood:
+        for supervisor in neighborhood.supervisors.filter_by(role='supervisor').all():
+            supervisors[supervisor.id] = supervisor
+    if city:
+        for supervisor in city.supervisors.filter_by(role='supervisor').all():
+            supervisors[supervisor.id] = supervisor
+    if not supervisors:
+        return 0
+
+    events = {
+        'assigned': ('👤 تم إسناد موظف', 'تم إسناد الحجز إلى موظف'),
+        'en_route': ('🚗 الموظف في الطريق', 'تحرك الموظف إلى موقع العميل'),
+        'arrived': ('📍 وصل الموظف', 'وصل الموظف إلى موقع العميل'),
+        'in_progress': ('🧼 بدأت الخدمة', 'بدأ الموظف تنفيذ الخدمة'),
+        'completed': ('✅ اكتمل الحجز', 'أنهى الموظف تنفيذ الخدمة'),
+        'cancelled': ('❌ ألغي الحجز', 'تم إلغاء الحجز'),
+        'rescheduled': ('🗓️ تغير موعد الحجز', 'تم تغيير تاريخ أو وقت الحجز'),
+    }
+    title, action = events.get(event_type, ('🔔 تحديث على الحجز', 'تم تحديث الحجز'))
+    appointment = f"{booking.date} - {booking.time.strftime('%H:%M')}" if booking.date and booking.time else 'غير محدد'
+    details = [
+        f"الحجز #{booking.id}",
+        f"العميل: {booking.customer.username if booking.customer else 'غير محدد'}",
+        action,
+        f"الموعد: {appointment}",
+    ]
+    if booking.employee:
+        details.append(f"الموظف: {booking.employee.username}")
+    if previous_appointment:
+        details.append(f"الموعد السابق: {previous_appointment}")
+    if reason:
+        details.append(f"السبب: {reason}")
+    message = ' | '.join(details)
+
+    for supervisor in supervisors.values():
+        db.session.add(Notification(user_id=supervisor.id, title=title, message=message))
+    db.session.commit()
+
+    payload = {
+        'title': title, 'body': message,
+        'icon': '/static/images/pwa-icon-192.png',
+        'badge': '/static/images/pwa-icon-192.png',
+        'tag': f'booking-{booking.id}-{event_type}',
+        'url': f'/admin/bookings?q={booking.id}',
+        'data': {'booking_id': booking.id, 'event_type': event_type}
+    }
+    for supervisor in supervisors.values():
+        send_push_notification(supervisor, payload)
+    return len(supervisors)

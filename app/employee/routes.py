@@ -320,7 +320,13 @@ def update_status(id, status):
                 print(f"🔔 Notification sent result: {success}")
             
         db.session.commit()
-        
+
+        try:
+            from app.notifications import notify_booking_supervisors
+            notify_booking_supervisors(booking, status)
+        except Exception as e:
+            print(f"Failed to notify supervisors about booking #{booking.id}: {e}")
+
         # If completed, send rating request notification
         if status == 'completed':
             try:
