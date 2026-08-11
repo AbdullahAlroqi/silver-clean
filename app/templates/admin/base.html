@@ -404,6 +404,26 @@
             }
         }
 
+        @media (max-width: 767px) and (display-mode: standalone) {
+            :root {
+                --admin-standalone-safe-bottom: min(env(safe-area-inset-bottom, 0px), 16px);
+            }
+
+            .admin-bottom-nav {
+                min-height: calc(var(--admin-bottom-nav-height) + var(--admin-standalone-safe-bottom));
+                padding-bottom: var(--admin-standalone-safe-bottom);
+                background: linear-gradient(to top, #292929, rgba(48, 48, 48, .98));
+            }
+
+            .admin-bottom-nav a {
+                transform: translateY(-2px);
+            }
+
+            .admin-main {
+                padding-bottom: calc(var(--admin-bottom-nav-height) + var(--admin-standalone-safe-bottom) + 1.5rem);
+            }
+        }
+
         @media (max-width: 767px) and (orientation: landscape) and (max-height: 500px) {
             :root {
                 --admin-bottom-nav-height: 48px;
