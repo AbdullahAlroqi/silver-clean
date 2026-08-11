@@ -81,3 +81,14 @@ def test_admin_keeps_full_access(app):
     response = admin_client.get('/admin/settings')
     assert response.status_code == 200
     assert 'id="enable-notifications-btn"' in response.get_data(as_text=True)
+
+
+def test_booking_status_filter_after_customer_search_uses_booking_namespace(app):
+    admin_id = _create_user(app, 'booking-search-admin', 'admin')
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, admin_id))
+
+    response = client.get('/admin/bookings?status=completed&q=booking-search-admin')
+
+    assert response.status_code == 200

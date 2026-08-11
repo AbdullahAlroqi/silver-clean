@@ -244,7 +244,7 @@ def index():
         if supervisor_neighborhood_ids:
             completed_bookings_query = completed_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
-            completed_bookings_query = completed_bookings_query.filter_by(id=-1) # Empty result
+            completed_bookings_query = completed_bookings_query.filter(Booking.id == -1) # Empty result
             
     completed_bookings = _filter_bookings_by_work_date(
         completed_bookings_query.all(), selected_date
@@ -260,7 +260,7 @@ def index():
         if supervisor_neighborhood_ids:
             recent_bookings_query = recent_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
-            recent_bookings_query = recent_bookings_query.filter_by(id=-1)
+            recent_bookings_query = recent_bookings_query.filter(Booking.id == -1)
             
     recent_bookings = _filter_bookings_by_work_date(
         recent_bookings_query.all(), selected_date
@@ -450,9 +450,9 @@ def employees():
     query = User.query
 
     if role_filter == 'employee':
-        query = query.filter_by(role='employee')
+        query = query.filter(User.role == 'employee')
     elif role_filter == 'supervisor':
-        query = query.filter_by(role='supervisor')
+        query = query.filter(User.role == 'supervisor')
     else:
         query = query.filter(User.role.in_(['employee', 'supervisor']))
 
@@ -1896,7 +1896,7 @@ def locations():
         if city_neighborhood_ids:
             bookings_q = Booking.query.filter(Booking.neighborhood_id.in_(city_neighborhood_ids))
             booking_count = bookings_q.count()
-            completed_bookings = bookings_q.filter_by(status='completed').all()
+            completed_bookings = bookings_q.filter(Booking.status == 'completed').all()
         else:
             booking_count = 0
             completed_bookings = []
@@ -2322,7 +2322,7 @@ def subscriptions():
     
     # Filter by status
     if status != 'all':
-        subscriptions_query = subscriptions_query.filter_by(status=status)
+        subscriptions_query = subscriptions_query.filter(Subscription.status == status)
         
     supervisor_neighborhood_ids = []
     supervisor_city_ids = set()
@@ -2340,7 +2340,7 @@ def subscriptions():
         if supervisor_neighborhood_ids:
             subscriptions_query = subscriptions_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
-            subscriptions_query = subscriptions_query.filter_by(id=-1) # Empty result
+            subscriptions_query = subscriptions_query.filter(Subscription.id == -1) # Empty result
         
     # Search filter
     if search_query:
@@ -2357,10 +2357,10 @@ def subscriptions():
     counts_query = Subscription.query
     if current_user.role == 'supervisor':
         counts_query = counts_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids)) if supervisor_neighborhood_ids else counts_query.filter(Subscription.id == -1)
-    pending_count = counts_query.filter_by(status='pending').count()
-    active_count = counts_query.filter_by(status='active').count()
-    rejected_count = counts_query.filter_by(status='rejected').count()
-    expired_count = counts_query.filter_by(status='expired').count()
+    pending_count = counts_query.filter(Subscription.status == 'pending').count()
+    active_count = counts_query.filter(Subscription.status == 'active').count()
+    rejected_count = counts_query.filter(Subscription.status == 'rejected').count()
+    expired_count = counts_query.filter(Subscription.status == 'expired').count()
     
     # Prepare JSON data for JavaScript
     subs_json = json.dumps([{
@@ -2576,7 +2576,7 @@ def polishing_orders():
     orders_query = PolishingOrder.query
 
     if status != 'all':
-        orders_query = orders_query.filter_by(status=status)
+        orders_query = orders_query.filter(PolishingOrder.status == status)
 
     if current_user.role == 'supervisor':
         supervisor_neighborhood_ids = []
@@ -2590,7 +2590,7 @@ def polishing_orders():
         if supervisor_neighborhood_ids:
             orders_query = orders_query.filter(PolishingOrder.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
-            orders_query = orders_query.filter_by(id=-1)
+            orders_query = orders_query.filter(PolishingOrder.id == -1)
 
     if search_query:
         orders_query = orders_query.join(User, User.id == PolishingOrder.customer_id).filter(
@@ -2875,11 +2875,11 @@ def bookings():
         if supervisor_neighborhood_ids:
             query = query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
-            query = query.filter_by(id=-1)  # Empty result
+            query = query.filter(Booking.id == -1)  # Empty result
     
     if employee_filter != 'all':
         try:
-            query = query.filter_by(employee_id=int(employee_filter))
+            query = query.filter(Booking.employee_id == int(employee_filter))
         except (TypeError, ValueError):
             employee_filter = 'all'
     
@@ -2925,7 +2925,7 @@ def bookings():
     if status_filter == 'current':
         query = query.filter(Booking.status.in_(current_statuses))
     elif status_filter != 'all':
-        query = query.filter_by(status=status_filter)
+        query = query.filter(Booking.status == status_filter)
     
     # Pagination
     page = request.args.get('page', 1, type=int)
@@ -4072,10 +4072,10 @@ def reports():
             subscriptions_query = subscriptions_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
             # No scope assigned
-            bookings_query = bookings_query.filter_by(id=-1)
-            completed_bookings_query = completed_bookings_query.filter_by(id=-1)
-            customers_query = customers_query.filter_by(id=-1)
-            subscriptions_query = subscriptions_query.filter_by(id=-1)
+            bookings_query = bookings_query.filter(Booking.id == -1)
+            completed_bookings_query = completed_bookings_query.filter(Booking.id == -1)
+            customers_query = customers_query.filter(User.id == -1)
+            subscriptions_query = subscriptions_query.filter(Subscription.id == -1)
 
     total_bookings_list = _filter_bookings_by_work_date(
         bookings_query.all(), from_date, to_date
@@ -4446,7 +4446,7 @@ def management_reports():
     cities = cities_query.order_by(City.name_ar).all()
     neighborhoods_query = Neighborhood.query.filter_by(is_active=True)
     if city_id:
-        neighborhoods_query = neighborhoods_query.filter_by(city_id=city_id)
+        neighborhoods_query = neighborhoods_query.filter(Neighborhood.city_id == city_id)
     if scoped_ids is not None:
         neighborhoods_query = neighborhoods_query.filter(Neighborhood.id.in_(scoped_ids)) if scoped_ids else neighborhoods_query.filter(Neighborhood.id == -1)
 
@@ -4631,7 +4631,7 @@ def _discount_location_choices():
 def _get_scoped_discount_or_404(code_id):
     query = DiscountCode.query.filter_by(id=code_id)
     if current_user.role == 'supervisor':
-        query = query.filter_by(created_by_id=current_user.id)
+        query = query.filter(DiscountCode.created_by_id == current_user.id)
     return query.first_or_404()
 
 
@@ -5043,15 +5043,15 @@ def gift_orders():
         if supervisor_neighborhood_ids:
             base_query = base_query.filter(GiftOrder.neighborhood_id.in_(supervisor_neighborhood_ids))
         else:
-            base_query = base_query.filter_by(id=-1)  # Empty result
+            base_query = base_query.filter(GiftOrder.id == -1)  # Empty result
     
     page = request.args.get('page', 1, type=int)
-    pagination = base_query.filter_by(status=status_filter).order_by(GiftOrder.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
+    pagination = base_query.filter(GiftOrder.status == status_filter).order_by(GiftOrder.created_at.desc()).paginate(page=page, per_page=50, error_out=False)
     orders = pagination.items
     
-    pending_count = base_query.filter_by(status='pending').count()
-    accepted_count = base_query.filter_by(status='accepted').count()
-    rejected_count = base_query.filter_by(status='rejected').count()
+    pending_count = base_query.filter(GiftOrder.status == 'pending').count()
+    accepted_count = base_query.filter(GiftOrder.status == 'accepted').count()
+    rejected_count = base_query.filter(GiftOrder.status == 'rejected').count()
     
     return render_template('admin/gift_orders.html',
                          orders=orders,
@@ -5514,7 +5514,7 @@ def influencer_codes():
     pagination = query.order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.valid_from.desc()).paginate(page=page, per_page=50, error_out=False)
     codes = pagination.items
     # Calculate total usage across ALL influencer codes
-    total_usage = db.session.query(func.sum(DiscountCode.used_count)).filter_by(is_influencer=True).scalar() or 0
+    total_usage = db.session.query(func.sum(DiscountCode.used_count)).filter(DiscountCode.is_influencer.is_(True)).scalar() or 0
     total_codes = pagination.total
     return render_template('admin/influencer_codes.html',
                          total_usage=total_usage,
