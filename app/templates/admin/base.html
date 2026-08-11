@@ -131,7 +131,7 @@
 
         @media (max-width: 767px) {
             :root {
-                --admin-bottom-nav-height: 72px;
+                --admin-bottom-nav-height: 60px;
             }
 
             body.admin-sidebar-open {
@@ -339,7 +339,7 @@
                 grid-template-columns: repeat(5, minmax(0, 1fr));
                 gap: 2px;
                 min-height: calc(var(--admin-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
-                padding: 4px 4px env(safe-area-inset-bottom, 0px);
+                padding: 2px 4px env(safe-area-inset-bottom, 0px);
                 background: rgba(48, 48, 48, 0.96);
                 border-top: 1px solid rgba(255, 255, 255, 0.08);
                 backdrop-filter: blur(12px);
@@ -351,8 +351,8 @@
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                min-height: calc(var(--admin-bottom-nav-height) - 8px);
-                padding: 7px 3px 6px;
+                min-height: calc(var(--admin-bottom-nav-height) - 4px);
+                padding: 5px 3px 4px;
                 color: #d1d5db;
                 font-size: clamp(0.62rem, 2.8vw, 0.75rem);
                 font-weight: 600;
@@ -365,8 +365,8 @@
 
             .admin-bottom-nav i {
                 flex: 0 0 auto;
-                margin-bottom: 4px;
-                font-size: clamp(1rem, 4.5vw, 1.35rem);
+                margin-bottom: 2px;
+                font-size: clamp(.95rem, 4vw, 1.2rem);
             }
 
             .admin-bottom-nav span {
@@ -406,7 +406,7 @@
 
         @media (max-width: 767px) and (orientation: landscape) and (max-height: 500px) {
             :root {
-                --admin-bottom-nav-height: 54px;
+                --admin-bottom-nav-height: 48px;
             }
 
             .admin-topbar-inner {

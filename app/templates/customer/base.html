@@ -39,8 +39,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         /* Customer App Styles */
+        :root {
+            --customer-bottom-nav-height: 60px;
+        }
+
         .customer-app {
-            padding-bottom: 90px;
+            padding-bottom: calc(var(--customer-bottom-nav-height) + 1rem + env(safe-area-inset-bottom, 0px));
             /* Space for bottom nav */
             background: #1F1F1F;
             width: 100%;
@@ -98,6 +102,8 @@
             background: linear-gradient(to top, #1F1F1F, #303030);
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             z-index: 50;
+            min-height: calc(var(--customer-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+            padding-top: 2px;
             padding-bottom: env(safe-area-inset-bottom);
         }
 
@@ -107,7 +113,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 14px 8px 12px 8px;
+            min-height: calc(var(--customer-bottom-nav-height) - 2px);
+            padding: 6px 5px 5px;
             color: #9CA3AF;
             text-decoration: none;
             transition: all 0.2s ease;
@@ -130,12 +137,12 @@
         }
 
         .bottom-nav-item i {
-            font-size: 1.5rem;
-            margin-bottom: 6px;
+            font-size: 1.2rem;
+            margin-bottom: 3px;
         }
 
         .bottom-nav-item span {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 600;
             white-space: nowrap;
             overflow-wrap: normal;
