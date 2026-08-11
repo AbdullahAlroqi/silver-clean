@@ -420,6 +420,20 @@
                 min-height: calc(var(--admin-bottom-nav-height) + var(--admin-standalone-safe-bottom));
                 padding-bottom: var(--admin-standalone-safe-bottom);
                 background: linear-gradient(to top, #292929, rgba(48, 48, 48, .98));
+                isolation: isolate;
+                overflow: visible;
+            }
+
+            html.admin-standalone .admin-bottom-nav::after {
+                content: '';
+                position: fixed;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                z-index: -1;
+                height: calc(var(--admin-bottom-nav-height) + 7rem + env(safe-area-inset-bottom, 0px));
+                background: #292929;
+                pointer-events: none;
             }
 
             html.admin-standalone .admin-bottom-nav a {
