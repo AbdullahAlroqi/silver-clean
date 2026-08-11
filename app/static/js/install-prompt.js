@@ -17,12 +17,18 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('DOMContentLoaded', () => {
   installButton = document.getElementById('install-app-btn');
   installBanner = document.getElementById('install-banner');
+  const postBookingInstallCard = document.querySelector('[data-post-booking-install-card]');
+  const postBookingInstallButton = document.querySelector('[data-post-booking-install]');
 
   // Check if already installed
   if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
     console.log('App is already installed');
+    if (postBookingInstallCard) postBookingInstallCard.classList.add('hidden');
     return;
   }
+
+  if (postBookingInstallCard) postBookingInstallCard.classList.remove('hidden');
+  if (postBookingInstallButton) postBookingInstallButton.addEventListener('click', installApp);
 
   // Check if user already dismissed the banner (within last 24 hours)
   const dismissedTime = localStorage.getItem('install-prompt-dismissed-time');

@@ -1,0 +1,418 @@
+/* Shared admin UI layer: responsive layout, readable text and consistent controls. */
+.sidebar-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1rem 1rem 0.35rem;
+    padding: 0.45rem 0.55rem;
+    color: #9ca3af;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    cursor: pointer;
+    user-select: none;
+}
+
+.sidebar-section-title::after { content: '⌄'; font-size: .9rem; transition: transform .18s ease; }
+.sidebar-section-title[aria-expanded="false"]::after { transform: rotate(90deg); }
+.sidebar-section-collapsed { display: none !important; }
+
+.sidebar-link span,
+.admin-main :where(h1,h2,h3,h4,h5,h6,p,label,a,button,span),
+.admin-topbar :where(h1,h2,h3,span,button,a) {
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+    text-overflow: clip;
+}
+
+.admin-main .truncate {
+    max-width: none !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    text-overflow: clip !important;
+}
+
+.admin-main :where(button, a[class*="bg-"]) {
+    min-height: 40px;
+    line-height: 1.35;
+}
+
+.admin-main :where([class*="fixed"][class*="inset-0"]) > div {
+    width: min(100%, 42rem);
+    max-height: calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Applied by admin-ui.js to every non-modal card, on every admin page. */
+.admin-ui-card {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.admin-ui-card > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.admin-ui-card-row,
+.admin-ui-card-actions {
+    min-width: 0;
+}
+
+@media (max-width: 767px) {
+    .admin-ui-card {
+        width: 100%;
+        border-radius: .9rem !important;
+    }
+
+    .admin-ui-card-row {
+        flex-wrap: wrap !important;
+        gap: .65rem !important;
+    }
+
+    .admin-ui-card-actions {
+        display: flex !important;
+        align-items: center;
+        flex-wrap: wrap !important;
+        gap: .55rem !important;
+        width: 100%;
+    }
+
+    .admin-ui-card-actions > :where(a, button, form) {
+        flex: 0 1 auto;
+        min-width: 40px;
+        max-width: 100%;
+        margin: 0 !important;
+    }
+
+    .admin-ui-card-actions > form > button {
+        width: 100%;
+    }
+
+    .admin-ui-page-header {
+        align-items: stretch !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        gap: .85rem !important;
+    }
+
+    .admin-ui-page-header > :where(a, button) {
+        align-self: flex-start;
+    }
+
+    .admin-ui-card :where(h1, h2, h3, h4, p, span, a, button, label) {
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: normal;
+        word-break: normal;
+        hyphens: none;
+    }
+
+    .admin-ui-card img,
+    .admin-ui-card canvas,
+    .admin-ui-card svg:not([class*="fa-"]) {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .admin-main .mb-4.flex.gap-2.border-b {
+        max-width: 100%;
+        padding-bottom: .35rem;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scrollbar-width: thin;
+    }
+
+    .admin-main .mb-4.flex.gap-2.border-b > a {
+        flex: 0 0 auto;
+    }
+
+    /* Shared card rhythm across all admin pages. */
+    .admin-main .grid {
+        align-items: stretch;
+    }
+
+    .admin-main .grid > :where(.bg-primary, .bg-darkbg, article, section) {
+        width: 100%;
+        min-width: 0;
+        height: 100%;
+        border-radius: .9rem;
+    }
+
+    .admin-main .grid > :where(.bg-primary, .bg-darkbg, article, section) > :where(.flex, header, footer) {
+        min-width: 0;
+    }
+
+    .admin-main :where(.flex, .grid) > * {
+        min-width: 0;
+    }
+
+    .admin-main :where(.bg-primary, .bg-darkbg, article, section) :where(.flex.items-center.justify-between, .flex.justify-between.items-center) {
+        flex-wrap: wrap;
+        gap: .65rem;
+    }
+
+    .admin-main :where(.bg-primary, .bg-darkbg, article, section) :where(.flex.justify-end, .flex.items-end) {
+        flex-wrap: wrap;
+        gap: .55rem;
+    }
+
+    .admin-main :where(.bg-primary, .bg-darkbg, article, section) :where(button, a) {
+        max-width: 100%;
+    }
+
+    .admin-main > :where(.flex.items-center.justify-between, .flex.justify-between.items-center),
+    .admin-main > form + :where(.flex.items-center.justify-between, .flex.justify-between.items-center) {
+        align-items: stretch !important;
+        flex-direction: column;
+        gap: .85rem;
+    }
+
+    .admin-main > :where(.flex.items-center.justify-between, .flex.justify-between.items-center) > :where(a, button) {
+        align-self: flex-start;
+    }
+
+    /* Fixed two-column grids are too narrow on phones, especially Arabic forms. */
+    .admin-main .grid.grid-cols-2 {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .admin-main :where(.p-6, .p-8) {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .admin-main :where(input, select, textarea) {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .admin-page-title {
+        display: block !important;
+        max-width: min(52vw, 19rem) !important;
+        overflow: visible !important;
+        white-space: normal !important;
+        -webkit-line-clamp: unset !important;
+    }
+
+    .sidebar-link {
+        align-items: flex-start;
+        min-height: 46px;
+    }
+
+    .sidebar-link span {
+        min-width: 0;
+        white-space: normal;
+        line-height: 1.5;
+    }
+
+    .admin-bottom-nav a {
+        height: auto;
+        min-height: 64px;
+        white-space: normal !important;
+        text-align: center;
+    }
+
+    .admin-bottom-nav a span {
+        display: block;
+        line-height: 1.25;
+        overflow-wrap: normal;
+        word-break: keep-all;
+    }
+
+    .admin-location-page > div:first-child,
+    .admin-location-city-header {
+        align-items: stretch !important;
+        flex-direction: column;
+        gap: .85rem;
+    }
+
+    .admin-location-city-header > div {
+        width: 100%;
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+
+    .admin-location-city-header > div:last-child {
+        justify-content: flex-start;
+    }
+
+    .admin-location-neighborhood {
+        align-items: flex-start !important;
+        gap: .75rem;
+    }
+
+    .admin-location-neighborhood > div:first-child {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-ui-card {
+        box-shadow: 0 5px 16px rgba(0, 0, 0, .18);
+    }
+
+    .admin-main table.admin-responsive-table,
+    .admin-main table.admin-responsive-table tbody,
+    .admin-main table.admin-responsive-table tr,
+    .admin-main table.admin-responsive-table td {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    .admin-main table.admin-responsive-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
+    .admin-main table.admin-responsive-table tr {
+        margin-bottom: .85rem;
+        overflow: hidden;
+        border: 1px solid #4b5563;
+        border-radius: .85rem;
+        background: #303030;
+        box-shadow: 0 5px 14px rgba(0,0,0,.16);
+    }
+
+    .admin-main table.admin-responsive-table td {
+        display: block;
+        align-items: start;
+        padding: .75rem !important;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+        white-space: normal !important;
+        overflow: visible !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+        hyphens: none !important;
+        text-align: start;
+    }
+
+    .admin-main table.admin-responsive-table td:last-child { border-bottom: 0; }
+    .admin-main table.admin-responsive-table td::before {
+        content: attr(data-label);
+        display: block;
+        color: #9ca3af;
+        font-size: .75rem;
+        font-weight: 700;
+        line-height: 1.5;
+        margin-bottom: .35rem;
+    }
+
+    .admin-main table.admin-responsive-table td > * {
+        max-width: 100%;
+        white-space: normal !important;
+        overflow-wrap: normal !important;
+        word-break: normal !important;
+        hyphens: none !important;
+    }
+
+    .admin-main table.admin-responsive-table td[colspan] {
+        display: block;
+        text-align: center;
+    }
+    .admin-main table.admin-responsive-table td[colspan]::before { content: none; }
+    .admin-main table.admin-responsive-table td .flex { flex-wrap: wrap; }
+
+    /* Every responsive table uses the same calm, readable card treatment. */
+    .admin-main table.admin-responsive-table tr {
+        isolation: isolate;
+    }
+
+    .admin-main table.admin-responsive-table td:first-child {
+        background: rgba(17, 24, 39, .22);
+    }
+
+    .admin-main table.admin-responsive-table td:last-child .flex {
+        align-items: center;
+        gap: .55rem;
+    }
+
+    .admin-main table.admin-responsive-table td:last-child :where(button, a) {
+        min-width: 40px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bookings-table-wrap {
+        overflow: visible !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    .admin-main table.admin-bookings-table tr.booking-card-row {
+        border: 1px solid rgba(75, 85, 99, .9);
+        border-radius: 1rem;
+        background: linear-gradient(145deg, #303030, #292929);
+        box-shadow: 0 7px 18px rgba(0, 0, 0, .22);
+    }
+
+    .admin-main table.admin-bookings-table tr.booking-card-row > td:first-child {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 3.25rem;
+        padding: .8rem 1rem !important;
+        border-bottom-color: rgba(56, 189, 248, .25);
+        background: linear-gradient(90deg, rgba(14, 165, 233, .16), rgba(14, 165, 233, .04));
+        color: #7dd3fc;
+        font-size: 1rem;
+        font-weight: 800;
+    }
+
+    .admin-main table.admin-bookings-table tr.booking-card-row > td:first-child::before {
+        margin: 0;
+        color: #d1d5db;
+    }
+
+    .admin-main table.admin-bookings-table td:not(:first-child) {
+        padding: .8rem 1rem !important;
+    }
+
+    .admin-main table.admin-bookings-table td::before {
+        color: #7dd3fc;
+        font-size: .7rem;
+        letter-spacing: .01em;
+    }
+
+    .admin-main table.admin-bookings-table .booking-actions-cell {
+        background: rgba(17, 24, 39, .32);
+    }
+
+    .admin-main table.admin-bookings-table .booking-actions {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
+        gap: .55rem;
+        width: 100%;
+    }
+
+    .admin-main table.admin-bookings-table .booking-actions > button,
+    .admin-main table.admin-bookings-table .booking-actions > form {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        min-height: 42px;
+        margin: 0;
+        border: 1px solid rgba(255, 255, 255, .1);
+        border-radius: .65rem;
+        background: rgba(55, 65, 81, .72);
+    }
+
+    .admin-main table.admin-bookings-table .booking-actions > form > button {
+        width: 100%;
+        min-height: 40px;
+    }
+}

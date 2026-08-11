@@ -9,7 +9,7 @@
         if (!window.location.search) return;
 
         window.requestAnimationFrame(function () {
-            const innerScroller = document.querySelector('.content');
+            const innerScroller = document.querySelector('.customer-app, .content');
             if (innerScroller) {
                 innerScroller.scrollTop = 0;
             }

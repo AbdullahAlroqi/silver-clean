@@ -18,6 +18,8 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ site_settings.logo_path or url_for('static', filename='images/logo.png') }}?v={{ site_settings.updated_at.timestamp()|int if site_settings.updated_at else 1 }}">
     <!-- Tailwind CSS -->
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="dns-prefetch" href="//cdn.tailwindcss.com">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -35,12 +37,23 @@
     </script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-screen.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-ui.css') }}?v=5">
     <!-- Custom CSS -->
     <style>
         body {
             font-family: 'Tajawal', sans-serif;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
         }
 
         .sidebar {
@@ -60,7 +73,29 @@
         }
 
         .admin-shell {
+            display: flex;
+            width: 100%;
+            height: 100vh !important;
             min-height: 0;
+            overflow: hidden;
+        }
+
+        @supports (height: 100dvh) {
+            .admin-shell {
+                height: 100dvh !important;
+            }
+        }
+
+        .sidebar {
+            height: 100% !important;
+            flex-shrink: 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .admin-topbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .sidebar-link:hover {
@@ -100,7 +135,13 @@
             }
 
             .admin-shell {
-                height: 100dvh;
+                height: 100vh !important;
+            }
+
+            @supports (height: 100dvh) {
+                .admin-shell {
+                    height: 100dvh !important;
+                }
             }
 
             .sidebar {
@@ -111,6 +152,7 @@
                 transform: translateX(105%);
                 box-shadow: -16px 0 36px rgba(0, 0, 0, 0.35);
                 border-left: 1px solid rgba(255, 255, 255, 0.08);
+                padding-bottom: env(safe-area-inset-bottom, 0px);
             }
 
             body.admin-sidebar-open .sidebar {
@@ -180,6 +222,9 @@
             .admin-main {
                 padding: 1rem;
                 padding-bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+                width: 100%;
+                max-width: 100%;
+                overflow-x: hidden;
             }
 
             .admin-main::after {
@@ -301,9 +346,10 @@
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                padding: 14px 8px 12px;
+                min-height: 68px;
+                padding: 10px 4px 8px;
                 color: #d1d5db;
-                font-size: 0.75rem;
+                font-size: clamp(0.62rem, 2.8vw, 0.75rem);
                 font-weight: 600;
                 line-height: 1.2;
                 white-space: nowrap;
@@ -312,8 +358,8 @@
             }
 
             .admin-bottom-nav i {
-                margin-bottom: 6px;
-                font-size: 1.5rem;
+                margin-bottom: 5px;
+                font-size: clamp(1.1rem, 5vw, 1.5rem);
             }
 
             .admin-bottom-nav a.active {
@@ -323,9 +369,45 @@
         }
 
         @media (max-width: 359px) {
+            .admin-topbar-inner {
+                padding-inline: 0.65rem !important;
+            }
+
+            .admin-page-title {
+                max-width: 38vw;
+                margin-right: 0.5rem !important;
+                font-size: 0.875rem;
+            }
+
+            .admin-user-name {
+                display: none;
+            }
+
             .admin-bottom-nav a {
-                padding-inline: 3px;
+                padding-inline: 2px;
                 font-size: 0.68rem;
+            }
+        }
+
+        @media (max-width: 767px) and (orientation: landscape) and (max-height: 500px) {
+            .admin-topbar-inner {
+                min-height: calc(52px + env(safe-area-inset-top, 0px));
+                padding-top: calc(6px + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: 6px !important;
+            }
+
+            .admin-bottom-nav a {
+                min-height: 52px;
+                padding-block: 6px 4px;
+            }
+
+            .admin-bottom-nav i {
+                margin-bottom: 2px;
+                font-size: 1rem;
+            }
+
+            .admin-main {
+                padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
             }
         }
 
@@ -348,11 +430,13 @@
             </div>
             <nav class="mt-6 pb-20">
                 <div>
+                    <p class="sidebar-section-title">نظرة عامة</p>
                     <a href="{{ url_for('admin.index') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-tachometer-alt ml-3"></i>
                         <span>الرئيسية</span>
                     </a>
+                    <p class="sidebar-section-title">التشغيل اليومي</p>
                     <a href="{{ url_for('admin.employees') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-users-cog ml-3"></i>
@@ -364,6 +448,7 @@
                         <span>تتبع الموظفين</span>
                     </a>
 
+                    <p class="sidebar-section-title">الخدمات والمبيعات</p>
                     {% if current_user.role == 'admin' %}
                     <a href="{{ url_for('admin.services') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
@@ -417,6 +502,7 @@
                     </a>
                     {% endif %}
 
+                    <p class="sidebar-section-title">التقارير والمتابعة</p>
                     <a href="{{ url_for('admin.reports') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-chart-line ml-3"></i>
@@ -428,6 +514,7 @@
                         <span>التقارير الإدارية</span>
                     </a>
 
+                    <p class="sidebar-section-title">العملاء والتسويق</p>
                     <a href="{{ url_for('admin.ratings') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-star ml-3"></i>
@@ -452,6 +539,7 @@
                         <span>العملاء</span>
                     </a>
                     {% if current_user.role == 'admin' %}
+                    <p class="sidebar-section-title">إدارة النظام</p>
                     <a href="{{ url_for('admin.admins') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-user-shield ml-3"></i>
@@ -598,7 +686,7 @@
         <i class="fas fa-bell text-2xl ml-3 animate-pulse"></i>
         <span>تفعيل الإشعارات</span>
     </button>
-    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=12"></script>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}?v=14"></script>
     <script src="{{ url_for('static', filename='js/install-prompt.js') }}?v=5"></script>
 
     <!-- JavaScript -->
@@ -658,6 +746,7 @@
         }
     </script>
     <script src="{{ url_for('static', filename='js/scroll-restoration.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/admin-ui.js') }}?v=2"></script>
     {% block scripts %}{% endblock %}
 </body>
 

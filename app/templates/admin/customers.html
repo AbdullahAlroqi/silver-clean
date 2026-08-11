@@ -45,6 +45,7 @@
                 <th class="px-6 py-3 text-right text-sm font-bold">عدد السيارات</th>
                 <th class="px-6 py-3 text-right text-sm font-bold">تاريخ اخر عملية شراء</th>
                 <th class="px-6 py-3 text-right text-sm font-bold">الإجراءات</th>
+                <th class="px-6 py-3 text-right text-sm font-bold">حالة الإشعارات</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-700">
@@ -109,10 +110,16 @@
                         </button>{% endif %}
                     </div>
                 </td>
+                <td class="px-6 py-4 text-sm">
+                    <span class="{{ customer.notification_status_class }} text-white text-xs px-2 py-1 rounded-full whitespace-nowrap"
+                        title="{{ customer.push_device_count }} جهاز مسجل">
+                        {{ customer.notification_status_label }}
+                    </span>
+                </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="9" class="px-6 py-8 text-center text-gray-400">لا يوجد عملاء</td>
+                <td colspan="10" class="px-6 py-8 text-center text-gray-400">لا يوجد عملاء</td>
             </tr>
             {% endfor %}
         </tbody>

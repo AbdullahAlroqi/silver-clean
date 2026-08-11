@@ -71,7 +71,9 @@ input[type="submit"] {
 }
 
 :where(h1, h2, h3, h4, h5, h6, p, label, a, button) {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    word-break: normal;
+    text-overflow: clip;
 }
 
 table {

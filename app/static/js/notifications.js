@@ -7,6 +7,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusElements = [...document.querySelectorAll('[data-notification-status]')];
     const titleElements = [...document.querySelectorAll('[data-notification-title]')];
     const iconElements = [...document.querySelectorAll('[data-notification-icon]')];
+    const postBookingCard = document.querySelector('[data-post-booking-notification-card]');
+    const postBookingButton = document.querySelector('[data-post-booking-enable-notifications]');
+    const browserSettings = document.querySelector('[data-browser-notification-settings]');
+    const browserStatus = document.querySelector('[data-browser-notification-status]');
+    const browserButton = document.querySelector('[data-browser-enable-notifications]');
     let activationRunning = false;
 
     function isIOS() {
@@ -16,6 +21,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isPWA() {
         return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    }
+
+    function isAndroid() {
+        return /Android/i.test(navigator.userAgent);
+    }
+
+    function currentPermission() {
+        return 'Notification' in window ? Notification.permission : 'unsupported';
+    }
+
+    function reportDeviceStatus() {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        fetch('/api/notifications/device-status', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+            body: JSON.stringify({installed: isPWA(), permission: currentPermission()}),
+            keepalive: true
+        }).catch(() => {});
     }
 
     function setStatus(message, state = 'info') {
@@ -50,8 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    async function activateNotifications(background = false) {
+    async function activateNotifications(background = false, allowAndroidBrowser = false) {
         if (activationRunning) return;
+        if (!isPWA() && !(allowAndroidBrowser && isAndroid())) {
+            dashboardCards.forEach(card => card.classList.add('hidden'));
+            setButtons({visible: false, disabled: true});
+            return;
+        }
         const error = supportError();
         if (error) {
             setStatus(error, 'error');
@@ -81,6 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
             setStatus('الإشعارات مفعلة على هذا الهاتف', 'success');
             setButtons({visible: false, disabled: false, label: 'الإشعارات مفعلة'});
             dashboardCards.forEach(card => card.classList.add('hidden'));
+            if (postBookingCard) postBookingCard.classList.add('hidden');
+            if (browserStatus) browserStatus.textContent = 'الإشعارات مفعّلة على هذا الجهاز.';
+            if (browserButton) browserButton.classList.add('hidden');
+            reportDeviceStatus();
         } catch (error) {
             console.error('Push activation failed:', error);
             setStatus(error.message || 'فشل ربط الهاتف بالإشعارات', 'error');
@@ -130,6 +162,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function initializeNotifications() {
+        // Notification activation belongs to the installed app only. Browsers
+        // continue to show the separate installation UI, but never this card.
+        if (!isPWA()) {
+            dashboardCards.forEach(card => card.classList.add('hidden'));
+            setButtons({visible: false, disabled: true});
+        } else if (postBookingCard && currentPermission() !== 'granted') {
+            postBookingCard.classList.remove('hidden');
+        }
+
+        reportDeviceStatus();
+
+        if (browserSettings) {
+            if (isPWA()) {
+                browserStatus.textContent = currentPermission() === 'granted'
+                    ? 'الإشعارات مفعّلة داخل التطبيق.'
+                    : 'يمكنك تفعيل الإشعارات داخل التطبيق من الزر أدناه.';
+                browserButton.classList.toggle('hidden', currentPermission() === 'granted');
+            } else if (isAndroid()) {
+                browserStatus.textContent = currentPermission() === 'granted'
+                    ? 'الإشعارات مفعّلة على هذا المتصفح.'
+                    : 'يمكنك تفعيل الإشعارات من هنا دون ظهور بطاقة مزعجة في بقية الصفحات.';
+                browserButton.classList.toggle('hidden', currentPermission() === 'granted');
+            } else {
+                browserStatus.textContent = 'على iPhone: ثبّت التطبيق على الشاشة الرئيسية أولًا، ثم فعّل الإشعارات من داخله.';
+                browserButton.classList.add('hidden');
+            }
+        }
+
+        if (!isPWA()) return;
+
         if (isIOS() && !isPWA()) {
             // Safari on iPhone cannot receive Web Push until the site is added
             // to the Home Screen. Show installation guidance, not an error or
@@ -164,6 +226,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (floatingButton) floatingButton.addEventListener('click', () => activateNotifications(false));
     dashboardButtons.forEach(button => button.addEventListener('click', () => activateNotifications(false)));
+    if (postBookingButton) postBookingButton.addEventListener('click', () => activateNotifications(false));
+    if (browserButton) browserButton.addEventListener('click', () => activateNotifications(false, true));
     initializeNotifications();
 
     async function checkUnreadNotifications() {

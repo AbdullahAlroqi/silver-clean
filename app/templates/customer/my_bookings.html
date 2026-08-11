@@ -265,6 +265,30 @@
         </article>
         {% endfor %}
     </div>
+
+    {% if pagination.pages > 1 %}
+    <nav class="mt-6 flex items-center justify-between gap-3" aria-label="التنقل بين الحجوزات">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('customer.my_bookings', page=pagination.prev_num) }}"
+            class="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl bg-gray-700 px-4 py-3 font-bold text-white">
+            <i class="fas fa-chevron-right ml-2"></i> رجوع
+        </a>
+        {% else %}
+        <span class="flex-1"></span>
+        {% endif %}
+
+        <span class="shrink-0 text-sm text-gray-400">{{ pagination.page }} / {{ pagination.pages }}</span>
+
+        {% if pagination.has_next %}
+        <a href="{{ url_for('customer.my_bookings', page=pagination.next_num) }}"
+            class="inline-flex min-h-12 flex-1 items-center justify-center rounded-xl bg-gray-700 px-4 py-3 font-bold text-white">
+            أقدم <i class="fas fa-chevron-left mr-2"></i>
+        </a>
+        {% else %}
+        <span class="flex-1"></span>
+        {% endif %}
+    </nav>
+    {% endif %}
     {% else %}
     <div class="bg-primary p-8 sm:p-12 rounded-2xl shadow-lg text-center">
         <i class="fas fa-calendar-times text-5xl sm:text-6xl text-gray-500 mb-4"></i>

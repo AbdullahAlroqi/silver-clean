@@ -41,6 +41,9 @@ class User(UserMixin, db.Model):
     points = db.Column(db.Integer, default=0)
     free_washes = db.Column(db.Integer, default=0)
     push_subscription = db.Column(db.Text) # JSON string for Web Push subscription
+    has_installed_app = db.Column(db.Boolean, default=False, nullable=False)
+    notification_permission = db.Column(db.String(20), default='unknown', nullable=False)
+    notification_status_updated_at = db.Column(db.DateTime, nullable=True)
     reset_code = db.Column(db.String(6), nullable=True)
     reset_code_expiration = db.Column(db.DateTime, nullable=True)
     is_banned = db.Column(db.Boolean, default=False)

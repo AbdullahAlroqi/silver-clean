@@ -396,7 +396,8 @@ def my_bookings():
     
     thirty_days_ago = get_saudi_time().replace(tzinfo=None) - timedelta(days=30)
     
-    bookings = current_user.bookings.filter(
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    pagination = current_user.bookings.filter(
         ~and_(
             Booking.status == 'cancelled',
             or_(
@@ -408,9 +409,13 @@ def my_bookings():
         status_order,
         Booking.date.desc(),
         Booking.time.desc()
-    ).all()
+    ).paginate(page=page, per_page=5, error_out=False)
     
-    return render_template('customer/my_bookings.html', bookings=bookings)
+    return render_template(
+        'customer/my_bookings.html',
+        bookings=pagination.items,
+        pagination=pagination
+    )
 
 @bp.route('/referrals')
 def referrals():

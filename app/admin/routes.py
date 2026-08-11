@@ -265,7 +265,7 @@ def index():
     recent_bookings = _filter_bookings_by_work_date(
         recent_bookings_query.all(), selected_date
     )[:5]
-    
+
     return render_template('admin/index.html', 
                            employees_count=employees_count, 
                            customers_count=customers_count, 
@@ -1034,6 +1034,13 @@ def customers():
     page = request.args.get('page', 1, type=int)
     pagination = query.order_by(User.id.desc()).paginate(page=page, per_page=50, error_out=False)
     customers = pagination.items
+
+    push_counts = dict(
+        db.session.query(PushSubscription.user_id, func.count(PushSubscription.id))
+        .filter(PushSubscription.user_id.in_([customer.id for customer in customers]))
+        .group_by(PushSubscription.user_id)
+        .all()
+    ) if customers else {}
     
     # Calculate stats for each customer
     for customer in customers:
@@ -1043,6 +1050,22 @@ def customers():
         # Get last purchase date from bookings
         last_booking = Booking.query.filter_by(customer_id=customer.id).order_by(Booking.created_at.desc()).first()
         customer.last_purchase_date = last_booking.created_at if last_booking else None
+        customer.push_device_count = push_counts.get(customer.id, 0)
+        if customer.push_device_count:
+            customer.notification_status_label = 'مفعّل'
+            customer.notification_status_class = 'bg-green-700'
+        elif customer.notification_permission == 'denied':
+            customer.notification_status_label = 'مرفوض'
+            customer.notification_status_class = 'bg-red-700'
+        elif customer.has_installed_app and customer.notification_permission == 'granted':
+            customer.notification_status_label = 'الاشتراك مفقود'
+            customer.notification_status_class = 'bg-orange-700'
+        elif customer.has_installed_app:
+            customer.notification_status_label = 'مثبّت - غير مفعّل'
+            customer.notification_status_class = 'bg-yellow-700'
+        else:
+            customer.notification_status_label = 'غير مثبّت'
+            customer.notification_status_class = 'bg-gray-600'
         
     return render_template('admin/customers.html', customers=customers, pagination=pagination)
 
@@ -2854,12 +2877,11 @@ def bookings():
         else:
             query = query.filter_by(id=-1)  # Empty result
     
-    if status_filter == 'current':
-        query = query.filter(~Booking.status.in_(['completed', 'cancelled']))
-    elif status_filter != 'all':
-        query = query.filter_by(status=status_filter)
     if employee_filter != 'all':
-        query = query.filter_by(employee_id=int(employee_filter))
+        try:
+            query = query.filter_by(employee_id=int(employee_filter))
+        except (TypeError, ValueError):
+            employee_filter = 'all'
     
     # Date range filter
     from datetime import datetime
@@ -2890,6 +2912,20 @@ def bookings():
             query = query.join(User, Booking.customer_id == User.id).filter(
                 User.username.ilike(f'%{search_query}%')
             )
+
+    # The tab totals use the complete filtered result set before applying the
+    # selected status. This keeps the three numbers accurate for the chosen
+    # period, employee and search, independently of the current page.
+    counts_query = query
+    current_statuses = ['pending', 'assigned', 'en_route', 'arrived', 'in_progress']
+    current_count = counts_query.filter(Booking.status.in_(current_statuses)).count()
+    completed_count = counts_query.filter(Booking.status == 'completed').count()
+    cancelled_count = counts_query.filter(Booking.status == 'cancelled').count()
+
+    if status_filter == 'current':
+        query = query.filter(Booking.status.in_(current_statuses))
+    elif status_filter != 'all':
+        query = query.filter_by(status=status_filter)
     
     # Pagination
     page = request.args.get('page', 1, type=int)
@@ -2960,18 +2996,6 @@ def bookings():
     
     vehicle_sizes = VehicleSize.query.all()
     vehicle_sizes_json = json.dumps({vs.id: float(vs.price_adjustment or 0) for vs in vehicle_sizes})
-    
-    # Get counts for status tabs
-    current_statuses = ['pending', 'assigned', 'en_route', 'arrived', 'in_progress']
-    counts_query = Booking.query
-    if current_user.role == 'supervisor':
-        if supervisor_neighborhood_ids:
-            counts_query = counts_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
-        else:
-            counts_query = counts_query.filter(Booking.id == -1)
-    current_count = counts_query.filter(Booking.status.in_(current_statuses)).count()
-    completed_count = counts_query.filter_by(status='completed').count()
-    cancelled_count = counts_query.filter_by(status='cancelled').count()
     
     return render_template('admin/bookings.html', bookings=bookings_list, employees=employees, 
                            status_filter=status_filter, employee_filter=employee_filter,
@@ -3900,9 +3924,11 @@ def reports():
             city_id = None
     
     # Base queries with date filter
+    # Include the following calendar day as a candidate, then consistently
+    # filter by the logical work date for overnight shifts.
     bookings_query = Booking.query.join(Neighborhood).filter(
         Booking.date >= from_date,
-        Booking.date <= to_date
+        Booking.date <= to_date + timedelta(days=1)
     )
     
     completed_bookings_query = Booking.query.join(Neighborhood).filter(
@@ -4051,7 +4077,10 @@ def reports():
             customers_query = customers_query.filter_by(id=-1)
             subscriptions_query = subscriptions_query.filter_by(id=-1)
 
-    total_bookings = bookings_query.count()
+    total_bookings_list = _filter_bookings_by_work_date(
+        bookings_query.all(), from_date, to_date
+    )
+    total_bookings = len(total_bookings_list)
     completed_bookings_list = _filter_bookings_by_work_date(
         completed_bookings_query.all(), from_date, to_date
     )
@@ -4117,14 +4146,12 @@ def reports():
     total_revenue = service_revenue + product_revenue + subscription_revenue
     
     # Top services (in date range)
-    top_services_query = db.session.query(
-        Service.name_ar,
-        func.count(Booking.id).label('count')
-    ).join(Booking)\
-    .join(Neighborhood, Booking.neighborhood_id == Neighborhood.id)\
-    .filter(
+    top_services_query = Booking.query.join(
+        Neighborhood, Booking.neighborhood_id == Neighborhood.id
+    ).filter(
+        Booking.service_id.isnot(None),
         Booking.date >= from_date,
-        Booking.date <= to_date
+        Booking.date <= to_date + timedelta(days=1)
     )
     
     if city_id:
@@ -4139,9 +4166,16 @@ def reports():
         else:
             top_services_query = top_services_query.filter(Booking.id == -1)
         
-    top_services = top_services_query.group_by(Service.id)\
-    .order_by(func.count(Booking.id).desc())\
-    .limit(5).all()
+    from collections import Counter
+    top_service_bookings = _filter_bookings_by_work_date(
+        top_services_query.all(), from_date, to_date
+    )
+    top_service_counts = Counter(
+        booking.service.name_ar
+        for booking in top_service_bookings
+        if booking.service
+    )
+    top_services = top_service_counts.most_common(5)
     
     # Employee performance uses the logical shift date, so work completed
     # after midnight remains attached to the shift that started the day before.

@@ -143,11 +143,13 @@ def test_reports_group_after_midnight_completion_with_previous_shift(app):
 
     assert response.status_code == 200
     context = rendered[-1]
+    assert context['total_bookings'] == 1
     assert context['completed_bookings'] == 1
     assert context['cash_count'] == 1
     assert context['service_revenue'] == 75
     assert context['employee_stats'][0]['completed'] == 1
     assert context['employee_stats'][0]['total'] == 1
+    assert context['top_services'][0][1] == 1
     assert b'employee' in response.data
 
 

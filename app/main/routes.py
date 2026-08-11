@@ -133,6 +133,21 @@ def unread_notifications_count():
     count = current_user.notifications.filter_by(read=False).count()
     return jsonify({'count': count})
 
+
+@bp.route('/api/notifications/device-status', methods=['POST'])
+@login_required
+def notification_device_status():
+    payload = request.get_json(silent=True) or {}
+    permission = str(payload.get('permission', 'unknown')).lower()
+    if permission not in {'default', 'granted', 'denied', 'unsupported', 'unknown'}:
+        permission = 'unknown'
+    if payload.get('installed') is True:
+        current_user.has_installed_app = True
+    current_user.notification_permission = permission
+    current_user.notification_status_updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'status': 'updated'})
+
 @bp.route('/terms')
 def terms():
     return render_template('terms.html', title='Terms and Conditions')
