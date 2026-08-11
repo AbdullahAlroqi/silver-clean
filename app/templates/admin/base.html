@@ -138,13 +138,13 @@
 
         @media (max-width: 767px) {
             :root {
-                --admin-bottom-nav-height: 46px;
-                --admin-mobile-safe-bottom: min(env(safe-area-inset-bottom, 0px), 4px);
+                --admin-bottom-nav-height: 50px;
+                --admin-mobile-safe-bottom: 0px;
             }
 
             html,
             body {
-                background: #292929;
+                background: #303030;
             }
 
             .admin-shell,
@@ -357,8 +357,8 @@
                 grid-template-columns: repeat(5, minmax(0, 1fr));
                 gap: 2px;
                 min-height: calc(var(--admin-bottom-nav-height) + var(--admin-mobile-safe-bottom));
-                padding: 2px 4px var(--admin-mobile-safe-bottom);
-                background: linear-gradient(to top, #292929, rgba(48, 48, 48, .98));
+                padding: 0 3px var(--admin-mobile-safe-bottom);
+                background: #303030;
                 border-top: 1px solid rgba(255, 255, 255, 0.08);
                 backdrop-filter: blur(12px);
             }
@@ -369,22 +369,23 @@
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                min-height: calc(var(--admin-bottom-nav-height) - 4px);
-                padding: 3px 4px 2px;
+                min-height: var(--admin-bottom-nav-height);
+                padding: 2px 4px 0;
                 color: #d1d5db;
-                font-size: clamp(0.62rem, 2.8vw, 0.75rem);
+                font-size: clamp(0.7rem, 3vw, 0.8rem);
                 font-weight: 600;
                 line-height: 1.2;
                 border-radius: 10px;
                 white-space: normal;
                 overflow-wrap: normal;
                 word-break: keep-all;
+                transform: translateY(4px);
             }
 
             .admin-bottom-nav i {
                 flex: 0 0 auto;
-                margin-bottom: 3px;
-                font-size: clamp(1.1rem, 5vw, 1.5rem);
+                margin-bottom: 1px;
+                font-size: clamp(1.3rem, 5.5vw, 1.65rem);
             }
 
             .admin-bottom-nav span {
@@ -430,11 +431,11 @@
             html.admin-standalone .admin-bottom-nav {
                 min-height: calc(var(--admin-bottom-nav-height) + var(--admin-standalone-safe-bottom));
                 padding-bottom: var(--admin-standalone-safe-bottom);
-                background: linear-gradient(to top, #292929, rgba(48, 48, 48, .98));
+                background: #303030;
             }
 
             html.admin-standalone .admin-bottom-nav a {
-                transform: translateY(-2px);
+                transform: translateY(4px);
             }
 
             html.admin-standalone .admin-main {
