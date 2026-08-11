@@ -138,7 +138,18 @@
 
         @media (max-width: 767px) {
             :root {
-                --admin-bottom-nav-height: 52px;
+                --admin-bottom-nav-height: 46px;
+                --admin-mobile-safe-bottom: min(env(safe-area-inset-bottom, 0px), 4px);
+            }
+
+            html,
+            body {
+                background: #292929;
+            }
+
+            .admin-shell,
+            .content {
+                background: #1F1F1F;
             }
 
             body.admin-sidebar-open {
@@ -232,7 +243,7 @@
 
             .admin-main {
                 padding: 1rem;
-                padding-bottom: calc(var(--admin-bottom-nav-height) + 2.5rem + env(safe-area-inset-bottom, 0px));
+                padding-bottom: calc(var(--admin-bottom-nav-height) + 1.5rem + var(--admin-mobile-safe-bottom));
                 width: 100%;
                 max-width: 100%;
                 overflow-x: hidden;
@@ -345,9 +356,9 @@
                 display: grid;
                 grid-template-columns: repeat(5, minmax(0, 1fr));
                 gap: 2px;
-                min-height: calc(var(--admin-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
-                padding: 2px 4px env(safe-area-inset-bottom, 0px);
-                background: rgba(48, 48, 48, 0.96);
+                min-height: calc(var(--admin-bottom-nav-height) + var(--admin-mobile-safe-bottom));
+                padding: 2px 4px var(--admin-mobile-safe-bottom);
+                background: linear-gradient(to top, #292929, rgba(48, 48, 48, .98));
                 border-top: 1px solid rgba(255, 255, 255, 0.08);
                 backdrop-filter: blur(12px);
             }
@@ -413,27 +424,13 @@
 
         @media (max-width: 767px) {
             html.admin-standalone {
-                --admin-standalone-safe-bottom: min(env(safe-area-inset-bottom, 0px), 8px);
+                --admin-standalone-safe-bottom: var(--admin-mobile-safe-bottom);
             }
 
             html.admin-standalone .admin-bottom-nav {
                 min-height: calc(var(--admin-bottom-nav-height) + var(--admin-standalone-safe-bottom));
                 padding-bottom: var(--admin-standalone-safe-bottom);
                 background: linear-gradient(to top, #292929, rgba(48, 48, 48, .98));
-                isolation: isolate;
-                overflow: visible;
-            }
-
-            html.admin-standalone .admin-bottom-nav::after {
-                content: '';
-                position: fixed;
-                right: 0;
-                bottom: 0;
-                left: 0;
-                z-index: -1;
-                height: calc(var(--admin-bottom-nav-height) + 7rem + env(safe-area-inset-bottom, 0px));
-                background: #292929;
-                pointer-events: none;
             }
 
             html.admin-standalone .admin-bottom-nav a {
