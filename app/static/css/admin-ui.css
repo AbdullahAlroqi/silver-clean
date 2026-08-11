@@ -64,7 +64,7 @@
 }
 
 @media (max-width: 767px) {
-    /* Mobile dialogs use the visible viewport and stay above the footer. */
+    /* iOS-friendly dialog: a large inset card below the admin header. */
     .admin-main [class*="fixed"][class*="inset-0"] {
         position: fixed !important;
         inset: 0 !important;
@@ -75,7 +75,7 @@
         height: 100dvh !important;
         min-height: 100dvh !important;
         z-index: 80 !important;
-        padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) !important;
+        padding: calc(72px + env(safe-area-inset-top, 0px)) .75rem calc(.75rem + env(safe-area-inset-bottom, 0px)) !important;
         align-items: flex-start !important;
         justify-content: center !important;
         overflow-x: hidden !important;
@@ -84,29 +84,29 @@
     }
 
     .admin-main [class*="fixed"][class*="inset-0"] > div {
-        width: 100% !important;
-        max-width: 100% !important;
-        height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
-        min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
-        height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
-        min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
-        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+        width: min(100%, 36rem) !important;
+        max-width: 36rem !important;
+        height: calc(100vh - 96px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+        height: min(78dvh, calc(100dvh - 96px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))) !important;
+        min-height: 0 !important;
+        max-height: calc(100dvh - 96px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
         margin: 0 !important;
         padding: 1rem !important;
         overflow-x: hidden !important;
         overflow-y: auto !important;
-        border-radius: 0 !important;
+        border-radius: 1rem !important;
         -webkit-overflow-scrolling: touch;
     }
 
     .admin-main [class*="fixed"][class*="inset-0"] > div > :first-child:is(.flex) {
         position: sticky;
-        top: -1rem;
+        top: 0;
         z-index: 2;
         margin-inline: -1rem;
         padding: .8rem 1rem;
         background: #303030;
         border-bottom: 1px solid rgba(255,255,255,.08);
+        box-shadow: 0 6px 12px rgba(0,0,0,.18);
     }
 
     .admin-main [class*="fixed"][class*="inset-0"] > div > :first-child:is(.flex) > :where(h2,h3,h4) {
