@@ -159,6 +159,35 @@
             }
         }
 
+        /* Installed PWA: keep the iPhone home-indicator clearance without
+           stacking the full browser footer height above it. */
+        @media (display-mode: standalone) {
+            :root {
+                --customer-bottom-nav-height: 48px;
+                --customer-standalone-safe-bottom: min(env(safe-area-inset-bottom, 0px), 26px);
+            }
+
+            .customer-app {
+                padding-bottom: calc(var(--customer-bottom-nav-height) + var(--customer-standalone-safe-bottom) + .75rem);
+            }
+
+            .bottom-nav {
+                min-height: calc(var(--customer-bottom-nav-height) + var(--customer-standalone-safe-bottom));
+                padding-top: 1px;
+                padding-bottom: var(--customer-standalone-safe-bottom);
+            }
+
+            .bottom-nav-item {
+                min-height: var(--customer-bottom-nav-height);
+                padding-top: 1px;
+                padding-bottom: 0;
+            }
+
+            .bottom-nav-item i {
+                margin-bottom: 2px;
+            }
+        }
+
         /* Announcements Carousel */
         .announcements-carousel {
             overflow-x: auto;
