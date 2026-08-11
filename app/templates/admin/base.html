@@ -12,6 +12,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="{{ site_settings.site_name or 'Silver Clean' }}">
     <meta name="theme-color" content="{{ site_settings.primary_color or '#303030' }}">
+    <script>
+        (function () {
+            var standalone = window.navigator.standalone === true
+                || window.matchMedia('(display-mode: standalone)').matches;
+            document.documentElement.classList.toggle('admin-standalone', standalone);
+        })();
+    </script>
     <link rel="manifest" href="{{ url_for('main.manifest') }}">
     <link rel="apple-touch-icon" sizes="192x192"
         href="{{ url_for('static', filename='images/pwa-icon-192.png') }}?v={{ site_settings.updated_at.timestamp()|int if site_settings.updated_at else 1 }}">
@@ -404,22 +411,22 @@
             }
         }
 
-        @media (max-width: 767px) and (display-mode: standalone) {
-            :root {
+        @media (max-width: 767px) {
+            html.admin-standalone {
                 --admin-standalone-safe-bottom: min(env(safe-area-inset-bottom, 0px), 16px);
             }
 
-            .admin-bottom-nav {
+            html.admin-standalone .admin-bottom-nav {
                 min-height: calc(var(--admin-bottom-nav-height) + var(--admin-standalone-safe-bottom));
                 padding-bottom: var(--admin-standalone-safe-bottom);
                 background: linear-gradient(to top, #292929, rgba(48, 48, 48, .98));
             }
 
-            .admin-bottom-nav a {
+            html.admin-standalone .admin-bottom-nav a {
                 transform: translateY(-2px);
             }
 
-            .admin-main {
+            html.admin-standalone .admin-main {
                 padding-bottom: calc(var(--admin-bottom-nav-height) + var(--admin-standalone-safe-bottom) + 1.5rem);
             }
         }

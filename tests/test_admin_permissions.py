@@ -39,6 +39,8 @@ def test_supervisor_can_use_operational_pages(app):
     assert 'data-enable-notifications' in client.get('/admin/').get_data(as_text=True)
     assert 'admin-ui.css' in admin_home
     assert 'admin-ui.js' in admin_home
+    assert 'admin-standalone' in admin_home
+    assert 'navigator.standalone' in admin_home
     assert 'sidebar-section-title' in admin_home
     assert client.get('/admin/customers').status_code == 200
     assert client.get('/admin/products').status_code == 200
