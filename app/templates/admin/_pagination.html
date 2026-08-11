@@ -1,5 +1,5 @@
 {% if pagination and pagination.pages > 1 %}
-<div class="mt-4 flex flex-col md:flex-row justify-between items-center bg-gray-800 p-3 rounded-lg border border-gray-700 gap-4">
+<div class="admin-pagination mt-4 flex flex-col md:flex-row justify-between items-center bg-gray-800 p-3 rounded-lg border border-gray-700 gap-4">
     <div class="text-sm text-gray-400">
         عرض <span class="font-bold text-white">{{ pagination.first_item if pagination.first_item else 0 }}</span>
         إلى <span class="font-bold text-white">{{ pagination.last_item if pagination.last_item else 0 }}</span>
@@ -10,7 +10,7 @@
     {% set _ = request_args.pop('_pjax', None) %}
     {% set _ = request_args.pop('page', None) %}
     
-    <div class="flex gap-1 flex-wrap justify-center">
+    <div class="admin-pagination-links flex gap-1 flex-wrap justify-center">
         {% if pagination.has_prev %}
         <a href="{{ url_for(request.endpoint, page=pagination.prev_num, **request_args) }}" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm text-white transition">السابق</a>
         {% endif %}

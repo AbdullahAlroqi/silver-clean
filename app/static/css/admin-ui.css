@@ -64,6 +64,97 @@
 }
 
 @media (max-width: 767px) {
+    /* Mobile dialogs use the visible viewport and stay above the footer. */
+    .admin-main [class*="fixed"][class*="inset-0"] {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        min-width: 100vw !important;
+        height: 100vh !important;
+        min-height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        z-index: 80 !important;
+        padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain;
+    }
+
+    .admin-main [class*="fixed"][class*="inset-0"] > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+        min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+        height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+        min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+        margin: 0 !important;
+        padding: 1rem !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        border-radius: 0 !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-main [class*="fixed"][class*="inset-0"] > div > :first-child:is(.flex) {
+        position: sticky;
+        top: -1rem;
+        z-index: 2;
+        margin-inline: -1rem;
+        padding: .8rem 1rem;
+        background: #303030;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .admin-main [class*="fixed"][class*="inset-0"] > div > :first-child:is(.flex) > :where(h2,h3,h4) {
+        flex: 1 1 0;
+        min-width: 0;
+        font-size: 1rem;
+        line-height: 1.55;
+    }
+
+    .admin-main [class*="fixed"][class*="inset-0"] > div > :first-child:is(.flex) > button {
+        flex: 0 0 42px;
+        width: 42px;
+        min-height: 42px;
+    }
+
+    /* Pagination remains usable and scrolls clear of the fixed footer. */
+    .admin-pagination {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        margin-bottom: calc(var(--admin-bottom-nav-height, 72px) + 1rem + env(safe-area-inset-bottom, 0px));
+        padding: .85rem !important;
+        text-align: center;
+    }
+
+    .admin-pagination-links {
+        display: flex !important;
+        width: 100%;
+        max-width: 100%;
+        padding: .2rem 0 .35rem;
+        flex-wrap: nowrap !important;
+        justify-content: flex-start !important;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    .admin-pagination-links > :where(a, span) {
+        display: inline-flex;
+        flex: 0 0 auto;
+        min-width: 42px;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        padding: .55rem .75rem;
+    }
+
     .admin-ui-card {
         width: 100%;
         border-radius: .9rem !important;

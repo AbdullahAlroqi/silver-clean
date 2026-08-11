@@ -39,7 +39,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/loading-screen.css') }}?v=2">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-ui.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-ui.css') }}?v=7">
     <!-- Custom CSS -->
     <style>
         body {
@@ -130,6 +130,10 @@
         }
 
         @media (max-width: 767px) {
+            :root {
+                --admin-bottom-nav-height: 72px;
+            }
+
             body.admin-sidebar-open {
                 overflow: hidden;
             }
@@ -221,7 +225,7 @@
 
             .admin-main {
                 padding: 1rem;
-                padding-bottom: calc(11rem + env(safe-area-inset-bottom, 0px));
+                padding-bottom: calc(var(--admin-bottom-nav-height) + 2.5rem + env(safe-area-inset-bottom, 0px));
                 width: 100%;
                 max-width: 100%;
                 overflow-x: hidden;
@@ -333,8 +337,9 @@
                 z-index: 35;
                 display: grid;
                 grid-template-columns: repeat(5, minmax(0, 1fr));
-                gap: 0;
-                padding-bottom: env(safe-area-inset-bottom);
+                gap: 2px;
+                min-height: calc(var(--admin-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+                padding: 4px 4px env(safe-area-inset-bottom, 0px);
                 background: rgba(48, 48, 48, 0.96);
                 border-top: 1px solid rgba(255, 255, 255, 0.08);
                 backdrop-filter: blur(12px);
@@ -346,20 +351,30 @@
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                min-height: 68px;
-                padding: 10px 4px 8px;
+                min-height: calc(var(--admin-bottom-nav-height) - 8px);
+                padding: 7px 3px 6px;
                 color: #d1d5db;
                 font-size: clamp(0.62rem, 2.8vw, 0.75rem);
                 font-weight: 600;
                 line-height: 1.2;
-                white-space: nowrap;
+                border-radius: 10px;
+                white-space: normal;
                 overflow-wrap: normal;
                 word-break: keep-all;
             }
 
             .admin-bottom-nav i {
-                margin-bottom: 5px;
-                font-size: clamp(1.1rem, 5vw, 1.5rem);
+                flex: 0 0 auto;
+                margin-bottom: 4px;
+                font-size: clamp(1rem, 4.5vw, 1.35rem);
+            }
+
+            .admin-bottom-nav span {
+                display: block;
+                width: 100%;
+                min-width: 0;
+                text-align: center;
+                line-height: 1.2;
             }
 
             .admin-bottom-nav a.active {
@@ -390,6 +405,10 @@
         }
 
         @media (max-width: 767px) and (orientation: landscape) and (max-height: 500px) {
+            :root {
+                --admin-bottom-nav-height: 54px;
+            }
+
             .admin-topbar-inner {
                 min-height: calc(52px + env(safe-area-inset-top, 0px));
                 padding-top: calc(6px + env(safe-area-inset-top, 0px)) !important;
@@ -407,7 +426,7 @@
             }
 
             .admin-main {
-                padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
+                padding-bottom: calc(var(--admin-bottom-nav-height) + 2rem + env(safe-area-inset-bottom, 0px));
             }
         }
 
