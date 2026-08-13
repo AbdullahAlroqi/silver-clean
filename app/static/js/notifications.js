@@ -14,6 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const browserButton = document.querySelector('[data-browser-enable-notifications]');
     let activationRunning = false;
 
+    function notificationSettingsHelp() {
+        if (isIOS()) {
+            return 'افتح إعدادات iPhone، ثم الإشعارات، ثم اختر التطبيق وفعّل السماح بالإشعارات، وبعدها ارجع واضغط إعادة المحاولة.';
+        }
+        return 'افتح إعدادات الموقع أو التطبيق، اسمح بالإشعارات، ثم ارجع واضغط إعادة المحاولة.';
+    }
+
     function isIOS() {
         return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -87,8 +94,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (Notification.permission === 'denied') {
-            setStatus('الإشعارات محظورة. فعّلها من إعدادات الهاتف ثم أعد فتح التطبيق.', 'error');
-            setButtons({visible: true, disabled: true, label: 'الإشعارات محظورة'});
+            setStatus(notificationSettingsHelp(), 'error');
+            setButtons({visible: true, disabled: false, label: 'إعادة التحقق والمحاولة'});
+            if (browserStatus) browserStatus.textContent = notificationSettingsHelp();
+            if (browserButton) {
+                browserButton.classList.remove('hidden');
+                browserButton.textContent = 'إعادة التحقق والمحاولة';
+            }
             return;
         }
 
@@ -115,8 +127,19 @@ document.addEventListener('DOMContentLoaded', () => {
             reportDeviceStatus();
         } catch (error) {
             console.error('Push activation failed:', error);
-            setStatus(error.message || 'فشل ربط الهاتف بالإشعارات', 'error');
+            const message = Notification.permission === 'denied'
+                ? notificationSettingsHelp()
+                : (error.message || 'فشل ربط الهاتف بالإشعارات. تحقق من الاتصال ثم حاول مجددًا.');
+            setStatus(message, 'error');
             setButtons({visible: true, disabled: false, label: 'إعادة محاولة التفعيل'});
+            dashboardCards.forEach(card => card.classList.remove('hidden'));
+            if (browserStatus) browserStatus.textContent = message;
+            if (browserButton) {
+                browserButton.classList.remove('hidden');
+                browserButton.disabled = false;
+                browserButton.textContent = 'إعادة محاولة التفعيل';
+            }
+            reportDeviceStatus();
         } finally {
             activationRunning = false;
         }
@@ -211,8 +234,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (Notification.permission === 'denied') {
-            setStatus('الإشعارات محظورة من إعدادات الهاتف', 'error');
-            setButtons({visible: true, disabled: true, label: 'الإشعارات محظورة'});
+            setStatus(notificationSettingsHelp(), 'error');
+            setButtons({visible: true, disabled: false, label: 'إعادة التحقق والمحاولة'});
             return;
         }
         if (Notification.permission === 'granted') {

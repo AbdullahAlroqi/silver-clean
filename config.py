@@ -66,6 +66,7 @@ class Config:
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'info.silverclean1@gmail.com')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or MAIL_USERNAME
     ADMINS = [os.environ.get('ADMIN_EMAIL', 'silvcle.sa@gmail.com')]
 
     # Security Headers

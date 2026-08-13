@@ -173,7 +173,12 @@ def reset_password_request():
             user.reset_code_expiration = datetime.utcnow() + timedelta(minutes=15)
             db.session.commit()
             
-            send_password_reset_email(user, code)
+            if not send_password_reset_email(user, code):
+                user.reset_code = None
+                user.reset_code_expiration = None
+                db.session.commit()
+                flash('تعذر إرسال رمز الاستعادة حاليًا. تحقق من البريد ثم حاول مرة أخرى.', 'error')
+                return render_template('auth/reset_request.html', title='استعادة كلمة المرور', form=form), 503
             
             # Mask email for display
             if '@' in user.email:
