@@ -39,6 +39,8 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(64), index=True, unique=True)
     email = db.Column(db.String(120), index=True, unique=True)
     phone = db.Column(db.String(20), index=True, unique=True)
+    phone_needs_update = db.Column(db.Boolean, default=False, nullable=False)
+    original_phone = db.Column(db.String(100), nullable=True)
     password_hash = db.Column(db.String(128))
     role = db.Column(db.String(20)) # 'admin', 'employee', 'customer', 'supervisor'
     site_permissions_json = db.Column(db.Text, nullable=True)

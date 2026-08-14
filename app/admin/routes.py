@@ -53,6 +53,7 @@ ADMIN_ONLY_ENDPOINTS = {
     'admin.audit_logs', 'admin.export_audit_logs',
     'admin.site_supervisors', 'admin.add_site_supervisor',
     'admin.edit_site_supervisor', 'admin.delete_site_supervisor',
+    'admin.invalid_phones',
 }
 
 
@@ -760,6 +761,8 @@ def edit_employee(id):
             flash('رقم الجوال مستخدم بالفعل.', 'error')
             return redirect(url_for('admin.edit_employee', id=id))
         employee.phone = new_phone
+        employee.phone_needs_update = False
+        employee.original_phone = None
         
         # Update role if admin is editing
         if current_user.role == 'admin' and form.role.data:
@@ -1394,6 +1397,8 @@ def edit_customer(id):
             flash('رقم الجوال مستخدم بالفعل.', 'error')
             return redirect(url_for('admin.edit_customer', id=id))
         customer.phone = new_phone
+        customer.phone_needs_update = False
+        customer.original_phone = None
         
         # Update password if provided
         new_password = request.form.get('password')
@@ -5085,6 +5090,15 @@ def discount_code_stats(id):
     return render_template('admin/discount_code_stats.html', code=code, bookings=bookings, total_savings=total_savings)
 
 # --- Site Supervisor Management (owner admins only) ---
+@bp.route('/invalid-phones')
+def invalid_phones():
+    page = request.args.get('page', 1, type=int)
+    pagination = User.query.filter(User.phone_needs_update == True).order_by(User.id).paginate(
+        page=page, per_page=50, error_out=False)
+    return render_template('admin/invalid_phones.html', users=pagination.items,
+                           pagination=pagination)
+
+
 @bp.route('/site-supervisors')
 def site_supervisors():
     page = request.args.get('page', 1, type=int)
@@ -5141,6 +5155,8 @@ def edit_site_supervisor(id):
             supervisor.username = form.username.data
             supervisor.email = form.email.data
             supervisor.phone = form.phone.data
+            supervisor.phone_needs_update = False
+            supervisor.original_phone = None
             if form.password.data:
                 supervisor.set_password(form.password.data)
             supervisor.set_site_permissions(request.form.getlist('site_permissions'))

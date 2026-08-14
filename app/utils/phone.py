@@ -6,6 +6,10 @@ _DIGIT_TRANSLATION = str.maketrans(
     '01234567890123456789',
 )
 
+# Formatting characters accepted around/between digits. Alphabetic characters
+# are deliberately excluded so values such as "0551234567abc" are rejected.
+_ALLOWED_FORMATTING = re.compile(r'[\s\u00a0\u200e\u200f\u202a-\u202e\u2066-\u2069+\-().]*')
+
 
 def normalize_saudi_phone(value, *, allow_empty=False):
     """Return a Saudi mobile number in the canonical 05XXXXXXXX format."""
@@ -14,7 +18,11 @@ def normalize_saudi_phone(value, *, allow_empty=False):
             return None
         raise ValueError('رقم الجوال مطلوب.')
 
-    digits = re.sub(r'\D', '', str(value).translate(_DIGIT_TRANSLATION))
+    translated = str(value).translate(_DIGIT_TRANSLATION).strip()
+    non_digits = re.sub(r'[0-9]', '', translated)
+    if not _ALLOWED_FORMATTING.fullmatch(non_digits):
+        raise ValueError('رقم الجوال يجب أن يحتوي على أرقام فقط.')
+    digits = re.sub(r'\D', '', translated)
     if digits.startswith('00966'):
         digits = digits[5:]
     elif digits.startswith('966'):

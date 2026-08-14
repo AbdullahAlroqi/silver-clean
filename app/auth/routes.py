@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 from flask_login import login_user, logout_user, current_user
 from app import db
 from app.auth import bp
-from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetCodeForm, ResetPasswordForm
+from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetCodeForm, ResetPasswordForm, UpdatePhoneForm
 from app.models import User
 from app.limiter import limiter
 from app.utils.phone import normalize_phone_identifier, normalize_saudi_phone
@@ -50,6 +50,8 @@ def login():
         
         # Always remember user for 1 year (especially important for PWA)
         login_user(user, remember=True)
+        if user.phone_needs_update:
+            return redirect(url_for('auth.update_phone'))
         
         next_page = request.args.get('next')
         if maintenance_mode_enabled() and user.role in ['admin', 'supervisor', 'site_supervisor']:
@@ -59,6 +61,23 @@ def login():
         return redirect(next_page)
         
     return render_template('auth/login.html', title='تسجيل الدخول', form=form)
+
+@bp.route('/update-phone', methods=['GET', 'POST'])
+def update_phone():
+    if not current_user.is_authenticated:
+        return redirect(url_for('auth.login'))
+    if not current_user.phone_needs_update:
+        return redirect(get_post_login_redirect(current_user))
+    form = UpdatePhoneForm()
+    if form.validate_on_submit():
+        current_user.phone = form.phone.data
+        current_user.phone_needs_update = False
+        current_user.original_phone = None
+        db.session.commit()
+        flash('تم تحديث رقم الجوال بنجاح.', 'success')
+        return redirect(get_post_login_redirect(current_user))
+    return render_template('auth/update_phone.html', form=form)
+
 
 @bp.route('/logout')
 def logout():

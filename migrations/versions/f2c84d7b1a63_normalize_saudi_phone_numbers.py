@@ -21,7 +21,11 @@ def _canonical(value):
         '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹',
         '01234567890123456789',
     )
-    digits = re.sub(r'\D', '', str(value).translate(translation))
+    translated = str(value).translate(translation).strip()
+    allowed = re.compile(r'[\s\u00a0\u200e\u200f\u202a-\u202e\u2066-\u2069+\-().]*')
+    if not allowed.fullmatch(re.sub(r'[0-9]', '', translated)):
+        return None
+    digits = re.sub(r'\D', '', translated)
     had_country_prefix = False
     if digits.startswith('00966'):
         digits = digits[5:]
@@ -34,25 +38,25 @@ def _canonical(value):
     if len(digits) == 9 and digits.startswith('5'):
         digits = '0' + digits
     if had_country_prefix and digits.startswith('5'):
-        return '0' + digits
-    return digits if len(digits) == 10 and digits.startswith('05') else value
+        digits = '0' + digits
+    return digits if len(digits) == 10 and digits.startswith('05') else None
 
 
 def upgrade():
     connection = op.get_bind()
     users = connection.execute(sa.text('SELECT id, phone FROM user WHERE phone IS NOT NULL')).fetchall()
     canonical_owners = {}
+    duplicate_numbers = set()
     for user_id, phone in users:
         normalized = _canonical(phone)
+        if not normalized:
+            continue
         if normalized in canonical_owners and canonical_owners[normalized] != user_id:
-            raise RuntimeError(
-                f'Duplicate phone accounts must be resolved before migration: {normalized} '
-                f'(user IDs {canonical_owners[normalized]} and {user_id})'
-            )
+            duplicate_numbers.add(normalized)
         canonical_owners[normalized] = user_id
     for user_id, phone in users:
         normalized = _canonical(phone)
-        if normalized != phone:
+        if normalized and normalized not in duplicate_numbers and normalized != phone:
             connection.execute(sa.text('UPDATE user SET phone=:phone WHERE id=:id'),
                                {'phone': normalized, 'id': user_id})
 
@@ -61,7 +65,7 @@ def upgrade():
     )).fetchall()
     for gift_id, phone in gifts:
         normalized = _canonical(phone)
-        if normalized != phone:
+        if normalized and normalized != phone:
             connection.execute(sa.text(
                 'UPDATE gift_order SET recipient_phone=:phone WHERE id=:id'
             ), {'phone': normalized, 'id': gift_id})

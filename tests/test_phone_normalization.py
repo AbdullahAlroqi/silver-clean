@@ -18,6 +18,8 @@ def test_all_supported_phone_formats_become_local_05(value):
 def test_invalid_non_saudi_mobile_is_rejected():
     with pytest.raises(ValueError):
         normalize_saudi_phone('12345')
+    with pytest.raises(ValueError):
+        normalize_saudi_phone('0551234567letters')
 
 
 def test_user_and_gift_numbers_are_canonicalized_before_storage(app):
@@ -48,3 +50,28 @@ def test_login_accepts_local_05_for_previously_international_number(app):
 def test_phone_identifier_preserves_username_and_email():
     assert normalize_phone_identifier('some-user') == 'some-user'
     assert normalize_phone_identifier('user@example.com') == 'user@example.com'
+
+
+def test_quarantined_user_must_update_phone_before_using_site(app):
+    with app.app_context():
+        user = User(username='quarantined-phone-user', role='customer',
+                    phone_needs_update=True, original_phone='not-a-phone')
+        user.set_password('ValidPassword123')
+        db.session.add(user)
+        db.session.commit()
+
+    client = app.test_client()
+    response = client.post('/auth/login', data={
+        'username': 'quarantined-phone-user', 'password': 'ValidPassword123'
+    })
+    assert response.status_code == 302
+    assert response.headers['Location'].endswith('/auth/update-phone')
+    assert client.get('/customer/').headers['Location'].endswith('/auth/update-phone')
+
+    response = client.post('/auth/update-phone', data={'phone': '+966551239999'})
+    assert response.status_code == 302
+    with app.app_context():
+        updated = User.query.filter_by(username='quarantined-phone-user').one()
+        assert updated.phone == '0551239999'
+        assert updated.phone_needs_update is False
+        assert updated.original_phone is None

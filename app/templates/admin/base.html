@@ -682,6 +682,11 @@
                         class="flex items-center px-6 py-3 text-cyan-300 hover:bg-gray-700 sidebar-link">
                         <i class="fas fa-user-lock ml-3"></i>
                         <span>مشرفو الموقع</span>
+                    </a>
+                    <a href="{{ url_for('admin.invalid_phones') }}"
+                        class="flex items-center px-6 py-3 text-amber-300 hover:bg-gray-700 sidebar-link">
+                        <i class="fas fa-phone-slash ml-3"></i>
+                        <span>مراجعة الأرقام</span>
                     </a>{% endif %}
                     {% if can_access('settings') %}<a href="{{ url_for('admin.loyalty_settings') }}"
                         class="flex items-center px-6 py-3 text-gray-200 hover:bg-gray-700 sidebar-link">

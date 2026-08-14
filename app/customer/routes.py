@@ -2563,6 +2563,8 @@ def profile():
         current_user.username = profile_form.username.data
         current_user.email = profile_form.email.data
         current_user.phone = profile_form.phone.data
+        current_user.phone_needs_update = False
+        current_user.original_phone = None
         db.session.commit()
         flash('تم تحديث الملف الشخصي بنجاح')
         return redirect(url_for('customer.profile'))

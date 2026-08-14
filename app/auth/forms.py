@@ -63,6 +63,21 @@ class ResetPasswordRequestForm(FlaskForm):
     identifier = StringField('البريد الإلكتروني أو رقم الجوال', validators=[DataRequired()])
     submit = SubmitField('إرسال رمز التحقق')
 
+class UpdatePhoneForm(FlaskForm):
+    phone = StringField('رقم الجوال الصحيح', validators=[DataRequired()])
+    submit = SubmitField('حفظ رقم الجوال')
+
+    def validate_phone(self, phone):
+        try:
+            phone.data = normalize_saudi_phone(phone.data)
+        except ValueError as error:
+            raise ValidationError(str(error))
+        owner = User.query.filter_by(phone=phone.data).first()
+        from flask_login import current_user
+        if owner and owner.id != current_user.id:
+            raise ValidationError('رقم الجوال مرتبط بحساب آخر.')
+
+
 class ResetCodeForm(FlaskForm):
     code = StringField('رمز التحقق', validators=[DataRequired(), Length(min=6, max=6)])
     submit = SubmitField('تحقق')

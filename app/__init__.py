@@ -72,7 +72,7 @@ def create_app(config_class=Config):
         if request.endpoint != 'static':
             settings = SiteSettings.get_settings()
             if getattr(settings, 'maintenance_mode', False):
-                auth_endpoint = request.endpoint in ['auth.login', 'auth.logout']
+                auth_endpoint = request.endpoint in ['auth.login', 'auth.logout', 'auth.update_phone']
                 admin_settings_endpoint = request.endpoint == 'admin.settings'
                 authenticated_entry_endpoint = (
                     request.endpoint == 'main.index'
@@ -89,6 +89,13 @@ def create_app(config_class=Config):
             flash('تم حظر حسابك بشكل نهائي. للتواصل مع الإدارة يرجى الاتصال بالدعم.', 'error')
             if request.endpoint != 'auth.login':
                 return redirect(url_for('auth.login'))
+
+        if (
+            current_user.is_authenticated
+            and getattr(current_user, 'phone_needs_update', False)
+            and request.endpoint not in {'auth.update_phone', 'auth.logout', 'static'}
+        ):
+            return redirect(url_for('auth.update_phone'))
 
     @app.after_request
     def set_security_headers(response):
