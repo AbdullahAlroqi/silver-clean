@@ -1,3 +1,5 @@
+import json
+
 from app import db
 from app.models import AuditLog, User
 from test_discount_location_scope import TestConfig, app, login  # noqa: F401
@@ -57,7 +59,7 @@ def test_only_admin_can_view_and_export_audit_log(app):
         login(supervisor_client, db.session.get(User, supervisor_id))
     page = admin_client.get('/admin/audit-logs')
     assert page.status_code == 200
-    assert 'سجل التدقيق الإداري' in page.get_data(as_text=True)
+    assert 'سجل العمليات الإدارية' in page.get_data(as_text=True)
     assert admin_client.get('/admin/audit-logs/export').status_code == 200
     # The shared test app context keeps Flask-Login's g cache between clients;
     # production requests each receive a fresh application context.
@@ -66,3 +68,35 @@ def test_only_admin_can_view_and_export_audit_log(app):
     assert supervisor_client.get('/admin/audit-logs').status_code == 403
     g.pop('_login_user', None)
     assert supervisor_client.get('/admin/audit-logs/export').status_code == 403
+
+
+def test_audit_page_explains_entities_fields_roles_and_values_in_arabic(app):
+    with app.app_context():
+        admin_id = _user('admin', 'arabic-audit-admin')
+        db.session.add(AuditLog(
+            actor_id=admin_id,
+            actor_name='arabic-audit-admin',
+            actor_role='admin',
+            action='update',
+            entity_type='EmployeeSchedule',
+            entity_id='12',
+            changes_json=json.dumps({
+                'start_time': {'old': '08:00:00', 'new': '07:00:00'},
+                'is_active': {'old': False, 'new': True},
+            }),
+        ))
+        db.session.commit()
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, admin_id))
+
+    page = client.get('/admin/audit-logs').get_data(as_text=True)
+    assert 'سجل العمليات الإدارية' in page
+    assert 'دوام موظف رقم #12' in page
+    assert 'مدير النظام' in page
+    assert 'بداية الدوام' in page
+    assert 'قبل التعديل' in page
+    assert 'بعد التعديل' in page
+    assert 'لا' in page
+    assert 'نعم' in page

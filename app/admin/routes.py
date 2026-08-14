@@ -15,6 +15,7 @@ import secrets
 import string
 from app.utils.employee_breaks import employee_on_break_at, employee_break_overlaps
 from app.utils.shift_utils import get_booking_work_date
+from app.utils.timezone import to_saudi_time
 from app.utils.phone import normalize_saudi_phone
 from app.admin.permissions import (
     DELETE_ENDPOINTS, DELETE_ENDPOINT_PERMISSIONS, SITE_PERMISSION_CHOICES,
@@ -248,6 +249,81 @@ def _audit_log_query_from_request():
     return query
 
 
+AUDIT_ACTION_LABELS = {'create': 'إضافة', 'update': 'تعديل', 'delete': 'حذف'}
+
+AUDIT_ROLE_LABELS = {
+    'admin': 'مدير النظام', 'site_supervisor': 'مشرف الموقع',
+    'supervisor': 'مشرف مدينة', 'employee': 'موظف', 'customer': 'عميل',
+    'system': 'النظام',
+}
+
+AUDIT_ENTITY_LABELS = {
+    'User': 'حساب مستخدم', 'Vehicle': 'مركبة', 'VehicleSize': 'حجم مركبة',
+    'City': 'مدينة', 'Neighborhood': 'حي', 'Service': 'خدمة', 'Product': 'منتج',
+    'Warehouse': 'مستودع', 'ProductStock': 'مخزون منتج', 'Booking': 'حجز',
+    'BookingItem': 'عنصر حجز', 'BookingProduct': 'منتج مضاف للحجز',
+    'DiscountCode': 'كود خصم', 'Season': 'موسم',
+    'SeasonalServicePrice': 'سعر خدمة موسمي', 'SeasonalProductPrice': 'سعر منتج موسمي',
+    'SubscriptionPackage': 'باقة اشتراك', 'Subscription': 'اشتراك',
+    'PolishingOrder': 'طلب تلميع', 'EmployeeSchedule': 'دوام موظف',
+    'SiteSettings': 'إعدادات الموقع', 'GiftOrder': 'طلب هدية',
+    'GiftOrderProduct': 'منتج هدية', 'Announcement': 'إعلان',
+    'CityServicePrice': 'سعر خدمة حسب المدينة',
+    'CityProductPrice': 'سعر منتج حسب المدينة',
+    'CityPackagePrice': 'سعر باقة حسب المدينة', 'ReferralRecord': 'إحالة عميل',
+}
+
+AUDIT_FIELD_LABELS = {
+    'id': 'المعرّف', 'username': 'اسم المستخدم', 'email': 'البريد الإلكتروني',
+    'phone': 'رقم الجوال', 'role': 'نوع الحساب', 'created_at': 'تاريخ الإنشاء',
+    'updated_at': 'تاريخ آخر تعديل', 'status': 'الحالة', 'is_active': 'مفعّل',
+    'is_banned': 'محظور', 'ban_reason': 'سبب الحظر', 'points': 'نقاط الولاء',
+    'free_washes': 'الغسلات المجانية', 'password_hash': 'كلمة المرور',
+    'phone_needs_update': 'يحتاج تحديث رقم الجوال', 'original_phone': 'رقم الجوال السابق',
+    'name_ar': 'الاسم بالعربية', 'name_en': 'الاسم بالإنجليزية', 'description': 'الوصف',
+    'price': 'السعر', 'total_price': 'السعر الإجمالي', 'duration': 'المدة',
+    'date': 'التاريخ', 'time': 'الوقت', 'start_time': 'بداية الدوام',
+    'end_time': 'نهاية الدوام', 'day_of_week': 'يوم الأسبوع',
+    'shift_number': 'رقم الفترة', 'employee_id': 'رقم الموظف',
+    'customer_id': 'رقم العميل', 'vehicle_id': 'رقم المركبة',
+    'service_id': 'رقم الخدمة', 'neighborhood_id': 'رقم الحي', 'city_id': 'رقم المدينة',
+    'package_id': 'رقم الباقة', 'subscription_id': 'رقم الاشتراك',
+    'remaining_washes': 'الغسلات المتبقية', 'preferred_time': 'الفترة المفضلة',
+    'start_date': 'تاريخ البداية', 'end_date': 'تاريخ النهاية',
+    'payment_method': 'طريقة الدفع', 'location_lat': 'خط العرض',
+    'location_lng': 'خط الطول', 'rating': 'التقييم', 'rating_comment': 'تعليق التقييم',
+    'is_on_break': 'في استراحة', 'break_type': 'نوع الاستراحة',
+    'break_date': 'تاريخ الاستراحة', 'break_start_time': 'بداية الاستراحة',
+    'break_end_time': 'نهاية الاستراحة', 'stock_quantity': 'كمية المخزون',
+    'quantity': 'الكمية', 'code': 'الكود', 'value': 'القيمة',
+    'discount_type': 'نوع الخصم', 'valid_from': 'صالح من', 'valid_until': 'صالح حتى',
+    'usage_limit': 'حد الاستخدام', 'site_name': 'اسم الموقع', 'logo_path': 'الشعار',
+    'primary_color': 'اللون الأساسي', 'accent_color': 'اللون المساعد',
+    'booking_days_limit': 'حد أيام الحجز',
+    'subscription_days_limit': 'حد أيام حجز الاشتراك',
+    'site_permissions_json': 'صلاحيات مشرف الموقع',
+}
+
+AUDIT_VALUE_LABELS = {
+    'admin': 'مدير النظام', 'site_supervisor': 'مشرف الموقع', 'supervisor': 'مشرف مدينة',
+    'employee': 'موظف', 'customer': 'عميل', 'pending': 'قيد الانتظار',
+    'assigned': 'تم تعيين موظف', 'en_route': 'في الطريق', 'arrived': 'وصل الموظف',
+    'in_progress': 'قيد التنفيذ', 'completed': 'مكتمل', 'cancelled': 'ملغي',
+    'active': 'نشط', 'inactive': 'غير نشط', 'rejected': 'مرفوض', 'expired': 'منتهي',
+    'cash': 'نقدًا', 'card': 'بطاقة', 'morning': 'صباحًا',
+    'afternoon': 'ظهرًا', 'evening': 'مساءً', 'flexible': 'وقت مرن',
+    '<redacted>': 'قيمة محمية لا تُعرض', '<binary>': 'ملف',
+}
+
+
+def _audit_display_value(value):
+    if value is None or value == '':
+        return 'لا توجد قيمة'
+    if isinstance(value, bool):
+        return 'نعم' if value else 'لا'
+    return AUDIT_VALUE_LABELS.get(str(value), value)
+
+
 @bp.route('/audit-logs')
 def audit_logs():
     logs = _audit_log_query_from_request().order_by(AuditLog.id.desc()).paginate(
@@ -255,7 +331,12 @@ def audit_logs():
     actors = [row[0] for row in db.session.query(AuditLog.actor_name).distinct().order_by(AuditLog.actor_name)]
     entities = [row[0] for row in db.session.query(AuditLog.entity_type).filter(
         AuditLog.entity_type.isnot(None)).distinct().order_by(AuditLog.entity_type)]
-    return render_template('admin/audit_logs.html', logs=logs, actors=actors, entities=entities)
+    return render_template(
+        'admin/audit_logs.html', logs=logs, actors=actors, entities=entities,
+        action_labels=AUDIT_ACTION_LABELS, role_labels=AUDIT_ROLE_LABELS,
+        entity_labels=AUDIT_ENTITY_LABELS, field_labels=AUDIT_FIELD_LABELS,
+        display_audit_value=_audit_display_value, to_saudi_time=to_saudi_time,
+    )
 
 
 @bp.route('/audit-logs/export')

@@ -1,28 +1,78 @@
 {% extends "admin/base.html" %}
 {% block content %}
 <div class="space-y-5" dir="rtl">
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-    <div><h1 class="text-2xl font-bold text-white">سجل التدقيق الإداري</h1><p class="text-sm text-gray-400 mt-1">عمليات الإنشاء والتعديل والحذف مع القيم القديمة والجديدة.</p></div>
-    <a href="{{ url_for('admin.export_audit_logs', **request.args.to_dict()) }}" class="inline-flex justify-center items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-white font-bold"><i class="fas fa-file-csv"></i>تصدير النتائج</a>
-  </div>
-  <form method="get" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 rounded-2xl bg-primary border border-gray-700 p-4">
-    <input name="actor" value="{{ request.args.get('actor','') }}" list="audit-actors" placeholder="المستخدم" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white min-w-0">
-    <datalist id="audit-actors">{% for actor in actors %}<option value="{{ actor }}">{% endfor %}</datalist>
-    <select name="action" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white"><option value="">كل العمليات</option>{% for value,label in [('create','إنشاء'),('update','تعديل'),('delete','حذف')] %}<option value="{{ value }}" {% if request.args.get('action')==value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-    <select name="entity" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white"><option value="">كل الأنواع</option>{% for entity in entities %}<option value="{{ entity }}" {% if request.args.get('entity')==entity %}selected{% endif %}>{{ entity }}</option>{% endfor %}</select>
-    <input type="date" name="from_date" value="{{ request.args.get('from_date','') }}" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white">
-    <input type="date" name="to_date" value="{{ request.args.get('to_date','') }}" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white">
-    <div class="flex gap-2"><button class="flex-1 rounded-xl bg-accent px-4 py-3 text-white font-bold">عرض</button><a href="{{ url_for('admin.audit_logs') }}" class="rounded-xl bg-gray-700 px-4 py-3 text-white"><i class="fas fa-times"></i></a></div>
+  <section class="rounded-2xl border border-cyan-900/70 bg-primary p-5">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-white">سجل العمليات الإدارية</h1>
+        <p class="mt-2 max-w-3xl text-sm leading-7 text-gray-300">يعرض التغييرات التي نفذها المديرون والمشرفون: من نفّذ العملية، وما السجل المتأثر، والقيمة قبل التعديل وبعده.</p>
+      </div>
+      <a href="{{ url_for('admin.export_audit_logs', **request.args.to_dict()) }}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 font-bold text-white hover:bg-emerald-500"><i class="fas fa-file-csv"></i>تنزيل النتائج بصيغة Excel/CSV</a>
+    </div>
+    <div class="mt-4 flex flex-wrap gap-3 text-xs">
+      <span class="rounded-lg bg-emerald-900/60 px-3 py-2 text-emerald-200"><i class="fas fa-plus-circle ml-1"></i>أخضر: إضافة سجل جديد</span>
+      <span class="rounded-lg bg-blue-900/60 px-3 py-2 text-blue-200"><i class="fas fa-pen ml-1"></i>أزرق: تعديل سجل موجود</span>
+      <span class="rounded-lg bg-red-900/60 px-3 py-2 text-red-200"><i class="fas fa-trash ml-1"></i>أحمر: حذف سجل</span>
+    </div>
+  </section>
+
+  <form method="get" class="rounded-2xl border border-gray-700 bg-primary p-4">
+    <h2 class="mb-3 font-bold text-white"><i class="fas fa-filter ml-2 text-accent"></i>البحث والتصفية</h2>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <div><label class="mb-1 block text-xs text-gray-400">اسم منفذ العملية أو رقمه</label><input name="actor" value="{{ request.args.get('actor','') }}" list="audit-actors" placeholder="مثال: admin" class="w-full min-w-0 rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"><datalist id="audit-actors">{% for actor in actors %}<option value="{{ actor }}">{% endfor %}</datalist></div>
+      <div><label class="mb-1 block text-xs text-gray-400">نوع العملية</label><select name="action" class="w-full rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"><option value="">جميع العمليات</option>{% for value, label in action_labels.items() %}<option value="{{ value }}" {% if request.args.get('action') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div><label class="mb-1 block text-xs text-gray-400">القسم أو نوع السجل</label><select name="entity" class="w-full rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"><option value="">جميع الأقسام</option>{% for entity in entities %}<option value="{{ entity }}" {% if request.args.get('entity') == entity %}selected{% endif %}>{{ entity_labels.get(entity, entity) }}</option>{% endfor %}</select></div>
+      <div><label class="mb-1 block text-xs text-gray-400">من تاريخ</label><input type="date" name="from_date" value="{{ request.args.get('from_date','') }}" class="w-full rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"></div>
+      <div><label class="mb-1 block text-xs text-gray-400">إلى تاريخ (يشمل اليوم كاملًا)</label><input type="date" name="to_date" value="{{ request.args.get('to_date','') }}" class="w-full rounded-xl border border-gray-600 bg-gray-800 px-3 py-3 text-white"></div>
+      <div class="flex items-end gap-2"><button class="flex-1 rounded-xl bg-accent px-4 py-3 font-bold text-white hover:bg-blue-500"><i class="fas fa-search ml-1"></i>عرض</button><a href="{{ url_for('admin.audit_logs') }}" title="مسح عوامل التصفية" class="rounded-xl bg-gray-700 px-4 py-3 text-white hover:bg-gray-600"><i class="fas fa-rotate-left"></i></a></div>
+    </div>
   </form>
+
+  <div class="flex items-center justify-between text-sm text-gray-400"><span>عدد النتائج: <strong class="text-white">{{ logs.total }}</strong></span>{% if logs.pages > 1 %}<span>الصفحة {{ logs.page }} من {{ logs.pages }}</span>{% endif %}</div>
+
   <div class="space-y-3">
-  {% for log in logs.items %}
-    <article class="rounded-2xl bg-primary border border-gray-700 p-4 overflow-hidden">
-      <div class="flex flex-wrap justify-between gap-3"><div><span class="rounded-lg px-2.5 py-1 text-xs font-bold {% if log.action=='delete' %}bg-red-900 text-red-200{% elif log.action=='create' %}bg-emerald-900 text-emerald-200{% else %}bg-blue-900 text-blue-200{% endif %}">{{ {'create':'إنشاء','update':'تعديل','delete':'حذف'}.get(log.action,log.action) }}</span><strong class="text-white mr-2 break-words">{{ log.entity_type }}{% if log.entity_id %} #{{ log.entity_id }}{% endif %}</strong><p class="text-sm text-gray-300 mt-2">{{ log.actor_name }} <span class="text-gray-500">({{ log.actor_role }})</span></p></div><time class="text-xs text-gray-400">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</time></div>
-      <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-gray-400"><div class="break-all"><i class="fas fa-route ml-1"></i>{{ log.endpoint or log.path or '-' }}</div><div class="break-all"><i class="fas fa-network-wired ml-1"></i>{{ log.ip_address or '-' }}</div><div class="break-words"><i class="fas fa-mobile-screen ml-1"></i>{{ log.user_agent or '-' }}</div></div>
-      {% if log.changes %}<details class="mt-4 rounded-xl bg-gray-900/70 border border-gray-700 p-3"><summary class="cursor-pointer text-cyan-300 font-bold">عرض التفاصيل</summary><div class="mt-3 space-y-2">{% for field,values in log.changes.items() %}<div class="grid grid-cols-1 md:grid-cols-[minmax(120px,.4fr)_1fr_1fr] gap-2 rounded-lg bg-gray-800 p-2 text-sm"><strong class="text-gray-200 break-words">{{ field }}</strong>{% if values is mapping and 'old' in values %}<div class="text-red-200 break-words"><span class="text-gray-500">قبل:</span> {{ values.old if values.old is not none else '—' }}</div><div class="text-emerald-200 break-words"><span class="text-gray-500">بعد:</span> {{ values.new if values.new is not none else '—' }}</div>{% else %}<div class="md:col-span-2 text-gray-300 break-words">{{ values if values is not none else '—' }}</div>{% endif %}</div>{% endfor %}</div></details>{% endif %}
+    {% for log in logs.items %}
+    <article class="overflow-hidden rounded-2xl border border-gray-700 bg-primary p-4">
+      <div class="flex flex-col justify-between gap-3 sm:flex-row">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-lg px-2.5 py-1 text-xs font-bold {% if log.action == 'delete' %}bg-red-900 text-red-200{% elif log.action == 'create' %}bg-emerald-900 text-emerald-200{% else %}bg-blue-900 text-blue-200{% endif %}">{{ action_labels.get(log.action, log.action) }}</span>
+            <h2 class="break-words font-bold text-white">{{ entity_labels.get(log.entity_type, log.entity_type or 'سجل غير محدد') }}{% if log.entity_id %} رقم #{{ log.entity_id }}{% endif %}</h2>
+          </div>
+          <p class="mt-3 text-sm text-gray-300">نفّذها <strong class="text-cyan-300">{{ log.actor_name }}</strong><span class="text-gray-500"> — {{ role_labels.get(log.actor_role, log.actor_role or 'دور غير محدد') }}</span></p>
+        </div>
+        <div class="shrink-0 text-sm text-gray-400 sm:text-left"><i class="far fa-clock ml-1"></i>{{ to_saudi_time(log.created_at).strftime('%Y-%m-%d %H:%M:%S') }}<p class="mt-1 text-xs text-gray-500">بتوقيت السعودية</p></div>
+      </div>
+
+      {% if log.changes %}
+      <details class="mt-4 rounded-xl border border-gray-700 bg-gray-900/70 p-3" open>
+        <summary class="cursor-pointer font-bold text-cyan-300"><i class="fas fa-list-check ml-2"></i>ما الذي تغير؟</summary>
+        <div class="mt-3 space-y-2">
+          {% for field, values in log.changes.items() %}
+          <div class="grid grid-cols-1 gap-2 rounded-lg bg-gray-800 p-3 text-sm md:grid-cols-[minmax(150px,.45fr)_1fr_1fr]">
+            <strong class="break-words text-gray-100">{{ field_labels.get(field, field) }}</strong>
+            {% if values is mapping and 'old' in values %}
+            <div class="break-words rounded-lg bg-red-950/40 px-3 py-2 text-red-200"><span class="mb-1 block text-xs text-gray-400">قبل التعديل</span>{{ display_audit_value(values.old) }}</div>
+            <div class="break-words rounded-lg bg-emerald-950/40 px-3 py-2 text-emerald-200"><span class="mb-1 block text-xs text-gray-400">بعد التعديل</span>{{ display_audit_value(values.new) }}</div>
+            {% else %}<div class="break-words rounded-lg bg-gray-900 px-3 py-2 text-gray-200 md:col-span-2">{{ display_audit_value(values) }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+
+      <details class="mt-3 rounded-xl border border-gray-800 bg-gray-900/40 p-3">
+        <summary class="cursor-pointer text-sm text-gray-400"><i class="fas fa-circle-info ml-2"></i>معلومات تقنية عن العملية</summary>
+        <dl class="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+          <div><dt class="text-gray-500">الصفحة أو المسار</dt><dd class="mt-1 break-all text-gray-300">{{ log.path or log.endpoint or 'غير متوفر' }}</dd></div>
+          <div><dt class="text-gray-500">عنوان الاتصال IP</dt><dd class="mt-1 break-all text-gray-300" dir="ltr">{{ log.ip_address or 'غير متوفر' }}</dd></div>
+          <div><dt class="text-gray-500">الجهاز والمتصفح</dt><dd class="mt-1 break-words text-gray-300">{{ log.user_agent or 'غير متوفر' }}</dd></div>
+        </dl>
+      </details>
     </article>
-  {% else %}<div class="rounded-2xl bg-primary border border-gray-700 p-10 text-center text-gray-400">لا توجد عمليات مطابقة.</div>{% endfor %}
+    {% else %}<div class="rounded-2xl border border-gray-700 bg-primary p-10 text-center text-gray-400"><i class="fas fa-magnifying-glass mb-3 block text-3xl text-gray-600"></i>لا توجد عمليات مطابقة لعوامل البحث المحددة.</div>{% endfor %}
   </div>
-  {% if logs.pages>1 %}<nav class="flex justify-center items-center gap-2">{% if logs.has_prev %}<a class="rounded-xl bg-gray-700 px-4 py-2 text-white" href="{{ url_for('admin.audit_logs', page=logs.prev_num, actor=request.args.get('actor',''), action=request.args.get('action',''), entity=request.args.get('entity',''), from_date=request.args.get('from_date',''), to_date=request.args.get('to_date','')) }}">السابق</a>{% endif %}<span class="text-gray-300">{{ logs.page }} / {{ logs.pages }}</span>{% if logs.has_next %}<a class="rounded-xl bg-gray-700 px-4 py-2 text-white" href="{{ url_for('admin.audit_logs', page=logs.next_num, actor=request.args.get('actor',''), action=request.args.get('action',''), entity=request.args.get('entity',''), from_date=request.args.get('from_date',''), to_date=request.args.get('to_date','')) }}">التالي</a>{% endif %}</nav>{% endif %}
+
+  {% if logs.pages > 1 %}<nav class="flex items-center justify-center gap-3" aria-label="التنقل بين صفحات سجل العمليات">{% if logs.has_prev %}<a class="rounded-xl bg-gray-700 px-4 py-2 text-white hover:bg-gray-600" href="{{ url_for('admin.audit_logs', page=logs.prev_num, actor=request.args.get('actor',''), action=request.args.get('action',''), entity=request.args.get('entity',''), from_date=request.args.get('from_date',''), to_date=request.args.get('to_date','')) }}"><i class="fas fa-arrow-right ml-1"></i>الأحدث</a>{% endif %}<span class="text-gray-300">{{ logs.page }} / {{ logs.pages }}</span>{% if logs.has_next %}<a class="rounded-xl bg-gray-700 px-4 py-2 text-white hover:bg-gray-600" href="{{ url_for('admin.audit_logs', page=logs.next_num, actor=request.args.get('actor',''), action=request.args.get('action',''), entity=request.args.get('entity',''), from_date=request.args.get('from_date',''), to_date=request.args.get('to_date','')) }}">الأقدم<i class="fas fa-arrow-left mr-1"></i></a>{% endif %}</nav>{% endif %}
 </div>
 {% endblock %}

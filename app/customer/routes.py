@@ -2370,6 +2370,8 @@ def book_subscription_wash(subscription_id):
                 
                 # For times after midnight in night shifts, actual datetime is next day
                 test_datetime = booking_datetime
+                if is_night_shift and booking_time < schedule.start_time:
+                    test_datetime += timedelta(days=1)
                 # Determine end time based on the service duration (default to 60 if not found)
                 booking_duration = default_service.duration if (default_service and default_service.duration) else 60
                 end_datetime = test_datetime + timedelta(minutes=booking_duration)
