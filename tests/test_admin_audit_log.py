@@ -1,7 +1,7 @@
 import json
 
 from app import db
-from app.models import AuditLog, User
+from app.models import AuditLog, SubscriptionPackage, User
 from test_discount_location_scope import TestConfig, app, login  # noqa: F401
 
 
@@ -73,6 +73,9 @@ def test_only_admin_can_view_and_export_audit_log(app):
 def test_audit_page_explains_entities_fields_roles_and_values_in_arabic(app):
     with app.app_context():
         admin_id = _user('admin', 'arabic-audit-admin')
+        package = SubscriptionPackage(name_ar='الباقة الذهبية', wash_count=4, duration_days=30)
+        db.session.add(package)
+        db.session.flush()
         db.session.add(AuditLog(
             actor_id=admin_id,
             actor_name='arabic-audit-admin',
@@ -83,6 +86,8 @@ def test_audit_page_explains_entities_fields_roles_and_values_in_arabic(app):
             changes_json=json.dumps({
                 'start_time': {'old': '08:00:00', 'new': '07:00:00'},
                 'is_active': {'old': False, 'new': True},
+                'day_of_week': {'old': 5, 'new': 6},
+                'package_id': {'old': None, 'new': package.id},
             }),
         ))
         db.session.commit()
@@ -100,3 +105,6 @@ def test_audit_page_explains_entities_fields_roles_and_values_in_arabic(app):
     assert 'بعد التعديل' in page
     assert 'لا' in page
     assert 'نعم' in page
+    assert 'الأحد' in page
+    assert 'الباقة الذهبية' in page
+    assert 'رقم الباقة' not in page

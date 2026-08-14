@@ -37,7 +37,7 @@
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <span class="rounded-lg px-2.5 py-1 text-xs font-bold {% if log.action == 'delete' %}bg-red-900 text-red-200{% elif log.action == 'create' %}bg-emerald-900 text-emerald-200{% else %}bg-blue-900 text-blue-200{% endif %}">{{ action_labels.get(log.action, log.action) }}</span>
-            <h2 class="break-words font-bold text-white">{{ entity_labels.get(log.entity_type, log.entity_type or 'سجل غير محدد') }}{% if log.entity_id %} رقم #{{ log.entity_id }}{% endif %}</h2>
+            <h2 class="break-words font-bold text-white">{{ entity_labels.get(log.entity_type, log.entity_type or 'سجل غير محدد') }}{% if entity_names.get(log.id) %} — {{ entity_names[log.id] }}{% elif log.entity_id %} رقم #{{ log.entity_id }}{% endif %}</h2>
           </div>
           <p class="mt-3 text-sm text-gray-300">نفّذها <strong class="text-cyan-300">{{ log.actor_name }}</strong><span class="text-gray-500"> — {{ role_labels.get(log.actor_role, log.actor_role or 'دور غير محدد') }}</span></p>
         </div>
@@ -52,9 +52,9 @@
           <div class="grid grid-cols-1 gap-2 rounded-lg bg-gray-800 p-3 text-sm md:grid-cols-[minmax(150px,.45fr)_1fr_1fr]">
             <strong class="break-words text-gray-100">{{ field_labels.get(field, field) }}</strong>
             {% if values is mapping and 'old' in values %}
-            <div class="break-words rounded-lg bg-red-950/40 px-3 py-2 text-red-200"><span class="mb-1 block text-xs text-gray-400">قبل التعديل</span>{{ display_audit_value(values.old) }}</div>
-            <div class="break-words rounded-lg bg-emerald-950/40 px-3 py-2 text-emerald-200"><span class="mb-1 block text-xs text-gray-400">بعد التعديل</span>{{ display_audit_value(values.new) }}</div>
-            {% else %}<div class="break-words rounded-lg bg-gray-900 px-3 py-2 text-gray-200 md:col-span-2">{{ display_audit_value(values) }}</div>{% endif %}
+            <div class="break-words rounded-lg bg-red-950/40 px-3 py-2 text-red-200"><span class="mb-1 block text-xs text-gray-400">قبل التعديل</span>{{ display_audit_value(values.old, field) }}</div>
+            <div class="break-words rounded-lg bg-emerald-950/40 px-3 py-2 text-emerald-200"><span class="mb-1 block text-xs text-gray-400">بعد التعديل</span>{{ display_audit_value(values.new, field) }}</div>
+            {% else %}<div class="break-words rounded-lg bg-gray-900 px-3 py-2 text-gray-200 md:col-span-2">{{ display_audit_value(values, field) }}</div>{% endif %}
           </div>
           {% endfor %}
         </div>

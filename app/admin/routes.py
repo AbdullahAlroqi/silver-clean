@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm, SiteSupervisorForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse, CheckoutSession, AuditLog, GiftOrder
+from app.models import User, Vehicle, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse, CheckoutSession, AuditLog, GiftOrder
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -284,10 +284,12 @@ AUDIT_FIELD_LABELS = {
     'price': 'السعر', 'total_price': 'السعر الإجمالي', 'duration': 'المدة',
     'date': 'التاريخ', 'time': 'الوقت', 'start_time': 'بداية الدوام',
     'end_time': 'نهاية الدوام', 'day_of_week': 'يوم الأسبوع',
-    'shift_number': 'رقم الفترة', 'employee_id': 'رقم الموظف',
-    'customer_id': 'رقم العميل', 'vehicle_id': 'رقم المركبة',
-    'service_id': 'رقم الخدمة', 'neighborhood_id': 'رقم الحي', 'city_id': 'رقم المدينة',
-    'package_id': 'رقم الباقة', 'subscription_id': 'رقم الاشتراك',
+    'shift_number': 'فترة الدوام', 'employee_id': 'الموظف',
+    'customer_id': 'العميل', 'sender_id': 'المرسل', 'user_id': 'المستخدم',
+    'vehicle_id': 'المركبة', 'vehicle_size_id': 'حجم المركبة',
+    'service_id': 'الخدمة', 'neighborhood_id': 'الحي', 'city_id': 'المدينة',
+    'package_id': 'الباقة', 'subscription_id': 'الاشتراك', 'product_id': 'المنتج',
+    'warehouse_id': 'المستودع', 'discount_code_id': 'كود الخصم',
     'remaining_washes': 'الغسلات المتبقية', 'preferred_time': 'الفترة المفضلة',
     'start_date': 'تاريخ البداية', 'end_date': 'تاريخ النهاية',
     'payment_method': 'طريقة الدفع', 'location_lat': 'خط العرض',
@@ -316,11 +318,113 @@ AUDIT_VALUE_LABELS = {
 }
 
 
-def _audit_display_value(value):
+AUDIT_DAY_LABELS = {
+    '0': 'الاثنين', '1': 'الثلاثاء', '2': 'الأربعاء', '3': 'الخميس',
+    '4': 'الجمعة', '5': 'السبت', '6': 'الأحد',
+}
+
+AUDIT_REFERENCE_MODELS = {
+    'customer_id': User, 'employee_id': User, 'sender_id': User, 'user_id': User,
+    'created_by_id': User, 'referred_by': User, 'referrer_id': User,
+    'referred_user_id': User, 'vehicle_id': Vehicle, 'vehicle_size_id': VehicleSize,
+    'service_id': Service, 'neighborhood_id': Neighborhood, 'city_id': City,
+    'package_id': SubscriptionPackage, 'subscription_id': Subscription,
+    'product_id': Product, 'warehouse_id': Warehouse, 'discount_code_id': DiscountCode,
+}
+
+AUDIT_ENTITY_MODELS = {
+    'User': User, 'Vehicle': Vehicle, 'VehicleSize': VehicleSize, 'City': City,
+    'Neighborhood': Neighborhood, 'Service': Service, 'Product': Product,
+    'Warehouse': Warehouse, 'Booking': Booking, 'DiscountCode': DiscountCode,
+    'SubscriptionPackage': SubscriptionPackage, 'Subscription': Subscription,
+}
+
+
+def _audit_object_name(obj):
+    if isinstance(obj, User):
+        return obj.username or obj.email or obj.phone
+    if isinstance(obj, Vehicle):
+        return ' '.join(part for part in [obj.brand, obj.plate_number] if part)
+    if isinstance(obj, Subscription):
+        return obj.plan_type
+    if isinstance(obj, DiscountCode):
+        return obj.code
+    for attribute in ('name_ar', 'name_en', 'site_name'):
+        value = getattr(obj, attribute, None)
+        if value:
+            return value
+    return None
+
+
+def _audit_numeric_id(value):
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _audit_reference_context(logs):
+    """Resolve stored foreign-key IDs in batches so audit cards stay readable and fast."""
+    ids_by_model = {}
+    for log in logs:
+        entity_model = AUDIT_ENTITY_MODELS.get(log.entity_type)
+        entity_id = _audit_numeric_id(log.entity_id)
+        if entity_model and entity_id is not None:
+            ids_by_model.setdefault(entity_model, set()).add(entity_id)
+        for field, values in log.changes.items():
+            model = AUDIT_REFERENCE_MODELS.get(field)
+            if not model:
+                continue
+            candidates = (values.get('old'), values.get('new')) if isinstance(values, dict) else (values,)
+            for value in candidates:
+                object_id = _audit_numeric_id(value)
+                if object_id is not None:
+                    ids_by_model.setdefault(model, set()).add(object_id)
+
+    objects = {}
+    for model, object_ids in ids_by_model.items():
+        objects[model] = {item.id: item for item in model.query.filter(model.id.in_(object_ids)).all()}
+
+    references = {}
+    for field, model in AUDIT_REFERENCE_MODELS.items():
+        references[field] = {}
+        for object_id, obj in objects.get(model, {}).items():
+            name = _audit_object_name(obj)
+            if name:
+                references[field][str(object_id)] = name
+
+    entity_names = {}
+    for log in logs:
+        model = AUDIT_ENTITY_MODELS.get(log.entity_type)
+        object_id = _audit_numeric_id(log.entity_id)
+        obj = objects.get(model, {}).get(object_id) if model and object_id is not None else None
+        name = _audit_object_name(obj) if obj else None
+        if not name:
+            for field in ('username', 'name_ar', 'name_en', 'code', 'plan_type', 'site_name'):
+                value = log.changes.get(field)
+                if isinstance(value, dict):
+                    value = value.get('new') or value.get('old')
+                if value:
+                    name = str(value)
+                    break
+        entity_names[log.id] = name
+    return references, entity_names
+
+
+def _audit_display_value(value, field=None, references=None):
     if value is None or value == '':
         return 'لا توجد قيمة'
     if isinstance(value, bool):
         return 'نعم' if value else 'لا'
+    if field == 'day_of_week':
+        return AUDIT_DAY_LABELS.get(str(value), value)
+    if field == 'shift_number':
+        return {'1': 'الفترة الأولى', '2': 'الفترة الثانية'}.get(str(value), value)
+    resolved = (references or {}).get(field, {}).get(str(value))
+    if resolved:
+        return resolved
     return AUDIT_VALUE_LABELS.get(str(value), value)
 
 
@@ -331,11 +435,17 @@ def audit_logs():
     actors = [row[0] for row in db.session.query(AuditLog.actor_name).distinct().order_by(AuditLog.actor_name)]
     entities = [row[0] for row in db.session.query(AuditLog.entity_type).filter(
         AuditLog.entity_type.isnot(None)).distinct().order_by(AuditLog.entity_type)]
+    reference_labels, entity_names = _audit_reference_context(logs.items)
+
+    def display_audit_value(value, field=None):
+        return _audit_display_value(value, field, reference_labels)
+
     return render_template(
         'admin/audit_logs.html', logs=logs, actors=actors, entities=entities,
         action_labels=AUDIT_ACTION_LABELS, role_labels=AUDIT_ROLE_LABELS,
         entity_labels=AUDIT_ENTITY_LABELS, field_labels=AUDIT_FIELD_LABELS,
-        display_audit_value=_audit_display_value, to_saudi_time=to_saudi_time,
+        display_audit_value=display_audit_value, entity_names=entity_names,
+        to_saudi_time=to_saudi_time,
     )
 
 
