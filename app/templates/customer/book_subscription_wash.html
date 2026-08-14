@@ -489,7 +489,13 @@
             timeSelect.innerHTML = '<option value="">جاري التحميل...</option>';
             document.getElementById('btnNextStep2').disabled = true;
 
-            fetch('/customer/api/available-times?date=' + selectedDate + '&neighborhood_id=' + neighborhoodId + '&service_id=' + serviceId + '&vehicle_ids[]=' + "{{ subscription.vehicle_id }}" + '&type=subscription')
+            var availabilityUrl = '/customer/api/available-times?date=' + selectedDate
+                + '&neighborhood_id=' + neighborhoodId
+                + '&service_id=' + serviceId
+                + '&vehicle_ids[]=' + "{{ subscription.vehicle_id }}"
+                + '&type=subscription&_=' + Date.now();
+
+            fetch(availabilityUrl, { cache: 'no-store' })
                 .then(function (response) { return response.json(); })
                 .then(function (data) {
                     timeLoading.classList.add('hidden');

@@ -17,6 +17,16 @@ from datetime import datetime
 ABANDONED_CHECKOUT_RETENTION_DAYS = 2
 
 
+@bp.after_request
+def prevent_available_times_cache(response):
+    """Availability must always reflect the latest employee schedule."""
+    if request.endpoint == 'customer.get_available_times':
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
+
+
 def _complete_checkout_session():
     """Mark the checkout attached to the submitted form as completed."""
     token = request.form.get('checkout_token', '').strip()
