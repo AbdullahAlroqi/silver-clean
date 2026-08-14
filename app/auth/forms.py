@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField
 from wtforms.validators import ValidationError, DataRequired, Email, EqualTo, Length
 from app.models import User
+from app.utils.phone import normalize_saudi_phone
 
 class LoginForm(FlaskForm):
     username = StringField('اسم المستخدم أو رقم الجوال', validators=[DataRequired()])
@@ -12,7 +13,7 @@ class LoginForm(FlaskForm):
 class RegistrationForm(FlaskForm):
     username = StringField('اسم المستخدم', validators=[DataRequired()])
     email = StringField('البريد الإلكتروني', validators=[DataRequired(), Email()])
-    phone = StringField('رقم الجوال', validators=[DataRequired(), Length(min=10, max=15)])
+    phone = StringField('رقم الجوال', validators=[DataRequired()])
     password = PasswordField('كلمة المرور', validators=[DataRequired(), Length(min=8, message='كلمة المرور يجب أن تكون 8 أحرف على الأقل')])
     confirm_password = PasswordField('تأكيد كلمة المرور', validators=[DataRequired(), EqualTo('password')])
 
@@ -35,6 +36,15 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('البريد الإلكتروني هذا مستخدم بالفعل.')
 
     def validate_phone(self, phone):
+        try:
+            converted_phone = normalize_saudi_phone(phone.data)
+        except ValueError as error:
+            raise ValidationError(str(error))
+        phone.data = converted_phone
+        user = User.query.filter_by(phone=converted_phone).first()
+        if user:
+            raise ValidationError('رقم الجوال هذا مستخدم بالفعل.')
+        return
         # Convert Arabic numerals to English
         arabic_numerals = '٠١٢٣٤٥٦٧٨٩'
         english_numerals = '0123456789'

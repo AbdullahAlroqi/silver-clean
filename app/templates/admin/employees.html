@@ -20,7 +20,7 @@
     </a>
     <a href="{{ url_for('admin.employees', role='supervisor') }}"
         class="px-4 py-2 {% if role_filter == 'supervisor' %}bg-accent text-white{% else %}text-gray-400 hover:text-white{% endif %} rounded-t-lg transition">
-        &#1605;&#1588;&#1585;&#1601;&#1610;&#1606; ({{ supervisor_count }})
+        مشرفو المدن ({{ supervisor_count }})
     </a>
 </div>
 
@@ -63,7 +63,7 @@
                 <td class="p-4">{{ emp.username }}</td>
                 <td class="p-4">
                     {% if emp.role == 'supervisor' %}
-                    <span class="bg-purple-600 text-white px-2 py-1 rounded text-xs">&#1605;&#1588;&#1585;&#1601;</span>
+                    <span class="bg-purple-600 text-white px-2 py-1 rounded text-xs">مشرف مدينة</span>
                     {% else %}
                     <span class="bg-blue-600 text-white px-2 py-1 rounded text-xs">&#1605;&#1608;&#1592;&#1601;</span>
                     {% endif %}

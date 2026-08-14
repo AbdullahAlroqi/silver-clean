@@ -2,8 +2,8 @@ from flask import render_template, redirect, url_for, flash, request, jsonify, c
 from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
-from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse, CheckoutSession
+from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm, SiteSupervisorForm
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse, CheckoutSession, AuditLog
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -15,6 +15,11 @@ import secrets
 import string
 from app.utils.employee_breaks import employee_on_break_at, employee_break_overlaps
 from app.utils.shift_utils import get_booking_work_date
+from app.utils.phone import normalize_saudi_phone
+from app.admin.permissions import (
+    DELETE_ENDPOINTS, DELETE_ENDPOINT_PERMISSIONS, SITE_PERMISSION_CHOICES,
+    required_permission,
+)
 
 ABANDONED_CHECKOUT_RETENTION_DAYS = 2
 
@@ -45,14 +50,45 @@ ADMIN_ONLY_ENDPOINTS = {
     'admin.toggle_influencer_code', 'admin.delete_influencer_code',
     'admin.delete_employee', 'admin.delete_customer', 'admin.delete_subscription',
     'admin.delete_polishing_order', 'admin.delete_booking_item', 'admin.delete_booking',
+    'admin.audit_logs', 'admin.export_audit_logs',
+    'admin.site_supervisors', 'admin.add_site_supervisor',
+    'admin.edit_site_supervisor', 'admin.delete_site_supervisor',
 }
+
+
+@bp.app_context_processor
+def inject_admin_permissions():
+    def can_access(permission):
+        if not current_user.is_authenticated:
+            return False
+        if current_user.role == 'admin':
+            return True
+        if current_user.role == 'site_supervisor':
+            return current_user.has_admin_permission(permission)
+        return current_user.role == 'supervisor' and permission not in {
+            'catalog', 'locations', 'marketing', 'notifications', 'settings',
+            'audit', 'delete_records'
+        }
+    return {
+        'can_access': can_access,
+        'site_permission_choices': SITE_PERMISSION_CHOICES,
+    }
 
 @bp.before_request
 def before_request():
-    if not current_user.is_authenticated or current_user.role not in ['admin', 'supervisor']:
+    if not current_user.is_authenticated or current_user.role not in ['admin', 'supervisor', 'site_supervisor']:
         return redirect(url_for('auth.login'))
     if current_user.role == 'supervisor' and request.endpoint in ADMIN_ONLY_ENDPOINTS:
         abort(403)
+    if current_user.role == 'site_supervisor':
+        permission = required_permission(request.endpoint, request.method)
+        if not permission or not current_user.has_admin_permission(permission):
+            abort(403)
+        if request.endpoint in DELETE_ENDPOINTS:
+            section = DELETE_ENDPOINT_PERMISSIONS.get(request.endpoint)
+            section = f'{section}_manage' if section else None
+            if not section or not current_user.has_admin_permission(section):
+                abort(403)
 
 def _supervisor_neighborhood_ids(user=None):
     user = user or current_user
@@ -185,6 +221,57 @@ def _scoped_warehouses():
     if current_user.role == 'supervisor':
         warehouses = [warehouse for warehouse in warehouses if _warehouse_has_scope_access(warehouse)]
     return warehouses
+
+
+def _audit_log_query_from_request():
+    query = AuditLog.query
+    actor = request.args.get('actor', '').strip()
+    action = request.args.get('action', '').strip()
+    entity = request.args.get('entity', '').strip()
+    from_date = request.args.get('from_date', '').strip()
+    to_date = request.args.get('to_date', '').strip()
+    if actor:
+        query = query.filter(or_(AuditLog.actor_name.ilike(f'%{actor}%'),
+                                 AuditLog.actor_id == int(actor) if actor.isdigit() else False))
+    if action:
+        query = query.filter(AuditLog.action == action)
+    if entity:
+        query = query.filter(AuditLog.entity_type == entity)
+    try:
+        if from_date:
+            query = query.filter(AuditLog.created_at >= datetime.strptime(from_date, '%Y-%m-%d'))
+        if to_date:
+            query = query.filter(AuditLog.created_at < datetime.strptime(to_date, '%Y-%m-%d') + timedelta(days=1))
+    except ValueError:
+        pass
+    return query
+
+
+@bp.route('/audit-logs')
+def audit_logs():
+    logs = _audit_log_query_from_request().order_by(AuditLog.id.desc()).paginate(
+        page=max(request.args.get('page', 1, type=int), 1), per_page=50, error_out=False)
+    actors = [row[0] for row in db.session.query(AuditLog.actor_name).distinct().order_by(AuditLog.actor_name)]
+    entities = [row[0] for row in db.session.query(AuditLog.entity_type).filter(
+        AuditLog.entity_type.isnot(None)).distinct().order_by(AuditLog.entity_type)]
+    return render_template('admin/audit_logs.html', logs=logs, actors=actors, entities=entities)
+
+
+@bp.route('/audit-logs/export')
+def export_audit_logs():
+    import csv
+    import io
+    from flask import Response
+    output = io.StringIO()
+    output.write('\ufeff')
+    writer = csv.writer(output)
+    writer.writerow(['الوقت', 'المستخدم', 'الدور', 'العملية', 'النوع', 'المعرف', 'المسار', 'IP', 'التغييرات'])
+    for log in _audit_log_query_from_request().order_by(AuditLog.id.desc()).limit(10000):
+        writer.writerow([log.created_at.isoformat(sep=' ', timespec='seconds'), log.actor_name,
+                         log.actor_role, log.action, log.entity_type, log.entity_id,
+                         log.path, log.ip_address, log.changes_json])
+    return Response(output.getvalue(), mimetype='text/csv; charset=utf-8', headers={
+        'Content-Disposition': f'attachment; filename=audit-log-{date.today().isoformat()}.csv'})
 
 @bp.route('/')
 def index():
@@ -560,6 +647,8 @@ def add_employee():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.flush()  # Get user ID
+        if role == 'site_supervisor':
+            user.set_site_permissions(request.form.getlist('site_permissions'))
         
         # Handle based on role
         if role == 'supervisor':
@@ -576,7 +665,7 @@ def add_employee():
                 neighborhood = Neighborhood.query.get(int(neighborhood_id))
                 if neighborhood:
                     user.supervisor_neighborhoods.append(neighborhood)
-        else:
+        elif role == 'employee':
             # Assign employee neighborhoods
             neighborhood_ids = request.form.getlist('neighborhoods')
             
@@ -609,6 +698,12 @@ def add_employee():
 @bp.route('/employees/edit/<int:id>', methods=['GET', 'POST'])
 def edit_employee(id):
     employee = User.query.get_or_404(id)
+    if employee.role == 'site_supervisor':
+        if current_user.role == 'admin':
+            return redirect(url_for('admin.edit_site_supervisor', id=id))
+        abort(403)
+    if current_user.role == 'site_supervisor' and employee.role != 'employee':
+        abort(403)
     
     # Check supervisor access (only for employees, not supervisors being edited)
     if current_user.role == 'supervisor':
@@ -655,7 +750,16 @@ def edit_employee(id):
         # Update basic info
         employee.username = request.form.get('username')
         employee.email = request.form.get('email')
-        employee.phone = request.form.get('phone')
+        try:
+            new_phone = normalize_saudi_phone(request.form.get('phone'))
+        except ValueError as error:
+            flash(str(error), 'error')
+            return redirect(url_for('admin.edit_employee', id=id))
+        phone_owner = User.query.filter(User.phone == new_phone, User.id != employee.id).first()
+        if phone_owner:
+            flash('رقم الجوال مستخدم بالفعل.', 'error')
+            return redirect(url_for('admin.edit_employee', id=id))
+        employee.phone = new_phone
         
         # Update role if admin is editing
         if current_user.role == 'admin' and form.role.data:
@@ -671,6 +775,8 @@ def edit_employee(id):
                     employee.supervisor_neighborhoods.clear()
                 
                 employee.role = new_role
+                if new_role != 'site_supervisor':
+                    employee.site_permissions_json = None
         
         # Update password if provided
         password = request.form.get('password')
@@ -680,7 +786,12 @@ def edit_employee(id):
         employee.is_on_break = bool(request.form.get('is_on_break')) if employee.role == 'employee' else False
         
         # Handle based on role
-        if employee.role == 'supervisor':
+        if employee.role == 'site_supervisor':
+            employee.neighborhoods.clear()
+            employee.supervisor_cities.clear()
+            employee.supervisor_neighborhoods.clear()
+            employee.set_site_permissions(request.form.getlist('site_permissions'))
+        elif employee.role == 'supervisor':
             # Update supervisor cities
             employee.supervisor_cities.clear()
             city_ids = request.form.getlist('supervisor_cities')
@@ -735,6 +846,8 @@ def edit_employee(id):
         form.role.data = 'supervisor'
         form.supervisor_cities.data = [c.id for c in employee.supervisor_cities]
         form.supervisor_neighborhoods.data = [n.id for n in employee.supervisor_neighborhoods]
+    elif employee.role == 'site_supervisor':
+        form.role.data = 'site_supervisor'
     else:
         form.role.data = 'employee'
         form.neighborhoods.data = [n.id for n in employee.neighborhoods]
@@ -863,6 +976,10 @@ def employee_schedule(id):
 @bp.route('/employees/delete/<int:id>', methods=['POST'])
 def delete_employee(id):
     employee = User.query.get_or_404(id)
+    if employee.role == 'site_supervisor':
+        abort(403)
+    if current_user.role != 'admin' and employee.role != 'employee':
+        abort(403)
     db.session.delete(employee)
     db.session.commit()
     flash('تم حذف الموظف')
@@ -1267,7 +1384,16 @@ def edit_customer(id):
         # Update customer information
         customer.username = request.form.get('username')
         customer.email = request.form.get('email')
-        customer.phone = request.form.get('phone')
+        try:
+            new_phone = normalize_saudi_phone(request.form.get('phone'))
+        except ValueError as error:
+            flash(str(error), 'error')
+            return redirect(url_for('admin.edit_customer', id=id))
+        phone_owner = User.query.filter(User.phone == new_phone, User.id != customer.id).first()
+        if phone_owner:
+            flash('رقم الجوال مستخدم بالفعل.', 'error')
+            return redirect(url_for('admin.edit_customer', id=id))
+        customer.phone = new_phone
         
         # Update password if provided
         new_password = request.form.get('password')
@@ -4957,6 +5083,82 @@ def discount_code_stats(id):
     total_savings = sum((b.service.price or 0) * ((code.value or 0) / 100) if code.discount_type == 'percentage' else (code.value or 0) for b in bookings if b.service)
     
     return render_template('admin/discount_code_stats.html', code=code, bookings=bookings, total_savings=total_savings)
+
+# --- Site Supervisor Management (owner admins only) ---
+@bp.route('/site-supervisors')
+def site_supervisors():
+    page = request.args.get('page', 1, type=int)
+    pagination = User.query.filter_by(role='site_supervisor').order_by(User.id.desc()).paginate(
+        page=page, per_page=50, error_out=False)
+    return render_template('admin/site_supervisors.html', supervisors=pagination.items,
+                           pagination=pagination)
+
+
+def _site_supervisor_form_error(form, supervisor=None):
+    username_owner = User.query.filter_by(username=form.username.data).first()
+    if username_owner and (not supervisor or username_owner.id != supervisor.id):
+        return 'اسم المستخدم مستخدم بالفعل.'
+    email_owner = User.query.filter_by(email=form.email.data).first()
+    if email_owner and (not supervisor or email_owner.id != supervisor.id):
+        return 'البريد الإلكتروني مستخدم بالفعل.'
+    phone_owner = User.query.filter_by(phone=form.phone.data).first()
+    if phone_owner and (not supervisor or phone_owner.id != supervisor.id):
+        return 'رقم الجوال مستخدم بالفعل.'
+    return None
+
+
+@bp.route('/site-supervisors/add', methods=['GET', 'POST'])
+def add_site_supervisor():
+    form = SiteSupervisorForm()
+    if form.validate_on_submit():
+        error = _site_supervisor_form_error(form)
+        if error:
+            flash(error, 'error')
+        elif not form.password.data:
+            flash('كلمة المرور مطلوبة عند إضافة مشرف جديد.', 'error')
+        else:
+            supervisor = User(username=form.username.data, email=form.email.data,
+                              phone=form.phone.data, role='site_supervisor')
+            supervisor.set_password(form.password.data)
+            supervisor.set_site_permissions(request.form.getlist('site_permissions'))
+            db.session.add(supervisor)
+            db.session.commit()
+            flash('تمت إضافة مشرف الموقع بنجاح.', 'success')
+            return redirect(url_for('admin.site_supervisors'))
+    return render_template('admin/site_supervisor_form.html', form=form, supervisor=None,
+                           permission_choices=SITE_PERMISSION_CHOICES, title='إضافة مشرف موقع')
+
+
+@bp.route('/site-supervisors/<int:id>/edit', methods=['GET', 'POST'])
+def edit_site_supervisor(id):
+    supervisor = User.query.filter_by(id=id, role='site_supervisor').first_or_404()
+    form = SiteSupervisorForm(obj=supervisor)
+    if form.validate_on_submit():
+        error = _site_supervisor_form_error(form, supervisor)
+        if error:
+            flash(error, 'error')
+        else:
+            supervisor.username = form.username.data
+            supervisor.email = form.email.data
+            supervisor.phone = form.phone.data
+            if form.password.data:
+                supervisor.set_password(form.password.data)
+            supervisor.set_site_permissions(request.form.getlist('site_permissions'))
+            db.session.commit()
+            flash('تم تحديث مشرف الموقع وصلاحياته.', 'success')
+            return redirect(url_for('admin.site_supervisors'))
+    return render_template('admin/site_supervisor_form.html', form=form, supervisor=supervisor,
+                           permission_choices=SITE_PERMISSION_CHOICES, title='تعديل مشرف الموقع')
+
+
+@bp.route('/site-supervisors/<int:id>/delete', methods=['POST'])
+def delete_site_supervisor(id):
+    supervisor = User.query.filter_by(id=id, role='site_supervisor').first_or_404()
+    db.session.delete(supervisor)
+    db.session.commit()
+    flash('تم حذف مشرف الموقع.', 'success')
+    return redirect(url_for('admin.site_supervisors'))
+
 
 # --- Admin Management ---
 @bp.route('/admins')

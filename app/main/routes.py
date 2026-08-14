@@ -89,7 +89,7 @@ def notifications():
     db.session.commit()
     if current_user.role == 'customer':
         layout_template = 'customer/base.html'
-    elif current_user.role in ('admin', 'supervisor'):
+    elif current_user.role in ('admin', 'supervisor', 'site_supervisor'):
         layout_template = 'admin/base.html'
     else:
         layout_template = 'base.html'

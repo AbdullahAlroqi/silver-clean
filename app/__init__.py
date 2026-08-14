@@ -14,6 +14,8 @@ from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect()
 
 def create_app(config_class=Config):
+    # Import once so SQLAlchemy session audit listeners are registered.
+    from app import audit  # noqa: F401
     app = Flask(__name__)
     app.config.from_object(config_class)
 
@@ -75,7 +77,7 @@ def create_app(config_class=Config):
                 authenticated_entry_endpoint = (
                     request.endpoint == 'main.index'
                     and current_user.is_authenticated
-                    and current_user.role in ['admin', 'supervisor']
+                    and current_user.role in ['admin', 'supervisor', 'site_supervisor']
                 )
                 allowed_endpoint = auth_endpoint or admin_settings_endpoint or authenticated_entry_endpoint
 

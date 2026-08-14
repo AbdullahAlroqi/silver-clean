@@ -44,6 +44,29 @@
             </div>
             {% endif %}
 
+            {% if current_user.role == 'admin' %}
+            <div id="site-supervisor-fields" class="hidden rounded-xl border border-cyan-700 bg-cyan-950/30 p-4">
+                <h3 class="text-lg font-bold text-cyan-300 mb-2">صلاحيات مشرف الموقع</h3>
+                <p class="text-sm text-gray-400 mb-4">تطبق هذه الصلاحيات على جميع المدن، ولا يرتبط المشرف بمدينة أو حي.</p>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button type="button" id="select-all-permissions" class="px-3 py-2 rounded-lg bg-cyan-700 text-white text-sm">تحديد الكل</button>
+                    <button type="button" id="clear-all-permissions" class="px-3 py-2 rounded-lg bg-gray-700 text-white text-sm">إلغاء الكل</button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {% set selected_permissions = employee.site_permissions if employee and employee.role == 'site_supervisor' else [] %}
+                    {% for key, label in site_permission_choices %}
+                    <label class="flex items-center gap-3 rounded-lg bg-darkbg border border-gray-700 p-3 cursor-pointer">
+                        <input type="checkbox" name="site_permissions" value="{{ key }}"
+                            {% if key in selected_permissions %}checked{% endif %}
+                            class="site-permission-checkbox h-5 w-5 text-cyan-500 rounded">
+                        <span class="text-gray-200 text-sm">{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <p class="text-xs text-amber-300 mt-4">صلاحية حذف السجلات مستقلة؛ لا تفعلها إلا عند الحاجة.</p>
+            </div>
+            {% endif %}
+
             <div class="mb-4" id="employee-break-field">
                 <label class="flex items-center gap-2 text-gray-300 text-sm font-semibold">
                     {{ form.is_on_break(class="form-checkbox h-5 w-5 text-accent rounded border-gray-600 bg-gray-700 focus:ring-offset-gray-800") }}
@@ -117,20 +140,34 @@
                     const supervisorFields = document.getElementById('supervisor-fields');
                     const employeeFields = document.getElementById('employee-neighborhoods-field');
                     const breakField = document.getElementById('employee-break-field');
+                    const siteSupervisorFields = document.getElementById('site-supervisor-fields');
 
                     if (roleSelect && roleSelect.value === 'supervisor') {
                         supervisorFields.classList.remove('hidden');
                         employeeFields.classList.add('hidden');
                         breakField.classList.add('hidden');
+                        if (siteSupervisorFields) siteSupervisorFields.classList.add('hidden');
+                    } else if (roleSelect && roleSelect.value === 'site_supervisor') {
+                        supervisorFields.classList.add('hidden');
+                        employeeFields.classList.add('hidden');
+                        breakField.classList.add('hidden');
+                        if (siteSupervisorFields) siteSupervisorFields.classList.remove('hidden');
                     } else {
                         supervisorFields.classList.add('hidden');
                         employeeFields.classList.remove('hidden');
                         breakField.classList.remove('hidden');
+                        if (siteSupervisorFields) siteSupervisorFields.classList.add('hidden');
                     }
                 }
 
                 // Run on load
                 document.addEventListener('DOMContentLoaded', toggleSupervisorFields);
+                document.getElementById('select-all-permissions')?.addEventListener('click', () => {
+                    document.querySelectorAll('.site-permission-checkbox').forEach(item => item.checked = true);
+                });
+                document.getElementById('clear-all-permissions')?.addEventListener('click', () => {
+                    document.querySelectorAll('.site-permission-checkbox').forEach(item => item.checked = false);
+                });
             </script>
             {% endif %}
 

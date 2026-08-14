@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, DateField, TimeField, SubmitField, PasswordField
 from wtforms.validators import DataRequired, ValidationError, Email, EqualTo, Optional
 from app.models import Vehicle, Service, City, Neighborhood
+from app.utils.phone import normalize_saudi_phone
 
 class VehicleForm(FlaskForm):
     brand = SelectField('نوع السيارة', choices=[
@@ -50,7 +51,10 @@ class EditProfileForm(FlaskForm):
     def validate_phone(self, phone):
         from flask_login import current_user
         from app.models import User
-        # Basic phone validation/conversion logic should be here if needed
+        try:
+            phone.data = normalize_saudi_phone(phone.data)
+        except ValueError as error:
+            raise ValidationError(str(error))
         if phone.data != current_user.phone:
             user = User.query.filter_by(phone=phone.data).first()
             if user:

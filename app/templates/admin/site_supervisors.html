@@ -1,0 +1,19 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div><h2 class="text-2xl font-bold text-white">مشرفو الموقع</h2><p class="text-gray-400 text-sm mt-1">حسابات عامة للموقع بصلاحيات تحددها الإدارة.</p></div>
+    <a href="{{ url_for('admin.add_site_supervisor') }}" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 px-4 rounded-lg"><i class="fas fa-plus ml-2"></i>إضافة مشرف موقع</a>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {% for supervisor in supervisors %}
+    <article class="bg-primary border border-gray-700 rounded-xl p-5 shadow-lg">
+      <div class="flex justify-between gap-3"><div class="min-w-0"><h3 class="text-lg font-bold text-white break-words">{{ supervisor.username }}</h3><p class="text-gray-400 text-sm break-all">{{ supervisor.email }}</p><p class="text-gray-400 text-sm">{{ supervisor.phone }}</p></div><span class="h-fit bg-cyan-900 text-cyan-200 px-2.5 py-1 rounded-lg text-xs">مشرف الموقع</span></div>
+      <div class="mt-4"><p class="text-xs text-gray-400 mb-2">الصلاحيات</p><div class="flex flex-wrap gap-1.5">{% for key, label in site_permission_choices if key in supervisor.site_permissions %}<span class="bg-gray-700 text-gray-200 px-2 py-1 rounded text-xs">{{ label }}</span>{% endfor %}</div></div>
+      <div class="flex gap-2 mt-5 pt-4 border-t border-gray-700"><a href="{{ url_for('admin.edit_site_supervisor', id=supervisor.id) }}" class="flex-1 text-center bg-blue-600 hover:bg-blue-500 py-2 rounded-lg">تعديل</a><form method="post" action="{{ url_for('admin.delete_site_supervisor', id=supervisor.id) }}" onsubmit="return confirm('هل أنت متأكد من الحذف؟')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="bg-red-700 hover:bg-red-600 px-4 py-2 rounded-lg" type="submit">حذف</button></form></div>
+    </article>
+    {% else %}<div class="lg:col-span-2 bg-primary rounded-xl p-8 text-center text-gray-400">لا يوجد مشرفو موقع حاليًا.</div>{% endfor %}
+  </div>
+  {% include "admin/_pagination.html" %}
+</div>
+{% endblock %}

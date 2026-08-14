@@ -1,14 +1,25 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SubmitField, FloatField, IntegerField, SelectField, TextAreaField, BooleanField, SelectMultipleField
-from wtforms.validators import DataRequired, Email, Length, Optional, InputRequired, NumberRange
+from wtforms.validators import DataRequired, Email, Length, Optional, InputRequired, NumberRange, ValidationError
+from app.utils.phone import normalize_saudi_phone
+
+
+def validate_saudi_phone(form, field):
+    try:
+        field.data = normalize_saudi_phone(field.data)
+    except ValueError as error:
+        raise ValidationError(str(error))
 
 class EmployeeForm(FlaskForm):
     username = StringField('اسم المستخدم', validators=[DataRequired()])
     email = StringField('البريد الإلكتروني', validators=[DataRequired(), Email()])
     phone = StringField('رقم الجوال', validators=[DataRequired(), Length(min=10, max=15)])
     password = PasswordField('كلمة المرور', validators=[Optional()])
-    role = SelectField('الدور', choices=[('employee', 'موظف'), ('supervisor', 'مشرف')], default='employee')
+    role = SelectField('الدور', choices=[
+        ('employee', 'موظف'),
+        ('supervisor', 'مشرف مدينة'),
+    ], default='employee')
     is_on_break = BooleanField('راحة', default=False)
     neighborhoods = SelectMultipleField('الأحياء المسندة (للموظفين)', coerce=int)
     supervisor_cities = SelectMultipleField('المدن المسندة (للمشرفين)', coerce=int)
@@ -25,6 +36,8 @@ class ServiceForm(FlaskForm):
     awards_loyalty_point = BooleanField('إضافة نقطة ولاء عند إنجاز الخدمة', default=True)
     is_active = BooleanField('مفعل', default=True)
     submit = SubmitField('حفظ')
+
+    validate_phone = validate_saudi_phone
 
 class VehicleSizeForm(FlaskForm):
     name_ar = StringField('الاسم (عربي)', validators=[DataRequired()])
@@ -108,3 +121,13 @@ class AdminUserForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[Optional()])
     submit = SubmitField('Save Admin')
+
+
+class SiteSupervisorForm(FlaskForm):
+    username = StringField('اسم المستخدم', validators=[DataRequired()])
+    email = StringField('البريد الإلكتروني', validators=[DataRequired(), Email()])
+    phone = StringField('رقم الجوال', validators=[DataRequired(), Length(min=10, max=15)])
+    password = PasswordField('كلمة المرور', validators=[Optional()])
+    submit = SubmitField('حفظ')
+
+    validate_phone = validate_saudi_phone

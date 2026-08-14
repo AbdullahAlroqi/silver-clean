@@ -6,15 +6,16 @@ from app.auth import bp
 from app.auth.forms import LoginForm, RegistrationForm, ResetPasswordRequestForm, ResetCodeForm, ResetPasswordForm
 from app.models import User
 from app.limiter import limiter
+from app.utils.phone import normalize_phone_identifier, normalize_saudi_phone
 
 def maintenance_mode_enabled():
     from app.models import SiteSettings
     return bool(getattr(SiteSettings.get_settings(), 'maintenance_mode', False))
 
 def get_post_login_redirect(user):
-    if maintenance_mode_enabled() and user.role in ['admin', 'supervisor']:
+    if maintenance_mode_enabled() and user.role in ['admin', 'supervisor', 'site_supervisor']:
         return url_for('admin.settings')
-    if user.role in ['admin', 'supervisor']:
+    if user.role in ['admin', 'supervisor', 'site_supervisor']:
         return url_for('admin.index')
     if user.role == 'employee':
         return url_for('employee.index')
@@ -36,7 +37,7 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         # Convert Arabic numerals to English in login username (could be phone)
-        username_or_phone = convert_arabic_to_english_numerals(form.username.data)
+        username_or_phone = normalize_phone_identifier(form.username.data)
         user = User.query.filter((User.username == username_or_phone) | (User.phone == username_or_phone)).first()
         if user is None or not user.check_password(form.password.data):
             flash('اسم المستخدم أو كلمة المرور غير صحيحة')
@@ -51,7 +52,7 @@ def login():
         login_user(user, remember=True)
         
         next_page = request.args.get('next')
-        if maintenance_mode_enabled() and user.role in ['admin', 'supervisor']:
+        if maintenance_mode_enabled() and user.role in ['admin', 'supervisor', 'site_supervisor']:
             next_page = url_for('admin.settings')
         elif not next_page or urlparse(next_page).netloc != '':
             next_page = get_post_login_redirect(user)
@@ -78,7 +79,7 @@ def register():
     
     if form.validate_on_submit():
         # Convert Arabic numerals to English before processing
-        phone = convert_arabic_to_english_numerals(form.phone.data.strip())
+        phone = normalize_saudi_phone(form.phone.data)
         
         # Check if phone number already exists
         existing_phone = User.query.filter_by(phone=phone).first()
@@ -156,7 +157,7 @@ def reset_password_request():
         return redirect(url_for('main.index'))
     form = ResetPasswordRequestForm()
     if form.validate_on_submit():
-        identifier = convert_arabic_to_english_numerals(form.identifier.data.strip())
+        identifier = normalize_phone_identifier(form.identifier.data)
         
         # Determine if input is email or phone matching
         user = User.query.filter((User.email == identifier) | (User.phone == identifier)).first()

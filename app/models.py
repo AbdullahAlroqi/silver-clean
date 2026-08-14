@@ -2,6 +2,9 @@ from datetime import datetime
 from app import db, login
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.orm import validates
+from app.utils.phone import normalize_saudi_phone
+import json
 
 # Association table for Employee-Neighborhood many-to-many
 employee_neighborhoods = db.Table('employee_neighborhoods',
@@ -38,6 +41,7 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20), index=True, unique=True)
     password_hash = db.Column(db.String(128))
     role = db.Column(db.String(20)) # 'admin', 'employee', 'customer', 'supervisor'
+    site_permissions_json = db.Column(db.Text, nullable=True)
     points = db.Column(db.Integer, default=0)
     free_washes = db.Column(db.Integer, default=0)
     push_subscription = db.Column(db.Text) # JSON string for Web Push subscription
@@ -89,11 +93,55 @@ class User(UserMixin, db.Model):
             return True # Reward granted (Free wash added)
         return False
 
+    @validates('phone')
+    def normalize_phone(self, key, value):
+        return normalize_saudi_phone(value, allow_empty=True)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    @property
+    def site_permissions(self):
+        if self.role != 'site_supervisor':
+            return set()
+        try:
+            value = json.loads(self.site_permissions_json or '[]')
+            return set(value) if isinstance(value, list) else set()
+        except (TypeError, ValueError):
+            return set()
+
+    def set_site_permissions(self, permissions):
+        from app.admin.permissions import LEGACY_PERMISSION_MAP, SITE_PERMISSION_KEYS
+        requested = set(permissions or [])
+        for legacy_key, replacements in LEGACY_PERMISSION_MAP.items():
+            if legacy_key in requested:
+                requested.update(replacements)
+        clean = sorted(requested.intersection(SITE_PERMISSION_KEYS))
+        if self.role == 'site_supervisor':
+            clean = sorted(set(clean).union({'dashboard'}))
+        self.site_permissions_json = json.dumps(clean, ensure_ascii=False)
+
+    def has_admin_permission(self, permission):
+        if self.role == 'admin':
+            return True
+        if self.role != 'site_supervisor':
+            return False
+        permissions = self.site_permissions
+        if permission in permissions:
+            return True
+        if permission.endswith('_view') and permission[:-5] + '_manage' in permissions:
+            return True
+        # Base section names are used by the sidebar: show a section when the
+        # supervisor can either view it or manage it.
+        return permission in {
+            'bookings', 'subscriptions', 'employees', 'customers', 'inventory',
+            'discounts', 'reports', 'tracking', 'catalog', 'locations',
+            'marketing', 'settings', 'audit', 'notifications'
+        } and bool({f'{permission}_view', f'{permission}_manage',
+                    f'{permission}_send'}.intersection(permissions))
 
     def __repr__(self):
         return f'<User {self.username}>'
@@ -111,6 +159,32 @@ class User(UserMixin, db.Model):
             # Check uniqueness
             if not User.query.filter_by(referral_code=code).first():
                 return code
+
+
+class AuditLog(db.Model):
+    """Immutable administrative audit trail."""
+    id = db.Column(db.Integer, primary_key=True)
+    actor_id = db.Column(db.Integer, nullable=True, index=True)
+    actor_name = db.Column(db.String(120), nullable=False, default='system', index=True)
+    actor_role = db.Column(db.String(30), nullable=True, index=True)
+    action = db.Column(db.String(30), nullable=False, index=True)
+    entity_type = db.Column(db.String(80), nullable=True, index=True)
+    entity_id = db.Column(db.String(80), nullable=True, index=True)
+    endpoint = db.Column(db.String(150), nullable=True, index=True)
+    method = db.Column(db.String(10), nullable=True)
+    path = db.Column(db.String(500), nullable=True)
+    ip_address = db.Column(db.String(64), nullable=True, index=True)
+    user_agent = db.Column(db.String(500), nullable=True)
+    status_code = db.Column(db.Integer, nullable=True)
+    changes_json = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    @property
+    def changes(self):
+        try:
+            return json.loads(self.changes_json) if self.changes_json else {}
+        except (TypeError, ValueError):
+            return {}
 
 @login.user_loader
 def load_user(id):
@@ -597,6 +671,10 @@ class GiftOrder(db.Model):
     package = db.relationship('SubscriptionPackage')
     city = db.relationship('City')
     neighborhood = db.relationship('Neighborhood')
+
+    @validates('recipient_phone')
+    def normalize_recipient_phone(self, key, value):
+        return normalize_saudi_phone(value, allow_empty=True)
 
 class GiftOrderProduct(db.Model):
     """Products included in a gift order"""

@@ -1,0 +1,28 @@
+{% extends "admin/base.html" %}
+{% block content %}
+<div class="space-y-5" dir="rtl">
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div><h1 class="text-2xl font-bold text-white">سجل التدقيق الإداري</h1><p class="text-sm text-gray-400 mt-1">عمليات الإنشاء والتعديل والحذف مع القيم القديمة والجديدة.</p></div>
+    <a href="{{ url_for('admin.export_audit_logs', **request.args.to_dict()) }}" class="inline-flex justify-center items-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-white font-bold"><i class="fas fa-file-csv"></i>تصدير النتائج</a>
+  </div>
+  <form method="get" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 rounded-2xl bg-primary border border-gray-700 p-4">
+    <input name="actor" value="{{ request.args.get('actor','') }}" list="audit-actors" placeholder="المستخدم" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white min-w-0">
+    <datalist id="audit-actors">{% for actor in actors %}<option value="{{ actor }}">{% endfor %}</datalist>
+    <select name="action" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white"><option value="">كل العمليات</option>{% for value,label in [('create','إنشاء'),('update','تعديل'),('delete','حذف')] %}<option value="{{ value }}" {% if request.args.get('action')==value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <select name="entity" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white"><option value="">كل الأنواع</option>{% for entity in entities %}<option value="{{ entity }}" {% if request.args.get('entity')==entity %}selected{% endif %}>{{ entity }}</option>{% endfor %}</select>
+    <input type="date" name="from_date" value="{{ request.args.get('from_date','') }}" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white">
+    <input type="date" name="to_date" value="{{ request.args.get('to_date','') }}" class="rounded-xl bg-gray-800 border border-gray-600 px-3 py-3 text-white">
+    <div class="flex gap-2"><button class="flex-1 rounded-xl bg-accent px-4 py-3 text-white font-bold">عرض</button><a href="{{ url_for('admin.audit_logs') }}" class="rounded-xl bg-gray-700 px-4 py-3 text-white"><i class="fas fa-times"></i></a></div>
+  </form>
+  <div class="space-y-3">
+  {% for log in logs.items %}
+    <article class="rounded-2xl bg-primary border border-gray-700 p-4 overflow-hidden">
+      <div class="flex flex-wrap justify-between gap-3"><div><span class="rounded-lg px-2.5 py-1 text-xs font-bold {% if log.action=='delete' %}bg-red-900 text-red-200{% elif log.action=='create' %}bg-emerald-900 text-emerald-200{% else %}bg-blue-900 text-blue-200{% endif %}">{{ {'create':'إنشاء','update':'تعديل','delete':'حذف'}.get(log.action,log.action) }}</span><strong class="text-white mr-2 break-words">{{ log.entity_type }}{% if log.entity_id %} #{{ log.entity_id }}{% endif %}</strong><p class="text-sm text-gray-300 mt-2">{{ log.actor_name }} <span class="text-gray-500">({{ log.actor_role }})</span></p></div><time class="text-xs text-gray-400">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</time></div>
+      <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-gray-400"><div class="break-all"><i class="fas fa-route ml-1"></i>{{ log.endpoint or log.path or '-' }}</div><div class="break-all"><i class="fas fa-network-wired ml-1"></i>{{ log.ip_address or '-' }}</div><div class="break-words"><i class="fas fa-mobile-screen ml-1"></i>{{ log.user_agent or '-' }}</div></div>
+      {% if log.changes %}<details class="mt-4 rounded-xl bg-gray-900/70 border border-gray-700 p-3"><summary class="cursor-pointer text-cyan-300 font-bold">عرض التفاصيل</summary><div class="mt-3 space-y-2">{% for field,values in log.changes.items() %}<div class="grid grid-cols-1 md:grid-cols-[minmax(120px,.4fr)_1fr_1fr] gap-2 rounded-lg bg-gray-800 p-2 text-sm"><strong class="text-gray-200 break-words">{{ field }}</strong>{% if values is mapping and 'old' in values %}<div class="text-red-200 break-words"><span class="text-gray-500">قبل:</span> {{ values.old if values.old is not none else '—' }}</div><div class="text-emerald-200 break-words"><span class="text-gray-500">بعد:</span> {{ values.new if values.new is not none else '—' }}</div>{% else %}<div class="md:col-span-2 text-gray-300 break-words">{{ values if values is not none else '—' }}</div>{% endif %}</div>{% endfor %}</div></details>{% endif %}
+    </article>
+  {% else %}<div class="rounded-2xl bg-primary border border-gray-700 p-10 text-center text-gray-400">لا توجد عمليات مطابقة.</div>{% endfor %}
+  </div>
+  {% if logs.pages>1 %}<nav class="flex justify-center items-center gap-2">{% if logs.has_prev %}<a class="rounded-xl bg-gray-700 px-4 py-2 text-white" href="{{ url_for('admin.audit_logs', page=logs.prev_num, actor=request.args.get('actor',''), action=request.args.get('action',''), entity=request.args.get('entity',''), from_date=request.args.get('from_date',''), to_date=request.args.get('to_date','')) }}">السابق</a>{% endif %}<span class="text-gray-300">{{ logs.page }} / {{ logs.pages }}</span>{% if logs.has_next %}<a class="rounded-xl bg-gray-700 px-4 py-2 text-white" href="{{ url_for('admin.audit_logs', page=logs.next_num, actor=request.args.get('actor',''), action=request.args.get('action',''), entity=request.args.get('entity',''), from_date=request.args.get('from_date',''), to_date=request.args.get('to_date','')) }}">التالي</a>{% endif %}</nav>{% endif %}
+</div>
+{% endblock %}
