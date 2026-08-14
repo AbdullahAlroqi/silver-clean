@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.admin import bp
 from app.admin.forms import EmployeeForm, ServiceForm, VehicleSizeForm, CityForm, NeighborhoodForm, ProductForm, SubscriptionPackageForm, SiteSettingsForm, NotificationForm, AdminUserForm, SiteSupervisorForm
-from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse, CheckoutSession, AuditLog
+from app.models import User, Service, VehicleSize, City, Neighborhood, Booking, Product, SubscriptionPackage, Subscription, EmployeeSchedule, SiteSettings, Notification, PushSubscription, BookingProduct, DiscountCode, Announcement, EmployeeLocation, CityServicePrice, CityProductPrice, PolishingOrder, Warehouse, CheckoutSession, AuditLog, GiftOrder
 from sqlalchemy import func, or_, extract
 from datetime import date, timedelta, time, datetime
 from werkzeug.utils import secure_filename
@@ -5095,8 +5095,40 @@ def invalid_phones():
     page = request.args.get('page', 1, type=int)
     pagination = User.query.filter(User.phone_needs_update == True).order_by(User.id).paginate(
         page=page, per_page=50, error_out=False)
+
+    user_ids = [user.id for user in pagination.items]
+    first_activity = {}
+    last_order = {}
+    order_sources = (
+        (Booking.customer_id, Booking.created_at),
+        (Subscription.customer_id, Subscription.created_at),
+        (PolishingOrder.customer_id, PolishingOrder.created_at),
+        (GiftOrder.sender_id, GiftOrder.created_at),
+    )
+    if user_ids:
+        for owner_column, created_column in order_sources:
+            rows = (db.session.query(owner_column, func.min(created_column), func.max(created_column))
+                    .filter(owner_column.in_(user_ids), created_column.isnot(None))
+                    .group_by(owner_column).all())
+            for user_id, earliest, latest in rows:
+                if earliest and (user_id not in first_activity or earliest < first_activity[user_id]):
+                    first_activity[user_id] = earliest
+                if latest and (user_id not in last_order or latest > last_order[user_id]):
+                    last_order[user_id] = latest
+
+    registration_dates = {
+        user.id: (user.created_at or first_activity.get(user.id))
+        for user in pagination.items
+    }
+    estimated_registration_ids = {
+        user.id for user in pagination.items
+        if user.created_at is None and first_activity.get(user.id) is not None
+    }
     return render_template('admin/invalid_phones.html', users=pagination.items,
-                           pagination=pagination)
+                           pagination=pagination,
+                           registration_dates=registration_dates,
+                           estimated_registration_ids=estimated_registration_ids,
+                           last_order_dates=last_order)
 
 
 @bp.route('/site-supervisors')

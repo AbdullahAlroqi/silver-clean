@@ -1,10 +1,12 @@
+from datetime import datetime
+
 import pytest
 
 from app import db
 from app.models import GiftOrder, User
 from app.utils.phone import normalize_phone_identifier, normalize_saudi_phone
 
-from test_discount_location_scope import TestConfig, app  # noqa: F401
+from test_discount_location_scope import TestConfig, app, login  # noqa: F401
 
 
 @pytest.mark.parametrize('value', [
@@ -75,3 +77,30 @@ def test_quarantined_user_must_update_phone_before_using_site(app):
         assert updated.phone == '0551239999'
         assert updated.phone_needs_update is False
         assert updated.original_phone is None
+
+
+def test_invalid_phones_page_shows_registration_and_last_order_dates(app):
+    with app.app_context():
+        admin = User(username='invalid-phone-admin', role='admin')
+        customer = User(
+            username='dated-invalid-phone', role='customer',
+            phone_needs_update=True, original_phone='invalid',
+            created_at=datetime(2026, 1, 2, 10, 30),
+        )
+        db.session.add_all([admin, customer])
+        db.session.flush()
+        db.session.add(GiftOrder(
+            sender_id=customer.id,
+            created_at=datetime(2026, 7, 8, 14, 45),
+        ))
+        db.session.commit()
+        admin_id = admin.id
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, admin_id))
+
+    response = client.get('/admin/invalid-phones')
+    assert response.status_code == 200
+    assert '2026-01-02 10:30' in response.get_data(as_text=True)
+    assert '2026-07-08 14:45' in response.get_data(as_text=True)
