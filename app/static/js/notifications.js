@@ -256,7 +256,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkUnreadNotifications() {
         if (document.body.getAttribute('data-user-logged-in') !== 'true') return;
         try {
-            const response = await fetch('/api/notifications/unread-count');
+            const response = await fetch('/api/notifications/unread-count', {
+                cache: 'no-store',
+                headers: {'Accept': 'application/json'}
+            });
             if (!response.ok) return;
             const data = await response.json();
             const badge = document.getElementById('notification-badge');
@@ -269,4 +272,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     checkUnreadNotifications();
     setInterval(checkUnreadNotifications, 30000);
+
+    // Background timers are commonly suspended on Android/Huawei. Refresh as
+    // soon as the service worker reports a push, and whenever the app returns
+    // to the foreground. This keeps the visible badge in sync without reload.
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data?.type !== 'PUSH_NOTIFICATION_RECEIVED') return;
+            checkUnreadNotifications();
+            document.dispatchEvent(new CustomEvent('app:notification-received', {
+                detail: event.data.notification || {}
+            }));
+        });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkUnreadNotifications();
+    });
+    window.addEventListener('focus', checkUnreadNotifications);
+    window.addEventListener('pageshow', checkUnreadNotifications);
+    window.addEventListener('online', checkUnreadNotifications);
 });

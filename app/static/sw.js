@@ -47,9 +47,16 @@ self.addEventListener('push', function (event) {
     ]
   };
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(title, options),
+    // Android throttles timers in background tabs. Tell every open app window
+    // about the push so its badge/list can refresh without a page reload.
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => Promise.all(clientList.map((client) => client.postMessage({
+        type: 'PUSH_NOTIFICATION_RECEIVED',
+        notification: data
+      }))))
+  ]));
 });
 
 self.addEventListener('notificationclick', function (event) {
