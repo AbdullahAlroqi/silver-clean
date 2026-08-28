@@ -3536,11 +3536,46 @@ def edit_booking(id):
     new_time = request.form.get('time')
     current_date = booking.date.strftime('%Y-%m-%d')
     current_time = booking.time.strftime('%H:%M')
+    requested_service_ids = []
+    for key, value in request.form.items():
+        if key.startswith('item_service_id_'):
+            try:
+                requested_service_ids.append(int(value))
+            except (TypeError, ValueError):
+                flash('نوع الخدمة المحدد غير صحيح', 'error')
+                return redirect(request.referrer or url_for('admin.bookings'))
+
+    legacy_service_id = request.form.get('service_id')
+    if legacy_service_id:
+        try:
+            requested_service_ids.append(int(legacy_service_id))
+        except (TypeError, ValueError):
+            flash('نوع الخدمة المحدد غير صحيح', 'error')
+            return redirect(request.referrer or url_for('admin.bookings'))
+
+    current_service_ids = {booking.service_id}
+    current_service_ids.update(item.service_id for item in booking.items.all())
+    valid_service_ids = {
+        service.id for service in Service.query.filter(
+            Service.id.in_(requested_service_ids),
+            or_(Service.is_active.is_(True), Service.id.in_(current_service_ids))
+        ).all()
+    } if requested_service_ids else set()
+    if any(service_id not in valid_service_ids for service_id in requested_service_ids):
+        flash('نوع الخدمة المحدد غير متاح', 'error')
+        return redirect(request.referrer or url_for('admin.bookings'))
+
+    service_changed = any(
+        int(request.form.get(f'item_service_id_{item.id}')) != item.service_id
+        for item in booking.items.all()
+        if request.form.get(f'item_service_id_{item.id}')
+    ) or bool(legacy_service_id and int(legacy_service_id) != booking.service_id)
+
     appointment_changed = (
         (new_date is not None or new_time is not None)
         and (new_date != current_date or new_time != current_time)
     )
-    if appointment_changed:
+    if appointment_changed or service_changed:
         if not booking.employee_id:
             flash('يجب إسناد الحجز إلى موظف قبل تغيير الموعد', 'error')
             return redirect(request.referrer or url_for('admin.bookings'))
@@ -3554,7 +3589,7 @@ def edit_booking(id):
         available_slots = _employee_available_slots(
             booking.employee_id,
             new_date_obj,
-            booking.service_id,
+            requested_service_ids[0] if requested_service_ids else booking.service_id,
             exclude_booking_id=booking.id
         )
         if new_time_obj.strftime('%H:%M') not in available_slots:
@@ -3572,6 +3607,10 @@ def edit_booking(id):
     if has_item_fields:
         for item in booking.items.all():
             service_price = request.form.get(f'item_service_price_{item.id}')
+            service_id = request.form.get(f'item_service_id_{item.id}')
+
+            if service_id:
+                item.service_id = int(service_id)
 
             try:
                 if service_price is not None and service_price.strip():
@@ -3584,6 +3623,7 @@ def edit_booking(id):
 
         if booking.items.count() == 1:
             item = booking.items.first()
+            booking.service_id = item.service_id
             booking.custom_service_price = item.service_price
             booking.vehicle_size_price = item.size_price_adjustment
         else:
@@ -3591,6 +3631,8 @@ def edit_booking(id):
             booking.vehicle_size_price = 0.0
     else:
         # Legacy fallback for old bookings without BookingItem rows.
+        if legacy_service_id:
+            booking.service_id = int(legacy_service_id)
         try:
             vehicle_size_price = float(request.form.get('vehicle_size_price', booking.vehicle_size_price or 0))
             booking.vehicle_size_price = vehicle_size_price
@@ -3764,6 +3806,7 @@ def get_booking_items_api(id):
 
         items.append({
             'item_id': item.id,
+            'service_id': item.service_id,
             'vehicle': f"{item.vehicle.brand} ({item.vehicle.plate_number})" if item.vehicle else 'N/A',
             'service': item.service.name_ar if item.service else 'N/A',
             'service_price': service_price,

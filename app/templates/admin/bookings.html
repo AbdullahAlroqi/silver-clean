@@ -393,6 +393,11 @@
 
             <div id="editLegacyPriceFields" class="hidden space-y-4 mb-4">
                 <div>
+                    <label class="block text-sm mb-2">نوع الخدمة</label>
+                    <select name="service_id" id="editLegacyService" onchange="updateLegacyEditService(this)"
+                        class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2"></select>
+                </div>
+                <div>
                     <label class="block text-sm mb-2">تعديل سعر الخدمة (تجاوز السعر الأصلي)</label>
                     <input type="number" name="custom_service_price" id="editServicePrice" step="0.01"
                         class="w-full bg-darkbg border border-gray-600 rounded px-3 py-2"
@@ -449,6 +454,28 @@
     // Existing functions...
 
     let currentBookingId = null;
+    const editBookingServices = {{ services|tojson }};
+
+    function editServiceOptions(selectedId) {
+        return editBookingServices.map(service =>
+            `<option value="${service.id}" data-price="${service.price}" ${Number(service.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml(service.name_ar)}</option>`
+        ).join('');
+    }
+
+    function updateEditItemService(select, itemId) {
+        const option = select.options[select.selectedIndex];
+        const priceInput = document.querySelector(`[name="item_service_price_${itemId}"]`);
+        if (priceInput && option) priceInput.value = Number(option.dataset.price || 0).toFixed(2);
+        currentEditServiceId = select.value;
+        loadEditBookingSlots(currentEditTime);
+    }
+
+    function updateLegacyEditService(select) {
+        const option = select.options[select.selectedIndex];
+        if (option) document.getElementById('editServicePrice').value = Number(option.dataset.price || 0).toFixed(2);
+        currentEditServiceId = select.value;
+        loadEditBookingSlots(currentEditTime);
+    }
 
     function setLegacyPriceFieldsVisible(visible) {
         const legacyFields = document.getElementById('editLegacyPriceFields');
@@ -479,6 +506,7 @@
         document.getElementById('editBookingForm').action = `/admin/bookings/${bookingId}/edit`;
         document.getElementById('editPaymentMethod').value = paymentMethod;
         document.getElementById('editServicePrice').value = customServicePrice !== null ? customServicePrice : '';
+        document.getElementById('editLegacyService').innerHTML = editServiceOptions(serviceId);
         const editDateInput = document.getElementById('editBookingDate');
         editDateInput.value = date;
         editDateInput.disabled = !employeeId;
@@ -503,7 +531,12 @@
                             <div class="flex justify-between gap-2">
                                 <div>
                                     <div class="text-sm font-bold text-accent">${escapeHtml(item.vehicle)}</div>
-                                    <div class="text-xs text-gray-300">${escapeHtml(item.service)}</div>
+                                    <label class="block text-xs text-gray-300 mt-1">نوع الخدمة
+                                        <select name="item_service_id_${item.item_id}" onchange="updateEditItemService(this, ${item.item_id})"
+                                            class="mt-1 w-full bg-gray-600 border border-gray-500 rounded px-2 py-1 text-white">
+                                            ${editServiceOptions(item.service_id)}
+                                        </select>
+                                    </label>
                                 </div>
                                 <div class="text-xs text-gray-400">الإجمالي الحالي: ${parseFloat(item.total || 0).toFixed(2)} ريال</div>
                             </div>

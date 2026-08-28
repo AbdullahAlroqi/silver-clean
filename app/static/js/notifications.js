@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const browserStatus = document.querySelector('[data-browser-notification-status]');
     const browserButton = document.querySelector('[data-browser-enable-notifications]');
     let activationRunning = false;
+    let notificationPageReloading = false;
+    let backgroundRefreshRunning = false;
 
     function notificationSettingsHelp() {
         if (isIOS()) {
@@ -262,6 +264,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) return;
             const data = await response.json();
+            if (data.count > 0 && window.location.pathname === '/notifications' && !notificationPageReloading) {
+                notificationPageReloading = true;
+                window.location.reload();
+                return;
+            }
             const badge = document.getElementById('notification-badge');
             if (!badge) return;
             badge.textContent = data.count || '';
@@ -279,6 +286,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', (event) => {
             if (event.data?.type !== 'PUSH_NOTIFICATION_RECEIVED') return;
+            if (window.location.pathname === '/notifications' && !notificationPageReloading) {
+                notificationPageReloading = true;
+                window.location.reload();
+                return;
+            }
             checkUnreadNotifications();
             document.dispatchEvent(new CustomEvent('app:notification-received', {
                 detail: event.data.notification || {}
@@ -286,10 +298,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function refreshNotificationsAfterResume() {
+        checkUnreadNotifications();
+        if (backgroundRefreshRunning || !('serviceWorker' in navigator) || currentPermission() !== 'granted') return;
+        backgroundRefreshRunning = true;
+        try {
+            const registration = await navigator.serviceWorker.getRegistration('/');
+            if (!registration) return;
+            await registration.update();
+            const subscription = await ensureSubscription(registration);
+            await saveSubscription(subscription);
+        } catch (error) {
+            console.error('Background notification refresh failed:', error);
+        } finally {
+            backgroundRefreshRunning = false;
+        }
+    }
+
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') checkUnreadNotifications();
+        if (document.visibilityState === 'visible') refreshNotificationsAfterResume();
     });
-    window.addEventListener('focus', checkUnreadNotifications);
-    window.addEventListener('pageshow', checkUnreadNotifications);
+    window.addEventListener('focus', refreshNotificationsAfterResume);
+    window.addEventListener('pageshow', refreshNotificationsAfterResume);
     window.addEventListener('online', checkUnreadNotifications);
 });

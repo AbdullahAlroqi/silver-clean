@@ -1,5 +1,5 @@
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing. Version 4.0');
+  console.log('Service Worker installing. Version 5.0');
   self.skipWaiting();
 });
 
@@ -33,6 +33,9 @@ self.addEventListener('push', function (event) {
     icon: iconUrl,
     badge: data.badge || '/static/images/pwa-icon-192.png',
     tag: data.tag || ('silver-clean-' + Date.now()),
+    renotify: true,
+    timestamp: Date.now(),
+    vibrate: [200, 100, 200],
     data: {
       url: data.url || '/',
       dateOfArrival: Date.now(),

@@ -35,7 +35,10 @@ def _send_async(app, user_id, notification_data, subscription_data):
                     vapid_private_key=app.config['VAPID_PRIVATE_KEY'],
                     vapid_claims={
                         "sub": app.config['VAPID_CLAIM_EMAIL']
-                    }
+                    },
+                    ttl=300,
+                    headers={"Urgency": "high"},
+                    timeout=10
                 )
                 success_count += 1
             except WebPushException as ex:
@@ -107,7 +110,9 @@ def send_push_notification(user, notification_data):
                 data=json.dumps(notification_data, ensure_ascii=False),
                 vapid_private_key=current_app.config['VAPID_PRIVATE_KEY'],
                 vapid_claims={"sub": current_app.config['VAPID_CLAIM_EMAIL']},
-                timeout=10
+                timeout=10,
+                ttl=300,
+                headers={"Urgency": "high"}
             )
             success_count += 1
         except WebPushException as ex:
