@@ -15,6 +15,7 @@
     <div class="bg-primary rounded-lg shadow-lg p-6">
         <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="replace_image" id="replace_image" value="0">
             <!-- Title -->
             <div>
                 <label class="block text-gray-300 mb-2 font-bold">عنوان الإعلان *</label>
@@ -36,12 +37,12 @@
                 <label class="block text-gray-300 mb-2 font-bold">صورة الإعلان</label>
                 {% if announcement and announcement.image_url %}
                 <div class="mb-3">
-                    <img src="{{ announcement.image_url }}" alt="صورة الإعلان الحالية"
+                    <img src="{{ announcement.image_url }}" id="announcement-image-preview" alt="صورة الإعلان الحالية"
                         class="w-full max-w-md h-40 object-cover rounded-lg">
                     <p class="text-gray-400 text-sm mt-1">الصورة الحالية</p>
                 </div>
                 {% endif %}
-                <input type="file" name="image" accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp"
+                <input type="file" name="image" id="announcement_image" accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp"
                     {% if not announcement %}required{% endif %}
                     class="w-full bg-darkbg text-white border border-gray-600 rounded-lg p-3 focus:border-accent focus:outline-none">
                 <p class="text-gray-500 text-sm mt-1">الصيغ المدعومة: PNG وJPG وJPEG وGIF وWEBP. يفضل حجم 1200×600 بكسل.</p>
@@ -82,4 +83,14 @@
         </form>
     </div>
 </div>
+<script>
+    const imageInput = document.getElementById('announcement_image');
+    const replaceImage = document.getElementById('replace_image');
+    imageInput.addEventListener('change', function () {
+        replaceImage.value = this.files.length ? '1' : '0';
+        if (!this.files.length) return;
+        const preview = document.getElementById('announcement-image-preview');
+        if (preview) preview.src = URL.createObjectURL(this.files[0]);
+    });
+</script>
 {% endblock %}

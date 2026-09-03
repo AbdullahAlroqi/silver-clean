@@ -5655,14 +5655,17 @@ def edit_announcement(id):
         announcement.is_active = 'is_active' in request.form
         
         # Handle image upload
-        if 'image' in request.files:
-            file = request.files['image']
-            if file and file.filename:
-                try:
-                    announcement.image_url = _save_announcement_image(file)
-                except ValueError as exc:
-                    flash(str(exc), 'error')
-                    return redirect(url_for('admin.announcements'))
+        file = request.files.get('image')
+        replace_image = request.form.get('replace_image') == '1'
+        if replace_image and (not file or not file.filename):
+            flash('تم اختيار استبدال الصورة، لكن ملف الصورة لم يصل إلى الخادم. يرجى إعادة اختياره.', 'error')
+            return render_template('admin/announcement_form.html', announcement=announcement)
+        if file and file.filename:
+            try:
+                announcement.image_url = _save_announcement_image(file)
+            except ValueError as exc:
+                flash(str(exc), 'error')
+                return render_template('admin/announcement_form.html', announcement=announcement)
         
         db.session.commit()
         flash('تم تحديث الإعلان بنجاح', 'success')
