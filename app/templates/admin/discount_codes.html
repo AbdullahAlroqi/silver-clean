@@ -52,6 +52,9 @@
                         {% else %}
                         <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs">منتهي</span>
                         {% endif %}
+                        {% if code.new_customers_only %}
+                        <span class="block mt-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs w-max">للعملاء الجدد</span>
+                        {% endif %}
                     </td>
                     <td class="py-3 px-4">
                         <div class="flex items-center space-x-2 space-x-reverse">

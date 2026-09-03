@@ -434,6 +434,7 @@ class DiscountCode(db.Model):
     neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True, index=True)
     created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     assigned_customer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    new_customers_only = db.Column(db.Boolean, nullable=False, default=False)
 
     city = db.relationship('City', foreign_keys=[city_id])
     neighborhood = db.relationship('Neighborhood', foreign_keys=[neighborhood_id])
@@ -455,10 +456,30 @@ class DiscountCode(db.Model):
         return True
 
     def is_available_to(self, customer):
-        """A recovery code may only be used by the customer it was issued to."""
-        return self.assigned_customer_id is None or (
-            customer is not None and self.assigned_customer_id == customer.id
-        )
+        """Return whether this customer satisfies the code's audience restrictions."""
+        if self.assigned_customer_id is not None:
+            if customer is None or self.assigned_customer_id != getattr(customer, 'id', None):
+                return False
+        if self.new_customers_only:
+            customer_created_at = getattr(customer, 'created_at', None)
+            if customer_created_at is None or self.valid_from is None:
+                return False
+            if customer_created_at <= self.valid_from:
+                return False
+        return True
+
+    def availability_message(self, customer):
+        """Return an Arabic explanation when the customer cannot use this code."""
+        if self.assigned_customer_id is not None and (
+            customer is None or self.assigned_customer_id != getattr(customer, 'id', None)
+        ):
+            return 'هذا الكود مخصص لعميل آخر ولا يمكن استخدامه'
+        if self.new_customers_only and (
+            getattr(customer, 'created_at', None) is None or self.valid_from is None
+            or customer.created_at <= self.valid_from
+        ):
+            return 'هذا الكود متاح فقط للعملاء الذين سجلوا بعد إنشاء الكود'
+        return None
 
     @property
     def scope_label(self):

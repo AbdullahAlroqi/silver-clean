@@ -5229,6 +5229,7 @@ def add_discount_code():
         valid_until_str = request.form.get('valid_until')
         usage_limit = request.form.get('usage_limit')
         max_uses_per_customer = request.form.get('max_uses_per_customer')
+        new_customers_only = 'new_customers_only' in request.form
         
         try:
             if not code or discount_type not in ('percentage', 'fixed') or value <= 0:
@@ -5248,6 +5249,7 @@ def add_discount_code():
             valid_until=valid_until,
             usage_limit=int(usage_limit) if usage_limit else None,
             max_uses_per_customer=int(max_uses_per_customer) if max_uses_per_customer else 1,
+            new_customers_only=new_customers_only,
             city_id=city_id,
             neighborhood_id=neighborhood_id,
             created_by_id=current_user.id
@@ -5291,6 +5293,7 @@ def edit_discount_code(id):
         
         max_uses_per_customer = request.form.get('max_uses_per_customer')
         code.max_uses_per_customer = int(max_uses_per_customer) if max_uses_per_customer else 1
+        code.new_customers_only = 'new_customers_only' in request.form
         
         code.is_active = 'is_active' in request.form
         

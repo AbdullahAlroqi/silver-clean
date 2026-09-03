@@ -1183,7 +1183,7 @@ def book():
                     flash('كود الخصم غير صحيح أو غير فعال')
                     return redirect(url_for('customer.book'))
                 if not discount_code.is_available_to(current_user):
-                    flash('هذا الكود مخصص لعميل آخر ولا يمكن استخدامه')
+                    flash(discount_code.availability_message(current_user))
                     return redirect(url_for('customer.book'))
                 
                 discount_neighborhood = Neighborhood.query.get(neighborhood_id)
@@ -1745,7 +1745,7 @@ def verify_discount():
         if not discount_code or not discount_code.is_active:
             return jsonify({'valid': False, 'message': 'كود الخصم غير صحيح أو غير فعال'})
         if not discount_code.is_available_to(current_user):
-            return jsonify({'valid': False, 'message': 'هذا الكود مخصص لعميل آخر'})
+            return jsonify({'valid': False, 'message': discount_code.availability_message(current_user)})
         
         neighborhood_id = request.json.get('neighborhood_id')
         neighborhood = Neighborhood.query.get(neighborhood_id) if neighborhood_id else None
