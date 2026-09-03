@@ -91,6 +91,45 @@ def test_location_scoped_code_only_applies_to_matching_neighborhood(app):
         assert not code.applies_to(other)
 
 
+def test_discount_tabs_separate_available_and_unusable_codes(app):
+    with app.app_context():
+        admin = User(username='discount-admin', role='admin')
+        now = datetime.utcnow()
+        db.session.add_all([
+            admin,
+            DiscountCode(
+                code='AVAILABLE10', discount_type='percentage', value=10,
+                valid_until=now + timedelta(days=2), is_active=True,
+                usage_limit=5, used_count=1,
+            ),
+            DiscountCode(
+                code='EXPIRED10', discount_type='percentage', value=10,
+                valid_until=now - timedelta(days=1), is_active=True,
+            ),
+            DiscountCode(
+                code='MAXED10', discount_type='percentage', value=10,
+                valid_until=now + timedelta(days=2), is_active=True,
+                usage_limit=2, used_count=2,
+            ),
+        ])
+        db.session.commit()
+        admin_id = admin.id
+
+    client = app.test_client()
+    with app.app_context():
+        login(client, db.session.get(User, admin_id))
+
+    available_page = client.get('/admin/discount_codes')
+    assert b'AVAILABLE10' in available_page.data
+    assert b'EXPIRED10' not in available_page.data
+    assert b'MAXED10' not in available_page.data
+
+    expired_page = client.get('/admin/discount_codes?tab=expired')
+    assert b'AVAILABLE10' not in expired_page.data
+    assert b'EXPIRED10' in expired_page.data
+    assert b'MAXED10' in expired_page.data
+
+
 def test_customer_cannot_verify_code_after_switching_to_another_city(app):
     with app.app_context():
         customer = User(username='location-customer', role='customer')

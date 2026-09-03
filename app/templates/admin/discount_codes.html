@@ -10,6 +10,19 @@
     </a>
 </div>
 
+<div class="flex gap-2 mb-4 border-b border-gray-700">
+    <a href="{{ url_for('admin.discount_codes', tab='available') }}"
+        class="px-5 py-3 font-bold transition border-b-2 {% if selected_tab == 'available' %}border-accent text-accent{% else %}border-transparent text-gray-400 hover:text-white{% endif %}">
+        الأكواد المتاحة
+        <span class="mr-1 px-2 py-0.5 rounded-full text-xs bg-gray-700 text-white">{{ available_count }}</span>
+    </a>
+    <a href="{{ url_for('admin.discount_codes', tab='expired') }}"
+        class="px-5 py-3 font-bold transition border-b-2 {% if selected_tab == 'expired' %}border-red-400 text-red-400{% else %}border-transparent text-gray-400 hover:text-white{% endif %}">
+        أكواد منتهية
+        <span class="mr-1 px-2 py-0.5 rounded-full text-xs bg-gray-700 text-white">{{ expired_count }}</span>
+    </a>
+</div>
+
 <div class="bg-primary rounded-lg shadow-lg p-6">
     <div class="overflow-x-auto">
         <table class="w-full">
@@ -47,10 +60,14 @@
                     <td class="py-3 px-4">{{ code.valid_from.strftime('%Y-%m-%d') }}</td>
                     <td class="py-3 px-4">{{ code.valid_until.strftime('%Y-%m-%d') }}</td>
                     <td class="py-3 px-4">
-                        {% if code.is_active %}
-                        <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">نشط</span>
+                        {% if not code.is_active %}
+                        <span class="px-2 py-1 bg-gray-500/20 text-gray-400 rounded-full text-xs">غير نشط</span>
+                        {% elif code.valid_until < now %}
+                        <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs">منتهي الصلاحية</span>
+                        {% elif code.usage_limit and (code.used_count or 0) >= code.usage_limit %}
+                        <span class="px-2 py-1 bg-orange-500/20 text-orange-400 rounded-full text-xs">اكتمل حد الاستخدام</span>
                         {% else %}
-                        <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded-full text-xs">منتهي</span>
+                        <span class="px-2 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">نشط</span>
                         {% endif %}
                         {% if code.new_customers_only %}
                         <span class="block mt-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs w-max">للعملاء الجدد</span>
@@ -80,7 +97,7 @@
                 {% else %}
                 <tr>
                     <td colspan="8" class="py-8 text-center text-gray-400">
-                        لا توجد أكواد خصم متاحة
+                        {% if selected_tab == 'expired' %}لا توجد أكواد منتهية{% else %}لا توجد أكواد خصم متاحة{% endif %}
                     </td>
                 </tr>
                 {% endfor %}

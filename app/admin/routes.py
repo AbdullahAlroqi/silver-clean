@@ -5025,12 +5025,35 @@ def _parse_discount_location():
 @bp.route('/discount_codes')
 def discount_codes():
     page = request.args.get('page', 1, type=int)
+    selected_tab = request.args.get('tab', 'available')
+    if selected_tab not in ('available', 'expired'):
+        selected_tab = 'available'
+
     query = DiscountCode.query.filter(or_(DiscountCode.is_influencer == False, DiscountCode.is_influencer == None))
     if current_user.role == 'supervisor':
         query = query.filter(DiscountCode.created_by_id == current_user.id)
+
+    now = datetime.utcnow()
+    unavailable_condition = or_(
+        DiscountCode.is_active.isnot(True),
+        DiscountCode.valid_until < now,
+        (
+            DiscountCode.usage_limit.isnot(None)
+            & (func.coalesce(DiscountCode.used_count, 0) >= DiscountCode.usage_limit)
+        )
+    )
+    available_count = query.filter(~unavailable_condition).count()
+    expired_count = query.filter(unavailable_condition).count()
+    query = query.filter(
+        unavailable_condition if selected_tab == 'expired' else ~unavailable_condition
+    )
     pagination = query.order_by(DiscountCode.created_at.desc() if hasattr(DiscountCode, 'created_at') else DiscountCode.id.desc()).paginate(page=page, per_page=50, error_out=False)
     codes = pagination.items
-    return render_template('admin/discount_codes.html', discount_codes=codes, pagination=pagination)
+    return render_template(
+        'admin/discount_codes.html', discount_codes=codes, pagination=pagination,
+        selected_tab=selected_tab, available_count=available_count,
+        expired_count=expired_count, now=now
+    )
 
 
 @bp.route('/abandoned-checkouts')
