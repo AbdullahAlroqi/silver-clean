@@ -5615,15 +5615,15 @@ def add_announcement():
         is_active = 'is_active' in request.form
         
         # Handle image upload
-        image_url = ''
-        if 'image' in request.files:
-            file = request.files['image']
-            if file and file.filename:
-                try:
-                    image_url = _save_announcement_image(file)
-                except ValueError as exc:
-                    flash(str(exc), 'error')
-                    return redirect(url_for('admin.announcements'))
+        file = request.files.get('image')
+        if not file or not file.filename:
+            flash('يرجى اختيار صورة للإعلان قبل الحفظ', 'error')
+            return render_template('admin/announcement_form.html', announcement=None)
+        try:
+            image_url = _save_announcement_image(file)
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return render_template('admin/announcement_form.html', announcement=None)
         
         announcement = Announcement(
             title=title,

@@ -41,9 +41,10 @@
                     <p class="text-gray-400 text-sm mt-1">الصورة الحالية</p>
                 </div>
                 {% endif %}
-                <input type="file" name="image" accept="image/*"
+                <input type="file" name="image" accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp"
+                    {% if not announcement %}required{% endif %}
                     class="w-full bg-darkbg text-white border border-gray-600 rounded-lg p-3 focus:border-accent focus:outline-none">
-                <p class="text-gray-500 text-sm mt-1">يفضل استخدام صورة بحجم 1200×600 بكسل</p>
+                <p class="text-gray-500 text-sm mt-1">الصيغ المدعومة: PNG وJPG وJPEG وGIF وWEBP. يفضل حجم 1200×600 بكسل.</p>
             </div>
 
             <!-- Link URL -->
