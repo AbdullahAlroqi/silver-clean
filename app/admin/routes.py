@@ -5576,6 +5576,25 @@ def reject_gift_order(id):
 
 
 # --- Announcement Management ---
+def _save_announcement_image(file):
+    """Save an announcement image with a safe name and its real extension."""
+    from app.utils.file_handling import allowed_file
+
+    if not file or not file.filename or not allowed_file(file.filename):
+        raise ValueError('نوع الملف غير مدعوم. يرجى رفع صورة (png, jpg, jpeg, gif, webp)')
+
+    extension = file.filename.rsplit('.', 1)[1].lower()
+    unique_filename = f"announcement_{secrets.token_hex(16)}.{extension}"
+    upload_folder = os.path.join(
+        current_app.root_path, 'static', 'uploads', 'announcements'
+    )
+    os.makedirs(upload_folder, exist_ok=True)
+    file.save(os.path.join(upload_folder, unique_filename))
+    return url_for(
+        'static', filename=f'uploads/announcements/{unique_filename}'
+    )
+
+
 @bp.route('/announcements')
 def announcements():
     """List all announcements"""
@@ -5600,18 +5619,11 @@ def add_announcement():
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename:
-                from app.utils.file_handling import allowed_file
-                if not allowed_file(file.filename):
-                    flash('نوع الملف غير مدعوم. يرجى رفع صورة (png, jpg, jpeg, gif, webp)', 'error')
+                try:
+                    image_url = _save_announcement_image(file)
+                except ValueError as exc:
+                    flash(str(exc), 'error')
                     return redirect(url_for('admin.announcements'))
-                
-                filename = secure_filename(file.filename)
-                # Create unique filename
-                unique_filename = f"announcement_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-                upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'announcements')
-                os.makedirs(upload_folder, exist_ok=True)
-                file.save(os.path.join(upload_folder, unique_filename))
-                image_url = f"/static/uploads/announcements/{unique_filename}"
         
         announcement = Announcement(
             title=title,
@@ -5646,17 +5658,11 @@ def edit_announcement(id):
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename:
-                from app.utils.file_handling import allowed_file
-                if not allowed_file(file.filename):
-                    flash('نوع الملف غير مدعوم. يرجى رفع صورة (png, jpg, jpeg, gif, webp)', 'error')
+                try:
+                    announcement.image_url = _save_announcement_image(file)
+                except ValueError as exc:
+                    flash(str(exc), 'error')
                     return redirect(url_for('admin.announcements'))
-
-                filename = secure_filename(file.filename)
-                unique_filename = f"announcement_{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
-                upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'announcements')
-                os.makedirs(upload_folder, exist_ok=True)
-                file.save(os.path.join(upload_folder, unique_filename))
-                announcement.image_url = f"/static/uploads/announcements/{unique_filename}"
         
         db.session.commit()
         flash('تم تحديث الإعلان بنجاح', 'success')
