@@ -449,6 +449,8 @@ def history():
 @bp.route('/stats')
 def stats():
     """Show employee statistics"""
+    from app.utils.revenue import booking_revenue, preload_booking_lines
+
     # Total bookings
     total_bookings = Booking.query.filter_by(employee_id=current_user.id).count()
     
@@ -487,20 +489,17 @@ def stats():
     total_products_revenue = 0
     total_services_revenue = 0
     
+    # Recompute from the booking lines rather than trusting the stored
+    # total_price, so this screen agrees with the admin reports.
+    line_items, line_products = preload_booking_lines(completed_booking_list)
     for booking in completed_booking_list:
-        # Use the stored total_price which already has discounts and multi-vehicle logic applied
-        total_earnings += (booking.total_price or 0)
-        
-        # We still need to calculate product revenue for the breakdowns
-        products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in booking.products])
-        total_products_revenue += products_total
-        
-        # Service revenue is total - products
-        total_services_revenue += ((booking.total_price or 0) - products_total)
-        
-        # Update product count
-        for bp in booking.products:
-            total_products_sold += bp.quantity
+        products = line_products.get(booking.id, [])
+        revenue = booking_revenue(booking, items=line_items.get(booking.id, []),
+                                  products=products)
+        total_earnings += revenue.total
+        total_products_revenue += revenue.product
+        total_services_revenue += revenue.service
+        total_products_sold += sum((bp.quantity or 0) for bp in products)
 
     # Monthly data calculation remains the same...
     from sqlalchemy import func, extract

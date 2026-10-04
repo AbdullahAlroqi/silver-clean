@@ -58,6 +58,10 @@ def create_app(config_class=Config):
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
 
+    # Endpoints for the Android app's native background service.
+    from app.mobile_api import bp as mobile_api_bp
+    app.register_blueprint(mobile_api_bp)
+
     @app.context_processor
     def inject_settings():
         from app.models import SiteSettings

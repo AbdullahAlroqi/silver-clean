@@ -1,6 +1,16 @@
 const publicVapidKey = document.querySelector('meta[name="vapid-public-key"]')?.content?.trim() || '';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Inside the Android wrapper there is no Push API: a native background
+    // service delivers notifications instead. Hide the web prompts so the user
+    // is not asked to enable something that cannot work there.
+    if (navigator.userAgent.includes('SilverCleanApp')) {
+        document.getElementById('enable-notifications-btn')?.classList.add('hidden');
+        document.querySelectorAll('[data-notification-card], [data-post-booking-notification-card], [data-browser-notification-settings]')
+            .forEach((element) => element.classList.add('hidden'));
+        return;
+    }
+
     const floatingButton = document.getElementById('enable-notifications-btn');
     const dashboardButtons = [...document.querySelectorAll('[data-enable-notifications]')];
     const dashboardCards = [...document.querySelectorAll('[data-notification-card]')];

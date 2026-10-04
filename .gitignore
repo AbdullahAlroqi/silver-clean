@@ -53,3 +53,6 @@ instance/
 # Local tool scratch data
 appDataDir/
 app/static/uploads/
+
+# Demo data bookkeeping (local only)
+demo_data_manifest.json

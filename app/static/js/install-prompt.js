@@ -20,8 +20,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const postBookingInstallCard = document.querySelector('[data-post-booking-install-card]');
   const postBookingInstallButton = document.querySelector('[data-post-booking-install]');
 
-  // Check if already installed
-  if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+  // Check if already installed. The Android wrapper marks its user agent, so
+  // the app never asks the user to install an app they are already inside.
+  const insideAndroidApp = navigator.userAgent.includes('SilverCleanApp');
+  if (insideAndroidApp
+      || window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true) {
     console.log('App is already installed');
     if (postBookingInstallCard) postBookingInstallCard.classList.add('hidden');
     return;

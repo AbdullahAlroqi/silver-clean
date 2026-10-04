@@ -468,6 +468,7 @@ def export_audit_logs():
 @bp.route('/')
 def index():
     from app.utils.timezone import get_saudi_date
+    from app.utils.revenue import booking_revenue, preload_booking_lines
     from datetime import datetime
     selected_date_str = request.args.get('date')
     if selected_date_str:
@@ -528,7 +529,14 @@ def index():
     completed_bookings = _filter_bookings_by_work_date(
         completed_bookings_query.all(), selected_date
     )
-    total_revenue = sum(b.service.price for b in completed_bookings if b.service)
+    # Use the price the customer was actually charged, not today's catalogue
+    # price, so the figure covers products, discounts and every vehicle.
+    line_items, line_products = preload_booking_lines(completed_bookings)
+    total_revenue = sum(
+        booking_revenue(b, items=line_items.get(b.id, []),
+                        products=line_products.get(b.id, [])).total
+        for b in completed_bookings
+    )
     
     # Get recent bookings
     recent_bookings_query = Booking.query.filter(
@@ -557,6 +565,8 @@ def index():
 @bp.route('/seasons')
 def seasons():
     from app.models import Season, Booking
+    from app.utils.revenue import booking_revenue, preload_booking_lines
+
     seasons = Season.query.order_by(Season.start_date.desc()).all()
     
     # Calculate stats for each season
@@ -572,30 +582,12 @@ def seasons():
         season.completed_bookings = len(completed_bookings)
         
         # Calculate revenue for completed bookings
-        total_revenue = 0
-        for b in completed_bookings:
-            # Calculate Service Revenue
-            if b.subscription_id or b.used_free_wash:
-                final_service_price = 0
-            else:
-                service_price = b.custom_service_price if b.custom_service_price is not None else (b.service.price if b.service else 0)
-                vehicle_size_price = b.vehicle_size_price or 0
-                discount_amount = 0
-                
-                if b.discount_code:
-                    if b.discount_code.discount_type == 'percentage':
-                        discount_amount = (service_price + vehicle_size_price) * (b.discount_code.value / 100)
-                    else:
-                        discount_amount = b.discount_code.value
-                
-                final_service_price = max(0, service_price + vehicle_size_price - discount_amount)
-            
-            # Calculate Products Revenue
-            products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products])
-            
-            total_revenue += (final_service_price + products_total)
-            
-        season.total_revenue = total_revenue
+        line_items, line_products = preload_booking_lines(completed_bookings)
+        season.total_revenue = sum(
+            booking_revenue(b, items=line_items.get(b.id, []),
+                            products=line_products.get(b.id, [])).total
+            for b in completed_bookings
+        )
 
     return render_template('admin/seasons.html', seasons=seasons)
 
@@ -1181,6 +1173,8 @@ def delete_employee(id):
 
 @bp.route('/employees/<int:id>/stats')
 def employee_stats(id):
+    from app.utils.revenue import booking_revenue, preload_booking_lines
+
     employee = User.query.get_or_404(id)
     if current_user.role == 'supervisor' and (employee.role != 'employee' or not _employee_has_scope_access(employee)):
         flash('Ù„ÙŠØ³ Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ù„Ø¹Ø±Ø¶ Ù‡Ø°Ø§ Ø§Ù„Ù…ÙˆØ¸Ù', 'error')
@@ -1247,35 +1241,17 @@ def employee_stats(id):
     cash_earnings = 0
     card_earnings = 0
     
+    line_items, line_products = preload_booking_lines(completed_bookings)
     for b in completed_bookings:
         # Track subscription count
         if b.subscription_id:
             subscription_bookings_count += 1
-            
-        # Calculate Service Revenue
-        if b.subscription_id or b.used_free_wash:
-            final_service_price = 0
-        else:
-            # Standard booking revenue
-            service_price = b.custom_service_price if b.custom_service_price is not None else (b.service.price if b.service else 0)
-            vehicle_size_price = b.vehicle_size_price or 0
-            discount_amount = 0
-            
-            if b.discount_code:
-                if b.discount_code.discount_type == 'percentage':
-                    discount_amount = (service_price + vehicle_size_price) * (b.discount_code.value / 100)
-                else:
-                    discount_amount = b.discount_code.value
-            
-            final_service_price = max(0, service_price + vehicle_size_price - discount_amount)
-        
-        # Calculate Products Revenue (using custom unit_price if set)
-        products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products])
-        
-        booking_total = final_service_price + products_total
-        
+
+        booking_total = booking_revenue(
+            b, items=line_items.get(b.id, []), products=line_products.get(b.id, [])
+        ).total
         total_earnings += booking_total
-        
+
         # Count by payment method
         if b.payment_method == 'card':
             card_bookings_count += 1
@@ -1501,6 +1477,8 @@ def banned_customers():
 
 @bp.route('/customers/<int:id>/stats')
 def customer_stats(id):
+    from app.utils.revenue import booking_revenue, preload_booking_lines
+
     customer = User.query.get_or_404(id)
     
     # Get all bookings for this customer
@@ -1522,34 +1500,16 @@ def customer_stats(id):
     total_products_value = 0
     total_services_value = 0
     
-    for booking in bookings:
-        if booking.status == 'completed':
-            # Calculate service price after discount/free wash
-            service_price = booking.service.price if booking.service else 0
-            discount_amount = 0
-            
-            # Check if free wash was used
-            if booking.used_free_wash:
-                service_price = 0
-            # Check if discount code was applied
-            elif booking.discount_code:
-                if booking.discount_code.discount_type == 'percentage':
-                    discount_amount = service_price * (booking.discount_code.value / 100)
-                else:
-                    discount_amount = booking.discount_code.value
-            
-            # Calculate final service price
-            final_service_price = service_price - discount_amount
-            total_services_value += final_service_price
-            
-            # Calculate products total
-            # Calculate products total
-            products_total = sum([(bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in booking.products])
-            total_products_purchased += sum([bp.quantity for bp in booking.products])
-            total_products_value += products_total
-            
-            # Add to total spent
-            total_spent += final_service_price + products_total
+    completed = [b for b in bookings if b.status == 'completed']
+    line_items, line_products = preload_booking_lines(completed)
+    for booking in completed:
+        products = line_products.get(booking.id, [])
+        revenue = booking_revenue(booking, items=line_items.get(booking.id, []),
+                                  products=products)
+        total_services_value += revenue.service
+        total_products_value += revenue.product
+        total_products_purchased += sum((bp.quantity or 0) for bp in products)
+        total_spent += revenue.total
     
     stats = {
         'total_bookings': total_bookings,
@@ -1746,22 +1706,22 @@ def export_customers():
 # --- Service Management ---
 @bp.route('/services')
 def services():
+    from app.utils.revenue import service_sales_totals
+
     page = request.args.get('page', 1, type=int)
     pagination = Service.query.order_by(Service.id.asc()).paginate(page=page, per_page=50, error_out=False)
     services_list = pagination.items
     services_data = []
     
+    # One pass over completed work, so a service sold as the second vehicle of
+    # a multi-vehicle order is counted and priced as actually charged.
+    sales = service_sales_totals(Booking.query.filter_by(status='completed').all())
     for service in services_list:
-        # Calculate completed bookings count
-        completed_bookings_count = Booking.query.filter_by(service_id=service.id, status='completed').count()
-        
-        # Calculate total revenue
-        total_revenue = completed_bookings_count * service.price
-        
+        row = sales.get(service.id, {'count': 0, 'revenue': 0})
         services_data.append({
             'service': service,
-            'completed_bookings_count': completed_bookings_count,
-            'total_revenue': total_revenue
+            'completed_bookings_count': row['count'],
+            'total_revenue': row['revenue']
         })
         
     cities = City.query.filter_by(is_active=True).all()
@@ -2207,6 +2167,8 @@ def add_product():
 # --- Location Management ---
 @bp.route('/locations')
 def locations():
+    from app.utils.revenue import booking_revenue, preload_booking_lines
+
     cities = City.query.all()
 
     city_stats = []
@@ -2223,7 +2185,12 @@ def locations():
             booking_count = 0
             completed_bookings = []
 
-        revenue = sum(b.service.price for b in completed_bookings if b.service)
+        line_items, line_products = preload_booking_lines(completed_bookings)
+        revenue = sum(
+            booking_revenue(b, items=line_items.get(b.id, []),
+                            products=line_products.get(b.id, [])).total
+            for b in completed_bookings
+        )
 
         city_stats.append({
             'city': city,
@@ -4255,322 +4222,206 @@ def delete_booking(id):
     return redirect(url_for('admin.bookings'))
 
 # --- Reports ---
-@bp.route('/reports')
-def reports():
-    from sqlalchemy import func, and_
-    from datetime import datetime, timedelta
-    
-    # Get query parameters
-    from_date_str = request.args.get('from_date', '')
-    to_date_str = request.args.get('to_date', '')
+def _parse_report_dates(default_span_days):
+    """Read from_date/to_date query args, ignoring unparsable values."""
+    today = datetime.now().date()
+    try:
+        from_date = datetime.strptime(request.args.get('from_date', ''), '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        from_date = today - timedelta(days=default_span_days)
+    try:
+        to_date = datetime.strptime(request.args.get('to_date', ''), '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        to_date = today
+    if from_date > to_date:
+        from_date, to_date = to_date, from_date
+    return from_date, to_date
+
+
+def _resolve_report_scope():
+    """Resolve the city/neighborhood filters against the viewer's own scope."""
     city_id = request.args.get('city_id', type=int)
     neighborhood_id = request.args.get('neighborhood_id', type=int)
-    
-    # Set default date range (last 30 days if not specified)
-    if not from_date_str:
-        from_date = (datetime.now() - timedelta(days=30)).date()
-    else:
-        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
-    
-    if not to_date_str:
-        to_date = datetime.now().date()
-    else:
-        to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
 
-    supervisor_neighborhood_ids = _supervisor_neighborhood_ids() if current_user.role == 'supervisor' else None
-    supervisor_city_ids = set()
-    if supervisor_neighborhood_ids is not None and supervisor_neighborhood_ids:
-        supervisor_city_ids = {
-            n.city_id for n in Neighborhood.query.filter(Neighborhood.id.in_(supervisor_neighborhood_ids)).all()
-        }
-        if neighborhood_id and neighborhood_id not in supervisor_neighborhood_ids:
+    scoped_neighborhood_ids = _supervisor_neighborhood_ids()
+    scoped_city_ids = None
+    if scoped_neighborhood_ids is not None:
+        scoped_city_ids = set()
+        if scoped_neighborhood_ids:
+            scoped_city_ids = {
+                n.city_id for n in Neighborhood.query.filter(
+                    Neighborhood.id.in_(scoped_neighborhood_ids)
+                ).all()
+            }
+        if neighborhood_id and neighborhood_id not in scoped_neighborhood_ids:
             neighborhood_id = None
-        if city_id and city_id not in supervisor_city_ids:
+        if city_id and city_id not in scoped_city_ids:
             city_id = None
-    
-    # Base queries with date filter
-    # Include the following calendar day as a candidate, then consistently
-    # filter by the logical work date for overnight shifts.
-    bookings_query = Booking.query.join(Neighborhood).filter(
-        Booking.date >= from_date,
-        Booking.date <= to_date + timedelta(days=1)
-    )
-    
-    completed_bookings_query = Booking.query.join(Neighborhood).filter(
-        Booking.date >= from_date,
-        Booking.date <= to_date + timedelta(days=1),
-        Booking.status == 'completed'
-    )
-    
-    # Filter by city or neighborhood if specified
+
+    # A neighborhood chosen on its own still needs its city selected, otherwise
+    # the neighborhood dropdown renders empty and the choice looks lost.
+    if neighborhood_id and not city_id:
+        selected = Neighborhood.query.get(neighborhood_id)
+        if selected:
+            city_id = selected.city_id
+
+    return city_id, neighborhood_id, scoped_neighborhood_ids, scoped_city_ids
+
+
+def _report_filter_options(city_id, scoped_neighborhood_ids, scoped_city_ids):
+    """Cities and neighborhoods offered in the report filter bar."""
+    cities_query = City.query.filter_by(is_active=True)
+    if scoped_city_ids is not None:
+        cities_query = (cities_query.filter(City.id.in_(scoped_city_ids))
+                        if scoped_city_ids else cities_query.filter(City.id == -1))
+    cities = cities_query.order_by(City.name_ar).all()
+
+    neighborhoods = []
     if city_id:
-        bookings_query = bookings_query.filter(Neighborhood.city_id == city_id)
-        completed_bookings_query = completed_bookings_query.filter(Neighborhood.city_id == city_id)
-        
-    if neighborhood_id:
-        bookings_query = bookings_query.filter(Booking.neighborhood_id == neighborhood_id)
-        completed_bookings_query = completed_bookings_query.filter(Booking.neighborhood_id == neighborhood_id)
-    
+        neighborhoods_query = Neighborhood.query.filter_by(city_id=city_id, is_active=True)
+        if scoped_neighborhood_ids is not None:
+            neighborhoods_query = (
+                neighborhoods_query.filter(Neighborhood.id.in_(scoped_neighborhood_ids))
+                if scoped_neighborhood_ids else neighborhoods_query.filter(Neighborhood.id == -1)
+            )
+        neighborhoods = neighborhoods_query.order_by(Neighborhood.name_ar).all()
+    return cities, neighborhoods
+
+
+@bp.route('/reports')
+def reports():
+    from app.utils.revenue import (booking_revenue, booking_service_names,
+                                   preload_booking_lines)
+
+    from_date, to_date = _parse_report_dates(30)
+    city_id, neighborhood_id, scoped_neighborhood_ids, scoped_city_ids = _resolve_report_scope()
+
+    def scoped_bookings():
+        """Bookings in range, left-joined so area-less bookings are not dropped."""
+        query = Booking.query.outerjoin(
+            Neighborhood, Booking.neighborhood_id == Neighborhood.id
+        ).filter(
+            Booking.date >= from_date,
+            # Overnight shifts can push a booking onto the next calendar day;
+            # the work-date filter below decides which day it really belongs to.
+            Booking.date <= to_date + timedelta(days=1)
+        )
+        if city_id:
+            query = query.filter(Neighborhood.city_id == city_id)
+        if neighborhood_id:
+            query = query.filter(Booking.neighborhood_id == neighborhood_id)
+        if scoped_neighborhood_ids is not None:
+            query = (query.filter(Booking.neighborhood_id.in_(scoped_neighborhood_ids))
+                     if scoped_neighborhood_ids else query.filter(Booking.id == -1))
+        return _filter_bookings_by_work_date(query.all(), from_date, to_date)
+
+    def scoped_subscriptions(query, neighborhood_joined=False):
+        """Apply the same area filters to a Subscription query."""
+        if city_id:
+            if not neighborhood_joined:
+                query = query.join(Neighborhood, Subscription.neighborhood_id == Neighborhood.id)
+            query = query.filter(Neighborhood.city_id == city_id)
+        if neighborhood_id:
+            query = query.filter(Subscription.neighborhood_id == neighborhood_id)
+        if scoped_neighborhood_ids is not None:
+            query = (query.filter(Subscription.neighborhood_id.in_(scoped_neighborhood_ids))
+                     if scoped_neighborhood_ids else query.filter(Subscription.id == -1))
+        return query
+
+    all_bookings = scoped_bookings()
+    completed_bookings_list = [b for b in all_bookings if b.status == 'completed']
+    total_bookings = len(all_bookings)
+    completed_bookings = len(completed_bookings_list)
+
+    # One pass over the booking lines feeds every revenue figure on the page.
+    line_items, line_products = preload_booking_lines(all_bookings)
+
     customers_query = User.query.filter_by(role='customer')
-    
-    subscriptions_query = Subscription.query.filter(
+    if scoped_neighborhood_ids is not None:
+        if scoped_neighborhood_ids:
+            customers_query = customers_query.join(
+                Booking, User.id == Booking.customer_id
+            ).filter(Booking.neighborhood_id.in_(scoped_neighborhood_ids)).distinct()
+        else:
+            customers_query = customers_query.filter(User.id == -1)
+    total_customers = customers_query.count()
+
+    active_subscriptions = scoped_subscriptions(Subscription.query.filter(
         Subscription.start_date >= from_date,
         Subscription.start_date <= to_date,
         Subscription.status == 'active'
-    )
-    
-    # Payment Method Stats
-    cash_bookings = Booking.query.join(Neighborhood).filter(
-        Booking.date >= from_date,
-        Booking.date <= to_date + timedelta(days=1),
-        Booking.status == 'completed',
-        Booking.payment_method == 'cash'
-    )
-    
-    card_bookings = Booking.query.join(Neighborhood).filter(
-        Booking.date >= from_date,
-        Booking.date <= to_date + timedelta(days=1),
-        Booking.status == 'completed',
-        Booking.payment_method == 'card'
-    )
-    
-    if city_id:
-        cash_bookings = cash_bookings.filter(Neighborhood.city_id == city_id)
-        card_bookings = card_bookings.filter(Neighborhood.city_id == city_id)
-        
-    if neighborhood_id:
-        cash_bookings = cash_bookings.filter(Booking.neighborhood_id == neighborhood_id)
-        card_bookings = card_bookings.filter(Booking.neighborhood_id == neighborhood_id)
+    )).count()
 
-    if current_user.role == 'supervisor':
-        supervisor_neighborhood_ids = supervisor_neighborhood_ids or []
-        if supervisor_neighborhood_ids:
-            cash_bookings = cash_bookings.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
-            card_bookings = card_bookings.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
-        else:
-            cash_bookings = cash_bookings.filter(Booking.id == -1)
-            card_bookings = card_bookings.filter(Booking.id == -1)
-        
-    cash_bookings_list = _filter_bookings_by_work_date(
-        cash_bookings.all(), from_date, to_date
-    )
-    card_bookings_list = _filter_bookings_by_work_date(
-        card_bookings.all(), from_date, to_date
-    )
-    cash_count = len(cash_bookings_list)
-    card_count = len(card_bookings_list)
-    
-    # Calculate totals for cash/card
-    cash_total = 0
-    for b in cash_bookings_list:
-        if not b.service:
-            continue
-            
-        # Check if subscription or free wash -> Service is 0
-        if b.subscription_id or b.used_free_wash:
-            # Calculate products only (using unit_price if set)
-            p_total = sum((bp.unit_price if bp.unit_price is not None else bp.product.price) * bp.quantity for bp in b.products)
-            price = p_total
-        else:
-            # Standard booking
-            # Use custom service price if set
-            service_price = b.custom_service_price if b.custom_service_price is not None else b.service.price
-            price = service_price + (b.vehicle_size_price or 0)
-            
-            # Add products
-            p_total = sum((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in b.products)
-            price += p_total
-            
-            # Apply discount
-            if b.discount_code:
-                if b.discount_code.discount_type == 'percentage':
-                    disc = (service_price + (b.vehicle_size_price or 0)) * ((b.discount_code.value or 0) / 100)
-                    price -= disc
-                else:
-                    price -= b.discount_code.value
-                price = max(0, price)
-        
-        cash_total += price
-
-    card_total = 0
-    for b in card_bookings_list:
-        if not b.service:
-            continue
-            
-        # Check if subscription or free wash -> Service is 0
-        if b.subscription_id or b.used_free_wash:
-            # Calculate products only
-            p_total = sum((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in b.products)
-            price = p_total
-        else:
-            # Standard booking
-            service_price = b.custom_service_price if b.custom_service_price is not None else b.service.price
-            price = service_price + (b.vehicle_size_price or 0)
-            
-            # Add products
-            p_total = sum((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in b.products)
-            price += p_total
-            
-            # Apply discount
-            if b.discount_code:
-                if b.discount_code.discount_type == 'percentage':
-                    disc = (service_price + (b.vehicle_size_price or 0)) * ((b.discount_code.value or 0) / 100)
-                    price -= disc
-                else:
-                    price -= b.discount_code.value
-                price = max(0, price)
-        
-        card_total += price
-
-    # Filter for supervisor
-    if current_user.role == 'supervisor':
-        supervisor_neighborhood_ids = supervisor_neighborhood_ids or []
-        
-        if supervisor_neighborhood_ids:
-            bookings_query = bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
-            completed_bookings_query = completed_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
-            
-            # Filter customers who have bookings in supervisor's area
-            # Fix AmbiguousForeignKeysError by specifying join condition
-            customers_query = customers_query.join(Booking, User.id == Booking.customer_id).filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids)).distinct()
-            
-            subscriptions_query = subscriptions_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
-        else:
-            # No scope assigned
-            bookings_query = bookings_query.filter(Booking.id == -1)
-            completed_bookings_query = completed_bookings_query.filter(Booking.id == -1)
-            customers_query = customers_query.filter(User.id == -1)
-            subscriptions_query = subscriptions_query.filter(Subscription.id == -1)
-
-    total_bookings_list = _filter_bookings_by_work_date(
-        bookings_query.all(), from_date, to_date
-    )
-    total_bookings = len(total_bookings_list)
-    completed_bookings_list = _filter_bookings_by_work_date(
-        completed_bookings_query.all(), from_date, to_date
-    )
-    completed_bookings = len(completed_bookings_list)
-    total_customers = customers_query.count()
-    active_subscriptions = subscriptions_query.count()
-    
-    # Revenue calculations with accurate pricing
+    # Revenue, payment mix and city performance all come from the same
+    # breakdown so the cards on the page reconcile with each other.
     service_revenue = 0
     product_revenue = 0
-    
+    payment_totals = {'cash': 0, 'card': 0}
+    payment_counts = {'cash': 0, 'card': 0}
+    city_performance = {}
+
     for booking in completed_bookings_list:
-        # Calculate service price after discount/free wash
-        service_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0)
-        discount_amount = 0
-        
-        # Check if subscription or free wash -> Service is 0
-        if booking.subscription_id or booking.used_free_wash:
-            service_price = 0
-        # Check if discount code was applied
-        elif booking.discount_code:
-            if booking.discount_code.discount_type == 'percentage':
-                discount_amount = (service_price + (booking.vehicle_size_price or 0)) * ((booking.discount_code.value or 0) / 100)
-            else:
-                discount_amount = booking.discount_code.value
-        
-        # Add service revenue (including vehicle size price)
-        final_service_price = max(0, service_price - discount_amount + (booking.vehicle_size_price or 0))
-        if booking.subscription_id or booking.used_free_wash:
-             final_service_price = 0
-             
-        service_revenue += final_service_price
-        
-        # Add product revenue
-        for bp in booking.products:
-            product_revenue += ((bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity)
-    
-    # Subscription revenue (only active subscriptions created in date range)
-    sub_rev_query = db.session.query(func.sum(SubscriptionPackage.price))\
-        .join(Subscription)\
-        .join(Neighborhood, Subscription.neighborhood_id == Neighborhood.id)\
+        revenue = booking_revenue(booking,
+                                  items=line_items.get(booking.id, []),
+                                  products=line_products.get(booking.id, []))
+        service_revenue += revenue.service
+        product_revenue += revenue.product
+
+        method = booking.payment_method if booking.payment_method in payment_totals else 'cash'
+        payment_totals[method] += revenue.total
+        payment_counts[method] += 1
+
+        city_name = (booking.neighborhood.city.name_ar
+                     if booking.neighborhood and booking.neighborhood.city else 'غير محدد')
+        city_row = city_performance.setdefault(city_name, {'count': 0, 'revenue': 0})
+        city_row['count'] += 1
+        city_row['revenue'] += revenue.total
+
+    subscription_revenue = scoped_subscriptions(
+        db.session.query(func.sum(SubscriptionPackage.price))
+        .select_from(Subscription)
+        .join(SubscriptionPackage, Subscription.package_id == SubscriptionPackage.id)
         .filter(
             Subscription.start_date >= from_date,
             Subscription.start_date <= to_date,
             Subscription.status == 'active'
         )
-        
-    if city_id:
-        sub_rev_query = sub_rev_query.filter(Neighborhood.city_id == city_id)
-        
-    if neighborhood_id:
-        sub_rev_query = sub_rev_query.filter(Subscription.neighborhood_id == neighborhood_id)
-        
-    if current_user.role == 'supervisor':
-        if supervisor_neighborhood_ids:
-            sub_rev_query = sub_rev_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
-        else:
-            sub_rev_query = sub_rev_query.filter(Subscription.id == -1)
-        
-    subscription_revenue = sub_rev_query.scalar() or 0
-    
-    # Total revenue
-    total_revenue = service_revenue + product_revenue + subscription_revenue
-    
-    # Top services (in date range)
-    top_services_query = Booking.query.join(
-        Neighborhood, Booking.neighborhood_id == Neighborhood.id
-    ).filter(
-        Booking.service_id.isnot(None),
-        Booking.date >= from_date,
-        Booking.date <= to_date + timedelta(days=1)
-    )
-    
-    if city_id:
-        top_services_query = top_services_query.filter(Neighborhood.city_id == city_id)
-        
-    if neighborhood_id:
-        top_services_query = top_services_query.filter(Booking.neighborhood_id == neighborhood_id)
-    
-    if current_user.role == 'supervisor':
-        if supervisor_neighborhood_ids:
-            top_services_query = top_services_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
-        else:
-            top_services_query = top_services_query.filter(Booking.id == -1)
-        
-    from collections import Counter
-    top_service_bookings = _filter_bookings_by_work_date(
-        top_services_query.all(), from_date, to_date
-    )
-    top_service_counts = Counter(
-        booking.service.name_ar
-        for booking in top_service_bookings
-        if booking.service
-    )
-    top_services = top_service_counts.most_common(5)
-    
-    # Employee performance uses the logical shift date, so work completed
-    # after midnight remains attached to the shift that started the day before.
-    employee_bookings_query = Booking.query.join(
-        User, User.id == Booking.employee_id
-    ).join(
-        Neighborhood, Booking.neighborhood_id == Neighborhood.id
-    ).filter(
-        User.role == 'employee',
-        Booking.date >= from_date,
-        Booking.date <= to_date + timedelta(days=1)
-    )
-    
-    if city_id:
-        employee_bookings_query = employee_bookings_query.filter(Neighborhood.city_id == city_id)
-        
-    if neighborhood_id:
-        employee_bookings_query = employee_bookings_query.filter(Booking.neighborhood_id == neighborhood_id)
-    
-    if current_user.role == 'supervisor':
-        if supervisor_neighborhood_ids:
-            employee_bookings_query = employee_bookings_query.filter(Booking.neighborhood_id.in_(supervisor_neighborhood_ids))
-        else:
-            employee_bookings_query = employee_bookings_query.filter(Booking.id == -1)
+    ).scalar() or 0
 
-    employee_bookings = _filter_bookings_by_work_date(
-        employee_bookings_query.all(), from_date, to_date
-    )
+    total_revenue = service_revenue + product_revenue + subscription_revenue
+
+    # Subscription income is booked against the city that sold it.
+    sub_city_revs = scoped_subscriptions(
+        db.session.query(City.name_ar, func.sum(SubscriptionPackage.price))
+        .select_from(Subscription)
+        .join(SubscriptionPackage, Subscription.package_id == SubscriptionPackage.id)
+        .join(Neighborhood, Subscription.neighborhood_id == Neighborhood.id)
+        .join(City, Neighborhood.city_id == City.id)
+        .filter(
+            Subscription.start_date >= from_date,
+            Subscription.start_date <= to_date,
+            Subscription.status == 'active'
+        ),
+        neighborhood_joined=True
+    ).group_by(City.id).all()
+
+    for city_name, city_rev in sub_city_revs:
+        city_row = city_performance.setdefault(city_name or 'غير محدد', {'count': 0, 'revenue': 0})
+        city_row['revenue'] += (city_rev or 0)
+
+    # Top services count every vehicle in a multi-vehicle order.
+    from collections import Counter
+    service_counts = Counter()
+    for booking in all_bookings:
+        service_counts.update(booking_service_names(booking, items=line_items.get(booking.id, [])))
+    top_services = service_counts.most_common(5)
+
+    # Employee performance follows the logical shift date, so work finished
+    # after midnight stays attached to the shift that started the day before.
     employee_totals = {}
-    for booking in employee_bookings:
+    for booking in all_bookings:
+        if not booking.employee_id or not booking.employee or booking.employee.role != 'employee':
+            continue
         row = employee_totals.setdefault(
             booking.employee_id,
             {'username': booking.employee.username, 'total': 0, 'completed': 0}
@@ -4581,80 +4432,12 @@ def reports():
     employee_stats = sorted(
         employee_totals.values(), key=lambda row: row['completed'], reverse=True
     )
-    
-    # City performance (in date range)
-    city_performance = {} # {city_name: {'count': 0, 'revenue': 0}}
-    for booking in completed_bookings_list:
-        city_name = booking.neighborhood.city.name_ar if (booking.neighborhood and booking.neighborhood.city) else 'غير محدد'
-        if city_name not in city_performance:
-            city_performance[city_name] = {'count': 0, 'revenue': 0}
-        
-        # Calculate booking revenue (service + products - discount)
-        # Service
-        s_price = booking.custom_service_price if booking.custom_service_price is not None else (booking.service.price if booking.service else 0)
-        if booking.subscription_id or booking.used_free_wash:
-            s_price = 0
-        else:
-            d_amt = 0
-            if booking.discount_code:
-                if booking.discount_code.discount_type == 'percentage':
-                    d_amt = (s_price + (booking.vehicle_size_price or 0)) * ((booking.discount_code.value or 0) / 100)
-                else:
-                    d_amt = booking.discount_code.value
-            s_price = max(0, s_price - d_amt + (booking.vehicle_size_price or 0))
-        
-        # Products
-        p_price = sum([(bp.unit_price if bp.unit_price is not None else (bp.product.price if (bp.product and bp.product.price is not None) else 0)) * bp.quantity for bp in booking.products])
-        
-        city_performance[city_name]['count'] += 1
-        city_performance[city_name]['revenue'] += (s_price + p_price)
 
-    # Add subscription revenue to city performance
-    from app.models import City
-    sub_city_rev_query = db.session.query(
-        City.name_ar,
-        func.sum(SubscriptionPackage.price)
-    ).join(Neighborhood, Neighborhood.city_id == City.id)\
-    .join(Subscription, Subscription.neighborhood_id == Neighborhood.id)\
-    .join(SubscriptionPackage)\
-    .filter(
-        Subscription.start_date >= from_date,
-        Subscription.start_date <= to_date,
-        Subscription.status == 'active'
+    cities, neighborhoods = _report_filter_options(
+        city_id, scoped_neighborhood_ids, scoped_city_ids
     )
-    
-    if city_id:
-        sub_city_rev_query = sub_city_rev_query.filter(Neighborhood.city_id == city_id)
-        
-    if neighborhood_id:
-        sub_city_rev_query = sub_city_rev_query.filter(Subscription.neighborhood_id == neighborhood_id)
-        
-    if current_user.role == 'supervisor':
-        if supervisor_neighborhood_ids:
-            sub_city_rev_query = sub_city_rev_query.filter(Subscription.neighborhood_id.in_(supervisor_neighborhood_ids))
-        else:
-            sub_city_rev_query = sub_city_rev_query.filter(Subscription.id == -1)
-            
-    sub_city_revs = sub_city_rev_query.group_by(City.id).all()
-    
-    for c_name, c_rev in sub_city_revs:
-        if c_name not in city_performance:
-            city_performance[c_name] = {'count': 0, 'revenue': 0}
-        city_performance[c_name]['revenue'] += (c_rev or 0)
 
-    # Fetch cities and neighborhoods for the filters
-    if current_user.role == 'supervisor':
-        cities = City.query.filter(City.is_active == True, City.id.in_(supervisor_city_ids)).all() if supervisor_city_ids else []
-    else:
-        cities = City.query.filter_by(is_active=True).all()
-    neighborhoods = []
-    if city_id:
-        neighborhoods_query = Neighborhood.query.filter_by(city_id=city_id, is_active=True)
-        if current_user.role == 'supervisor':
-            neighborhoods_query = neighborhoods_query.filter(Neighborhood.id.in_(supervisor_neighborhood_ids)) if supervisor_neighborhood_ids else neighborhoods_query.filter(Neighborhood.id == -1)
-        neighborhoods = neighborhoods_query.all()
-
-    return render_template('admin/reports.html', 
+    return render_template('admin/reports.html',
                            total_bookings=total_bookings,
                            completed_bookings=completed_bookings,
                            total_customers=total_customers,
@@ -4666,10 +4449,10 @@ def reports():
                            top_services=top_services,
                            employee_stats=employee_stats,
                            city_performance=city_performance,
-                           cash_count=cash_count,
-                           cash_total=cash_total,
-                           card_count=card_count,
-                           card_total=card_total,
+                           cash_count=payment_counts['cash'],
+                           cash_total=payment_totals['cash'],
+                           card_count=payment_counts['card'],
+                           card_total=payment_totals['card'],
                            from_date=from_date.strftime('%Y-%m-%d'),
                            to_date=to_date.strftime('%Y-%m-%d'),
                            city_id=city_id,
@@ -4680,40 +4463,42 @@ def reports():
 @bp.route('/management-reports')
 def management_reports():
     """Decision-focused operational reports; intentionally excludes profitability."""
+    from app.utils.revenue import booking_service_names, preload_booking_lines
+
     today = datetime.now().date()
-    try:
-        from_date = datetime.strptime(request.args.get('from_date', ''), '%Y-%m-%d').date()
-    except (TypeError, ValueError):
-        from_date = today - timedelta(days=29)
-    try:
-        to_date = datetime.strptime(request.args.get('to_date', ''), '%Y-%m-%d').date()
-    except (TypeError, ValueError):
-        to_date = today
-    if from_date > to_date:
-        from_date, to_date = to_date, from_date
+    from_date, to_date = _parse_report_dates(29)
+    city_id, neighborhood_id, scoped_ids, allowed_city_ids = _resolve_report_scope()
 
-    city_id = request.args.get('city_id', type=int)
-    neighborhood_id = request.args.get('neighborhood_id', type=int)
-    scoped_ids = _supervisor_neighborhood_ids()
-    allowed_city_ids = None
-    if scoped_ids is not None:
-        allowed_city_ids = {n.city_id for n in Neighborhood.query.filter(Neighborhood.id.in_(scoped_ids)).all()} if scoped_ids else set()
-        if neighborhood_id not in (scoped_ids or []):
-            neighborhood_id = None
-        if city_id not in (allowed_city_ids or set()):
-            city_id = None
-
-    def scoped_booking_query(start, end):
-        query = Booking.query.outerjoin(Neighborhood).filter(Booking.date.between(start, end))
+    def scoped_bookings(start, end):
+        """Bookings whose work date falls in the window, with all filters applied."""
+        query = Booking.query.outerjoin(
+            Neighborhood, Booking.neighborhood_id == Neighborhood.id
+        ).filter(
+            Booking.date >= start,
+            # Overnight shifts can land a booking on the next calendar day.
+            Booking.date <= end + timedelta(days=1)
+        )
         if city_id:
             query = query.filter(Neighborhood.city_id == city_id)
         if neighborhood_id:
             query = query.filter(Booking.neighborhood_id == neighborhood_id)
         if scoped_ids is not None:
-            query = query.filter(Booking.neighborhood_id.in_(scoped_ids)) if scoped_ids else query.filter(Booking.id == -1)
+            query = (query.filter(Booking.neighborhood_id.in_(scoped_ids))
+                     if scoped_ids else query.filter(Booking.id == -1))
+        return _filter_bookings_by_work_date(query.all(), start, end)
+
+    def scoped_subscriptions(query):
+        if city_id:
+            query = query.join(Neighborhood, Subscription.neighborhood_id == Neighborhood.id)\
+                         .filter(Neighborhood.city_id == city_id)
+        if neighborhood_id:
+            query = query.filter(Subscription.neighborhood_id == neighborhood_id)
+        if scoped_ids is not None:
+            query = (query.filter(Subscription.neighborhood_id.in_(scoped_ids))
+                     if scoped_ids else query.filter(Subscription.id == -1))
         return query
 
-    bookings = scoped_booking_query(from_date, to_date).all()
+    bookings = scoped_bookings(from_date, to_date)
     total = len(bookings)
     completed = sum(b.status == 'completed' for b in bookings)
     cancelled = sum(b.status == 'cancelled' for b in bookings)
@@ -4725,21 +4510,27 @@ def management_reports():
     period_days = (to_date - from_date).days + 1
     previous_end = from_date - timedelta(days=1)
     previous_start = previous_end - timedelta(days=period_days - 1)
-    previous_total = scoped_booking_query(previous_start, previous_end).count()
+    previous_total = len(scoped_bookings(previous_start, previous_end))
     booking_growth = round((total - previous_total) * 100 / previous_total, 1) if previous_total else (100 if total else 0)
 
     customer_counts = {}
     for booking in bookings:
         if booking.customer_id:
             customer_counts[booking.customer_id] = customer_counts.get(booking.customer_id, 0) + 1
+    # One grouped query instead of a lookup per customer.
     new_customers = 0
-    for customer_id in customer_counts:
-        first_date = db.session.query(func.min(Booking.date)).filter(Booking.customer_id == customer_id).scalar()
-        if first_date and from_date <= first_date <= to_date:
-            new_customers += 1
+    if customer_counts:
+        first_dates = db.session.query(
+            Booking.customer_id, func.min(Booking.date)
+        ).filter(Booking.customer_id.in_(list(customer_counts))).group_by(Booking.customer_id).all()
+        new_customers = sum(
+            1 for _, first_date in first_dates
+            if first_date and from_date <= first_date <= to_date
+        )
     returning_customers = sum(count > 1 for count in customer_counts.values())
 
-    employee_map, service_map, city_map, hour_counts = {}, {}, {}, {hour: 0 for hour in range(24)}
+    line_items, _ = preload_booking_lines(bookings)
+    employee_map, service_counts, city_map, hour_counts = {}, {}, {}, {hour: 0 for hour in range(24)}
     cancellation_reasons = {}
     discount_map = {}
     durations = []
@@ -4753,14 +4544,19 @@ def management_reports():
             if booking.rating is not None:
                 row['rating_sum'] += booking.rating
                 row['rating_count'] += 1
-        if booking.service:
-            row = service_map.setdefault(booking.service_id, {'name': booking.service.name_ar, 'count': 0})
-            row['count'] += 1
-        if booking.neighborhood and booking.neighborhood.city:
-            row = city_map.setdefault(booking.neighborhood.city_id, {'name': booking.neighborhood.city.name_ar, 'total': 0, 'completed': 0, 'cancelled': 0})
-            row['total'] += 1
-            row['completed'] += booking.status == 'completed'
-            row['cancelled'] += booking.status == 'cancelled'
+        # Multi-vehicle orders contribute one count per vehicle serviced.
+        for service_name in booking_service_names(booking, items=line_items.get(booking.id, [])):
+            service_counts[service_name] = service_counts.get(service_name, 0) + 1
+        # Bookings created without an area still have to appear, otherwise the
+        # city table stops adding up to the headline total.
+        city = booking.neighborhood.city if booking.neighborhood else None
+        row = city_map.setdefault(
+            city.id if city else None,
+            {'name': city.name_ar if city else 'غير محدد', 'total': 0, 'completed': 0, 'cancelled': 0}
+        )
+        row['total'] += 1
+        row['completed'] += booking.status == 'completed'
+        row['cancelled'] += booking.status == 'cancelled'
         if booking.status == 'cancelled':
             reason = (booking.cancellation_reason or 'غير محدد').strip() or 'غير محدد'
             cancellation_reasons[reason] = cancellation_reasons.get(reason, 0) + 1
@@ -4776,24 +4572,22 @@ def management_reports():
         row['rating'] = round(row['rating_sum'] / row['rating_count'], 1) if row['rating_count'] else 0
         employee_stats.append(row)
     employee_stats.sort(key=lambda row: (row['completed'], row['rating']), reverse=True)
-    service_stats = sorted(service_map.values(), key=lambda row: row['count'], reverse=True)[:10]
+    service_stats = [
+        {'name': name, 'count': count}
+        for name, count in sorted(service_counts.items(), key=lambda item: item[1], reverse=True)[:10]
+    ]
     city_stats = sorted(city_map.values(), key=lambda row: row['total'], reverse=True)
     for row in city_stats:
         row['completion_rate'] = round(row['completed'] * 100 / row['total'], 1) if row['total'] else 0
 
-    subscription_query = Subscription.query.filter(Subscription.start_date.between(from_date, to_date))
-    if city_id:
-        subscription_query = subscription_query.join(Neighborhood).filter(Neighborhood.city_id == city_id)
-    if neighborhood_id:
-        subscription_query = subscription_query.filter(Subscription.neighborhood_id == neighborhood_id)
-    if scoped_ids is not None:
-        subscription_query = subscription_query.filter(Subscription.neighborhood_id.in_(scoped_ids)) if scoped_ids else subscription_query.filter(Subscription.id == -1)
-    subscriptions = subscription_query.all()
+    subscriptions = scoped_subscriptions(
+        Subscription.query.filter(Subscription.start_date.between(from_date, to_date))
+    ).all()
     active_subscriptions = sum(s.status == 'active' for s in subscriptions)
-    expiring_subscriptions = Subscription.query.filter(Subscription.status == 'active', Subscription.end_date.between(today, today + timedelta(days=7)))
-    if scoped_ids is not None:
-        expiring_subscriptions = expiring_subscriptions.filter(Subscription.neighborhood_id.in_(scoped_ids)) if scoped_ids else expiring_subscriptions.filter(Subscription.id == -1)
-    expiring_count = expiring_subscriptions.count()
+    expiring_count = scoped_subscriptions(Subscription.query.filter(
+        Subscription.status == 'active',
+        Subscription.end_date.between(today, today + timedelta(days=7))
+    )).count()
 
     alerts = []
     if cancellation_rate >= 15:
@@ -4805,19 +4599,11 @@ def management_reports():
     if expiring_count:
         alerts.append(f'{expiring_count} اشتراك سينتهي خلال 7 أيام')
 
-    cities_query = City.query.filter_by(is_active=True)
-    if allowed_city_ids is not None:
-        cities_query = cities_query.filter(City.id.in_(allowed_city_ids)) if allowed_city_ids else cities_query.filter(City.id == -1)
-    cities = cities_query.order_by(City.name_ar).all()
-    neighborhoods_query = Neighborhood.query.filter_by(is_active=True)
-    if city_id:
-        neighborhoods_query = neighborhoods_query.filter(Neighborhood.city_id == city_id)
-    if scoped_ids is not None:
-        neighborhoods_query = neighborhoods_query.filter(Neighborhood.id.in_(scoped_ids)) if scoped_ids else neighborhoods_query.filter(Neighborhood.id == -1)
+    cities, neighborhoods = _report_filter_options(city_id, scoped_ids, allowed_city_ids)
 
     return render_template('admin/management_reports.html',
         from_date=from_date, to_date=to_date, city_id=city_id, neighborhood_id=neighborhood_id,
-        cities=cities, neighborhoods=neighborhoods_query.order_by(Neighborhood.name_ar).all(),
+        cities=cities, neighborhoods=neighborhoods,
         total=total, completed=completed, cancelled=cancelled, completion_rate=completion_rate,
         cancellation_rate=cancellation_rate, booking_growth=booking_growth, average_rating=average_rating,
         unique_customers=len(customer_counts), new_customers=new_customers, returning_customers=returning_customers,
@@ -5343,10 +5129,20 @@ def delete_discount_code(id):
 
 @bp.route('/discount_codes/stats/<int:id>')
 def discount_code_stats(id):
+    from app.utils.revenue import booking_revenue, preload_booking_lines
+
     code = _get_scoped_discount_or_404(id)
     bookings = Booking.query.filter_by(discount_code_id=id).all()
-    total_savings = sum((b.service.price or 0) * ((code.value or 0) / 100) if code.discount_type == 'percentage' else (code.value or 0) for b in bookings if b.service)
-    
+    # Only orders that were not cancelled actually saved the customer anything,
+    # and the saving is capped by what the order was worth.
+    honoured = [b for b in bookings if b.status != 'cancelled']
+    line_items, line_products = preload_booking_lines(honoured)
+    total_savings = sum(
+        booking_revenue(b, items=line_items.get(b.id, []),
+                        products=line_products.get(b.id, [])).discount
+        for b in honoured
+    )
+
     return render_template('admin/discount_code_stats.html', code=code, bookings=bookings, total_savings=total_savings)
 
 # --- Site Supervisor Management (owner admins only) ---

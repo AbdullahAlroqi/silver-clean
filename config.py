@@ -50,8 +50,13 @@ class Config:
     
     # Remember Me Cookie - 30 days duration
     REMEMBER_COOKIE_DURATION = timedelta(days=30)
-    REMEMBER_COOKIE_SECURE = True  # Set to True for HTTPS
-    SESSION_COOKIE_SECURE = True   # Set to True for HTTPS
+    # Secure cookies are the default and must stay on in production. They can
+    # only be sent over HTTPS, so testing the Android app against a plain-http
+    # LAN server needs SECURE_COOKIES=false in .env - otherwise the browser
+    # drops the session cookie and login silently fails.
+    _SECURE_COOKIES = os.environ.get('SECURE_COOKIES', 'true').lower() != 'false'
+    REMEMBER_COOKIE_SECURE = _SECURE_COOKIES
+    SESSION_COOKIE_SECURE = _SECURE_COOKIES
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_REFRESH_EACH_REQUEST = True
 
