@@ -11,6 +11,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 from flask_login import current_user
+from sqlalchemy import func
 
 from app import csrf, db
 from app.models import EmployeeLocation, Notification
@@ -77,21 +78,36 @@ def update_location():
 def notifications():
     """Return notifications newer than ``since_id`` for the logged-in user.
 
-    The app remembers the highest id it has seen and passes it back, so nothing
-    is shown twice and the website's own read/unread state is left untouched.
+    ``latest_id`` is always the newest notification this user has, even when
+    nothing is returned. A device that has never polled stores that value
+    without alerting, so installing the app does not replay old history; and a
+    device that fell far behind jumps straight to the present instead of
+    walking the backlog a page at a time.
+
+    The newest rows are selected rather than the oldest, then handed back in
+    ascending order so the app shows them in the order they happened. The
+    website's own read/unread state is never touched.
     """
     if not current_user.is_authenticated:
-        return jsonify({'authenticated': False, 'notifications': []})
+        return jsonify({'authenticated': False, 'notifications': [], 'latest_id': 0})
 
     since_id = request.args.get('since_id', type=int) or 0
-    rows = (Notification.query
-            .filter(Notification.user_id == current_user.id, Notification.id > since_id)
-            .order_by(Notification.id.asc())
-            .limit(MAX_NOTIFICATIONS)
-            .all())
+    latest_id = db.session.query(func.max(Notification.id)).filter(
+        Notification.user_id == current_user.id).scalar() or 0
+
+    rows = []
+    if since_id > 0 and latest_id > since_id:
+        rows = (Notification.query
+                .filter(Notification.user_id == current_user.id,
+                        Notification.id > since_id)
+                .order_by(Notification.id.desc())
+                .limit(MAX_NOTIFICATIONS)
+                .all())
+        rows.reverse()
 
     return jsonify({
         'authenticated': True,
+        'latest_id': latest_id,
         'notifications': [{
             'id': row.id,
             'title': row.title or '',
