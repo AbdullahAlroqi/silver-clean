@@ -210,6 +210,46 @@ class Vehicle(db.Model):
     brand = db.Column(db.String(64))
     plate_number = db.Column(db.String(20))
 
+
+class SavedAddress(db.Model):
+    """A location the customer saved to reuse instead of re-pinning the map."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    label = db.Column(db.String(40), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    # City/neighborhood are a snapshot for display only. The booking flow always
+    # re-detects the area from the coordinates, so stale values can never be booked.
+    city_id = db.Column(db.Integer, db.ForeignKey('city.id'), nullable=True)
+    neighborhood_id = db.Column(db.Integer, db.ForeignKey('neighborhood.id'), nullable=True)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    MAX_PER_CUSTOMER = 8
+
+    user = db.relationship('User', backref=db.backref('saved_addresses', lazy='dynamic', cascade='all, delete-orphan'))
+    city = db.relationship('City')
+    neighborhood = db.relationship('Neighborhood')
+
+    @property
+    def area_label(self):
+        """'النرجس، الرياض' for display under the address name."""
+        parts = [p for p in (
+            self.neighborhood.name_ar if self.neighborhood else None,
+            self.city.name_ar if self.city else None,
+        ) if p]
+        return '، '.join(parts)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'label': self.label,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'area_label': self.area_label,
+        }
+
+
 class City(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name_ar = db.Column(db.String(64))

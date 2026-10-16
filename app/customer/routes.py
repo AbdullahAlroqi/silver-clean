@@ -4,9 +4,10 @@ from app import db
 from app.customer import bp
 from app.customer.forms import VehicleForm, BookingForm, EditProfileForm, ChangePasswordForm
 from app.models import (
-    Vehicle, Service, Booking, City, Neighborhood, VehicleSize, SiteSettings, 
-    BookingItem, DiscountCode, Season, CityServicePrice, 
-    CityProductPrice, CityPackagePrice, PolishingOrder, CheckoutSession
+    Vehicle, Service, Booking, City, Neighborhood, VehicleSize, SiteSettings,
+    BookingItem, DiscountCode, Season, CityServicePrice,
+    CityProductPrice, CityPackagePrice, PolishingOrder, CheckoutSession,
+    SavedAddress
 )
 from app.utils.employee_breaks import employee_break_overlaps
 from app.notifications import notify_area_supervisors
@@ -1528,7 +1529,15 @@ def book():
                 # Increment usage count
                 discount_code.used_count += 1
                 flash(f'تم تطبيق كود الخصم: {discount_code.code}')
-            
+
+            # Remember which saved location was actually booked, so the list is
+            # ordered by real use rather than by how often it was tapped.
+            saved_address_id = request.form.get('saved_address_id', type=int)
+            if saved_address_id:
+                used_address = current_user.saved_addresses.filter_by(id=saved_address_id).first()
+                if used_address:
+                    used_address.last_used_at = datetime.utcnow()
+
             _complete_checkout_session()
             db.session.commit()
             notify_area_supervisors(
@@ -1560,13 +1569,15 @@ def book():
             return redirect(url_for('customer.booking_success'))
 
     settings = SiteSettings.get_settings()
+    from app.utils.timezone import get_saudi_date
     return render_template(
         'customer/booking_form.html',
         form=form,
         service_eligibility=service_eligibility,
         service_durations=service_durations,
         vehicle_sizes=vehicle_sizes,
-        site_settings=settings
+        site_settings=settings,
+        today_saudi=get_saudi_date().isoformat()
     )
 
 @bp.route('/api/vehicle/<int:vehicle_id>/size-price')
@@ -1609,6 +1620,98 @@ def detect_location():
         })
 
     return jsonify({'found': False})
+
+
+def _saved_addresses_for_current_user():
+    """Most recently used first, so the habitual address leads the list."""
+    addresses = current_user.saved_addresses.all()
+    addresses.sort(key=lambda a: (a.last_used_at or a.created_at or datetime.min, a.id), reverse=True)
+    return addresses
+
+
+@bp.route('/api/saved-addresses')
+def list_saved_addresses():
+    return jsonify([address.to_dict() for address in _saved_addresses_for_current_user()])
+
+
+@bp.route('/api/saved-addresses', methods=['POST'])
+def create_saved_address():
+    payload = request.get_json(silent=True) or {}
+
+    label = (payload.get('label') or '').strip()
+    if not label:
+        return jsonify({'saved': False, 'message': 'يرجى إدخال اسم للموقع'}), 400
+    if len(label) > 40:
+        label = label[:40]
+
+    try:
+        lat = float(payload.get('latitude'))
+        lng = float(payload.get('longitude'))
+    except (TypeError, ValueError):
+        return jsonify({'saved': False, 'message': 'إحداثيات الموقع غير صالحة'}), 400
+
+    # Only locations we actually serve are worth saving, and this also fills in
+    # the city/neighborhood shown under the name.
+    neighborhood = _find_active_neighborhood_at(lat, lng)
+    if not neighborhood:
+        return jsonify({
+            'saved': False,
+            'message': 'هذا الموقع يقع خارج نطاق الأحياء المتاحة للخدمة'
+        }), 400
+
+    existing = current_user.saved_addresses.filter(
+        db.func.lower(SavedAddress.label) == label.lower()
+    ).first()
+
+    if existing:
+        # Re-saving under the same name moves the pin instead of adding a twin.
+        existing.latitude = lat
+        existing.longitude = lng
+        existing.city_id = neighborhood.city_id
+        existing.neighborhood_id = neighborhood.id
+        address = existing
+        message = f'تم تحديث موقع "{label}"'
+    else:
+        if current_user.saved_addresses.count() >= SavedAddress.MAX_PER_CUSTOMER:
+            return jsonify({
+                'saved': False,
+                'message': f'وصلت للحد الأقصى ({SavedAddress.MAX_PER_CUSTOMER} مواقع). احذف موقعًا لإضافة آخر.'
+            }), 400
+        address = SavedAddress(
+            user_id=current_user.id,
+            label=label,
+            latitude=lat,
+            longitude=lng,
+            city_id=neighborhood.city_id,
+            neighborhood_id=neighborhood.id,
+        )
+        db.session.add(address)
+        message = f'تم حفظ "{label}"'
+
+    db.session.commit()
+    return jsonify({
+        'saved': True,
+        'message': message,
+        'address': address.to_dict(),
+        'addresses': [a.to_dict() for a in _saved_addresses_for_current_user()],
+    })
+
+
+@bp.route('/api/saved-addresses/<int:address_id>/delete', methods=['POST'])
+def delete_saved_address(address_id):
+    address = current_user.saved_addresses.filter_by(id=address_id).first()
+    if not address:
+        return jsonify({'deleted': False, 'message': 'الموقع غير موجود'}), 404
+
+    label = address.label
+    db.session.delete(address)
+    db.session.commit()
+    return jsonify({
+        'deleted': True,
+        'message': f'تم حذف "{label}"',
+        'addresses': [a.to_dict() for a in _saved_addresses_for_current_user()],
+    })
+
 
 @bp.route('/api/package-price/<int:package_id>/<int:city_id>')
 def get_package_price(package_id, city_id):

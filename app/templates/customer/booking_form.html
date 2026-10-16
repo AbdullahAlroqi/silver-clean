@@ -56,6 +56,14 @@
                     <i class="fas fa-map-marker-alt ml-3"></i>
                     اختر الموقع والموعد
                 </h3>
+                <!-- Saved Addresses -->
+                <div id="saved-addresses-section" class="mb-6 hidden">
+                    <label class="block text-sm font-medium text-gray-300 mb-3">
+                        <i class="fas fa-bookmark ml-1 text-accent"></i> مواقعي المحفوظة
+                    </label>
+                    <div id="saved-addresses-list" class="flex flex-wrap gap-2"></div>
+                </div>
+
                 <!-- Map Location Picker -->
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-300 mb-2">
@@ -75,10 +83,52 @@
                         <span id="coverageIcon"></span>
                         <span id="coverageText"></span>
                     </div>
+
+                    <!-- Save This Location -->
+                    <div id="save-address-box" class="mt-3 hidden bg-darkbg border border-accent/40 rounded-lg p-4">
+                        <div id="save-address-prompt" class="flex items-center justify-between gap-3 flex-wrap">
+                            <p class="text-gray-300 text-sm">
+                                <i class="fas fa-bookmark ml-1 text-accent"></i>
+                                احفظ هذا الموقع لتحجز منه مباشرة في المرات القادمة
+                            </p>
+                            <button type="button" onclick="openSaveAddressForm()"
+                                class="bg-accent hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">
+                                حفظ الموقع
+                            </button>
+                        </div>
+                        <div id="save-address-form" class="hidden">
+                            <p class="text-gray-300 text-sm mb-3">اختر اسمًا لهذا الموقع:</p>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <button type="button" onclick="saveCurrentAddress('المنزل')"
+                                    class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                                    <i class="fas fa-home ml-1"></i> المنزل
+                                </button>
+                                <button type="button" onclick="saveCurrentAddress('العمل')"
+                                    class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
+                                    <i class="fas fa-briefcase ml-1"></i> العمل
+                                </button>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="text" id="save-address-label" maxlength="40" placeholder="أو اكتب اسمًا آخر (الشاليه، بيت الوالد...)"
+                                    class="flex-1 bg-primary border border-gray-600 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-accent">
+                                <button type="button" onclick="saveCurrentAddress()"
+                                    class="bg-accent hover:bg-blue-600 text-white font-bold px-4 py-2 rounded-lg text-sm">
+                                    حفظ
+                                </button>
+                                <button type="button" onclick="closeSaveAddressForm()"
+                                    class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm">
+                                    إلغاء
+                                </button>
+                            </div>
+                        </div>
+                        <p id="save-address-message" class="text-sm mt-2"></p>
+                    </div>
+
                     <!-- Hidden fields for lat/lng -->
                     <input type="hidden" name="location_lat" id="location_lat" value="">
                     <input type="hidden" name="location_lng" id="location_lng" value="">
                     <input type="hidden" name="detected_neighborhood_id" id="detected_neighborhood_id" value="">
+                    <input type="hidden" name="saved_address_id" id="saved_address_id" value="">
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -114,7 +164,7 @@
                 <div id="vehicles-container" class="space-y-6">
                     <!-- First Vehicle Row (Default) -->
                     <div class="vehicle-row bg-darkbg p-6 rounded-xl border border-gray-700 relative" data-index="0">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                             <div>
                                 <label class="block text-sm font-medium text-gray-400 mb-2">المركبة</label>
                                 <select name="vehicle_ids[]" required onchange="handleVehicleChange(this)"
@@ -127,6 +177,30 @@
                                     {% endfor %}
                                     <option value="new">سيارة غير مسجلة</option>
                                 </select>
+                                <div class="new-vehicle-fields hidden mt-4 p-4 rounded-lg border border-accent/40 bg-primary/50">
+                                    <p class="text-accent font-bold mb-4">
+                                        <i class="fas fa-car-side ml-2"></i>بيانات السيارة غير المسجلة
+                                    </p>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm text-gray-300 mb-2">رقم اللوحة</label>
+                                            <input type="text" name="new_plate_numbers[]" maxlength="20"
+                                                class="new-plate-input w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                                placeholder="أدخل رقم اللوحة">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm text-gray-300 mb-2">حجم السيارة</label>
+                                            <select name="new_vehicle_size_ids[]"
+                                                class="new-size-select w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                                onchange="handleNewVehicleSizeChange(this)">
+                                                <option value="">اختر حجم السيارة</option>
+                                                {% for size in vehicle_sizes %}
+                                                <option value="{{ size.id }}">{{ size.name_ar }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-400 mb-2">الخدمة</label>
@@ -137,30 +211,6 @@
                                 <p class="text-gray-500 text-xs mt-2 service-duration-info hidden">
                                     <i class="fas fa-clock mr-1"></i> مدة الخدمة: <span class="duration-val">0</span> دقيقة
                                 </p>
-                            </div>
-                        </div>
-                        <div class="new-vehicle-fields hidden mt-5 p-4 rounded-lg border border-accent/40 bg-primary/50">
-                            <p class="text-accent font-bold mb-4">
-                                <i class="fas fa-car-side ml-2"></i>بيانات السيارة غير المسجلة
-                            </p>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm text-gray-300 mb-2">رقم اللوحة</label>
-                                    <input type="text" name="new_plate_numbers[]" maxlength="20"
-                                        class="new-plate-input w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                        placeholder="أدخل رقم اللوحة">
-                                </div>
-                                <div>
-                                    <label class="block text-sm text-gray-300 mb-2">حجم السيارة</label>
-                                    <select name="new_vehicle_size_ids[]"
-                                        class="new-size-select w-full bg-darkbg border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                        onchange="handleNewVehicleSizeChange(this)">
-                                        <option value="">اختر حجم السيارة</option>
-                                        {% for size in vehicle_sizes %}
-                                        <option value="{{ size.id }}">{{ size.name_ar }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -451,16 +501,21 @@
 
     const dateInput = document.getElementById('date-input');
     const bookingDaysLimit = {{ site_settings.booking_days_limit or 7 }};
+    // Availability is decided server-side on Saudi time, so the booking window has
+    // to start from the server's date instead of the device clock.
+    const serverToday = '{{ today_saudi }}' || localDateString(new Date());
+
+    function serverDateFromOffset(days) {
+        const date = new Date(serverToday + 'T00:00:00');
+        date.setDate(date.getDate() + days);
+        return date;
+    }
 
     if (bookingDaysLimit === 0) {
         document.getElementById('bookingForm').innerHTML = '<div class="text-center p-8"><i class="fas fa-tools text-4xl text-yellow-500 mb-4"></i><h3 class="text-xl font-bold text-white">الحجز متوقف حالياً للصيانة</h3><p class="text-gray-400 mt-2">نعتذر عن الإزعاج، يرجى المحاولة لاحقاً.</p></div>';
     } else if (dateInput) {
-        const today = new Date().toISOString().split('T')[0];
-        dateInput.min = today;
-
-        const maxDate = new Date();
-        maxDate.setDate(maxDate.getDate() + bookingDaysLimit);
-        dateInput.max = maxDate.toISOString().split('T')[0];
+        dateInput.min = serverToday;
+        dateInput.max = localDateString(serverDateFromOffset(bookingDaysLimit));
     }
 
     function showStep(step) {
@@ -759,6 +814,7 @@
                 newRow.remove();
                 refreshLivePrice();
                 resetNearestAppointment();
+                scheduleNearestAppointmentSearch();
             };
             newRow.appendChild(delBtn);
         }
@@ -790,7 +846,9 @@
         if (isNewVehicle) {
             sSelect.innerHTML = '<option value="">اختر حجم السيارة أولاً</option>';
             sSelect.disabled = true;
-            if (sizeSelect.value) handleNewVehicleSizeChange(sizeSelect);
+            // Must be awaited: callers rely on the services being loaded once
+            // handleVehicleChange resolves, so they can restore the old selection.
+            if (sizeSelect.value) await handleNewVehicleSizeChange(sizeSelect);
             return;
         }
 
@@ -1035,6 +1093,7 @@
         const params = buildAvailabilityParams(date);
         if (!params) return { times: [], error: null };
         const response = await fetch('/customer/api/available-times?' + params);
+        if (!response.ok) throw new Error('available-times failed: ' + response.status);
         const data = await response.json();
         return {
             times: Array.isArray(data) ? data : (data.available_times || []),
@@ -1071,60 +1130,91 @@
         return `${year}-${month}-${day}`;
     }
 
+    function nearestSearchIsPossible() {
+        return Boolean(neighborhoodSelect.value && buildAvailabilityParams(serverToday));
+    }
+
+    // Puts both buttons back in their idle state. Needed because bumping the search
+    // token orphans the `finally` block of any search still in flight.
+    function resetNearestButtons({ hideUseButton = true } = {}) {
+        const findButton = document.getElementById('find-nearest-btn');
+        findButton.disabled = false;
+        findButton.innerHTML = '<i class="fas fa-rotate ml-1"></i> تحديث الاقتراح';
+
+        const useButton = document.getElementById('use-nearest-btn');
+        useButton.disabled = false;
+        useButton.onclick = useNearestAppointment;
+        useButton.innerHTML = 'اختيار هذا الموعد';
+        useButton.classList.toggle('hidden', hideUseButton);
+    }
+
     function resetNearestAppointment() {
         nearestSearchToken++;
         nearestAppointment = null;
-        document.getElementById('use-nearest-btn').classList.add('hidden');
-        document.getElementById('nearest-appointment-text').textContent = 'جاري تجهيز اقتراح أقرب موعد...';
+        resetNearestButtons();
+        document.getElementById('nearest-appointment-text').textContent = nearestSearchIsPossible()
+            ? 'جاري تجهيز اقتراح أقرب موعد...'
+            : 'سيظهر أقرب موعد تلقائيًا بعد اختيار الحي والمركبات والخدمات.';
     }
 
     function scheduleNearestAppointmentSearch() {
         clearTimeout(nearestSearchTimer);
         nearestSearchTimer = setTimeout(() => {
             if (isApplyingNearestAppointment) return;
-            const today = localDateString(new Date());
-            if (neighborhoodSelect.value && buildAvailabilityParams(today)) {
-                findNearestAppointment(true);
-            }
+            if (nearestSearchIsPossible()) findNearestAppointment();
         }, 350);
     }
 
-    async function findNearestAppointment(automatic = false) {
+    async function findNearestAppointment() {
         const text = document.getElementById('nearest-appointment-text');
         const button = document.getElementById('find-nearest-btn');
-        if (!neighborhoodSelect.value || !buildAvailabilityParams(localDateString(new Date()))) {
+        if (!nearestSearchIsPossible()) {
+            resetNearestButtons();
             text.textContent = 'اختر الحي والمركبات والخدمات أولاً.';
             return;
         }
+        nearestAppointment = null;
+        resetNearestButtons();
         button.disabled = true;
         button.innerHTML = '<i class="fas fa-spinner fa-spin ml-1"></i> جاري التحقق...';
-        nearestAppointment = null;
-        document.getElementById('use-nearest-btn').classList.add('hidden');
         const searchToken = ++nearestSearchToken;
         text.innerHTML = '<span class="text-cyan-300"><i class="fas fa-spinner fa-spin ml-1"></i>نتحقق من أقرب موعد متاح...</span>';
         try {
-            const start = new Date();
             const candidates = [];
             for (let offset = 0; offset <= bookingDaysLimit; offset++) {
-                const candidate = new Date(start);
-                candidate.setDate(start.getDate() + offset);
+                const candidate = serverDateFromOffset(offset);
                 candidates.push({ date: candidate, dateString: localDateString(candidate) });
             }
-            // Check all allowed days together, then retain the earliest result.
-            const results = await Promise.all(candidates.map(async candidate => ({
-                ...candidate,
-                result: await fetchAvailableTimesForDate(candidate.dateString)
-            })));
+            // Check all allowed days together, then retain the earliest result. A
+            // failing day must not hide a valid slot on an earlier one, so every
+            // request keeps its own failure.
+            const results = await Promise.all(candidates.map(async candidate => {
+                try {
+                    return { ...candidate, result: await fetchAvailableTimesForDate(candidate.dateString) };
+                } catch (error) {
+                    console.error('Nearest appointment lookup failed for ' + candidate.dateString, error);
+                    return { ...candidate, result: { times: [], error: null }, failed: true };
+                }
+            }));
             if (searchToken !== nearestSearchToken) return;
             const nearest = results.find(item => item.result.times.length);
             if (nearest) {
                 nearestAppointment = { date: nearest.dateString, time: nearest.result.times[0] };
                 const dateLabel = nearest.date.toLocaleDateString('ar-SA-u-ca-gregory', { weekday: 'long', day: 'numeric', month: 'long' });
                 text.innerHTML = `أقرب موعد متاح: <strong class="text-white">${dateLabel} — ${nearest.result.times[0]}</strong>`;
-                document.getElementById('use-nearest-btn').classList.remove('hidden');
+                resetNearestButtons({ hideUseButton: false });
                 return;
             }
-            text.textContent = 'لا يوجد موعد متاح خلال فترة الحجز الحالية.';
+            // Prefer the server's own explanation (an active booking, for example)
+            // over the generic message.
+            const explained = results.find(item => item.result.error);
+            if (explained) {
+                text.textContent = explained.result.error;
+            } else if (results.every(item => item.failed)) {
+                text.textContent = 'تعذر البحث الآن، حاول مرة أخرى.';
+            } else {
+                text.textContent = 'لا يوجد موعد متاح خلال فترة الحجز الحالية.';
+            }
         } catch (error) {
             if (searchToken === nearestSearchToken) text.textContent = 'تعذر البحث الآن، حاول مرة أخرى.';
         } finally {
@@ -1159,11 +1249,11 @@
             ? appointment.time
             : availableTimes[0];
         if (!selectedTime) {
-            text.innerHTML = '<span class="text-red-400">لم يعد الموعد متاحًا، ابحث مرة أخرى.</span>';
-            useButton.disabled = false;
-            useButton.innerHTML = 'البحث مرة أخرى';
-            useButton.onclick = findNearestAppointment;
+            text.innerHTML = '<span class="text-red-400">لم يعد الموعد متاحًا، نبحث عن بديل...</span>';
+            nearestAppointment = null;
+            resetNearestButtons();
             isApplyingNearestAppointment = false;
+            findNearestAppointment();
             return;
         }
         timeSelect.value = selectedTime;
@@ -1171,8 +1261,7 @@
         timeSelect.dispatchEvent(new Event('change', { bubbles: true }));
         nearestAppointment = { date: appointment.date, time: selectedTime };
         text.innerHTML = `<span class="text-green-400"><i class="fas fa-check-circle ml-1"></i>تم اختيار ${appointment.date} — ${selectedTime}</span>`;
-        useButton.disabled = false;
-        useButton.classList.add('hidden');
+        resetNearestButtons();
         isApplyingNearestAppointment = false;
     }
 
@@ -1583,7 +1672,197 @@
         }
     }
 
+    /* --- Saved Addresses --- */
+    let savedAddresses = [];
+
+    async function loadSavedAddresses() {
+        try {
+            const response = await fetch('/customer/api/saved-addresses');
+            if (!response.ok) return;
+            savedAddresses = await response.json();
+            renderSavedAddresses();
+        } catch (error) {
+            console.error('Failed to load saved addresses', error);
+        }
+    }
+
+    function renderSavedAddresses() {
+        const section = document.getElementById('saved-addresses-section');
+        const list = document.getElementById('saved-addresses-list');
+        list.innerHTML = '';
+
+        if (!savedAddresses.length) {
+            section.classList.add('hidden');
+            return;
+        }
+
+        const activeId = parseInt(document.getElementById('saved_address_id').value, 10);
+        savedAddresses.forEach(address => {
+            const isActive = address.id === activeId;
+            const chip = document.createElement('div');
+            chip.className = 'saved-address-chip flex items-center gap-2 rounded-lg border px-3 py-2 transition ' +
+                (isActive ? 'border-accent bg-accent/10' : 'border-gray-600 bg-darkbg hover:border-accent');
+            chip.dataset.addressId = address.id;
+
+            const pick = document.createElement('button');
+            pick.type = 'button';
+            pick.className = 'text-right';
+            pick.onclick = () => applySavedAddress(address.id);
+
+            const name = document.createElement('span');
+            name.className = 'block text-white font-bold text-sm';
+            name.textContent = address.label;
+            pick.appendChild(name);
+
+            if (address.area_label) {
+                const area = document.createElement('span');
+                area.className = 'block text-gray-400 text-xs';
+                area.textContent = address.area_label;
+                pick.appendChild(area);
+            }
+
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'text-gray-500 hover:text-red-400 px-1';
+            remove.setAttribute('aria-label', 'حذف ' + address.label);
+            remove.innerHTML = '<i class="fas fa-times"></i>';
+            remove.onclick = () => deleteSavedAddress(address.id, address.label);
+
+            chip.appendChild(pick);
+            chip.appendChild(remove);
+            list.appendChild(chip);
+        });
+
+        section.classList.remove('hidden');
+    }
+
+    async function applySavedAddress(addressId) {
+        const address = savedAddresses.find(item => item.id === addressId);
+        if (!address) return;
+
+        // The map is only a convenience here: a saved address has to keep working
+        // even when Leaflet failed to load.
+        try {
+            initLocationMap();
+            if (locMap && locMarker) {
+                locMap.setView([address.latitude, address.longitude], 16);
+                locMarker.setLatLng([address.latitude, address.longitude]);
+            }
+        } catch (error) {
+            console.error('Map unavailable while applying a saved address', error);
+        }
+
+        // validateLocation re-detects the city and neighborhood from the
+        // coordinates, so a stale saved area can never be booked.
+        await validateLocation(address.latitude, address.longitude);
+        document.getElementById('saved_address_id').value = address.id;
+        renderSavedAddresses();
+    }
+
+    async function deleteSavedAddress(addressId, label) {
+        if (!confirm(`حذف الموقع "${label}"؟`)) return;
+        try {
+            const response = await fetch(`/customer/api/saved-addresses/${addressId}/delete`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value }
+            });
+            const data = await response.json();
+            if (!data.deleted) return;
+            savedAddresses = data.addresses || [];
+            const activeField = document.getElementById('saved_address_id');
+            if (parseInt(activeField.value, 10) === addressId) activeField.value = '';
+            renderSavedAddresses();
+            updateSaveAddressBox();
+        } catch (error) {
+            console.error('Failed to delete saved address', error);
+        }
+    }
+
+    function isSameSpot(address, lat, lng) {
+        // ~15 metres: nudging the pin slightly should not ask to save it again.
+        return Math.abs(address.latitude - lat) < 0.00015
+            && Math.abs(address.longitude - lng) < 0.00015;
+    }
+
+    function openSaveAddressForm() {
+        document.getElementById('save-address-prompt').classList.add('hidden');
+        document.getElementById('save-address-form').classList.remove('hidden');
+        document.getElementById('save-address-label').focus();
+    }
+
+    function closeSaveAddressForm() {
+        document.getElementById('save-address-form').classList.add('hidden');
+        document.getElementById('save-address-prompt').classList.remove('hidden');
+        document.getElementById('save-address-message').textContent = '';
+    }
+
+    function updateSaveAddressBox() {
+        const box = document.getElementById('save-address-box');
+        const lat = parseFloat(document.getElementById('location_lat').value);
+        const lng = parseFloat(document.getElementById('location_lng').value);
+        const usable = Number.isFinite(lat) && Number.isFinite(lng) && isWithinBoundary;
+        const alreadySaved = usable && savedAddresses.some(address => isSameSpot(address, lat, lng));
+
+        if (!usable || alreadySaved) {
+            box.classList.add('hidden');
+            return;
+        }
+        closeSaveAddressForm();
+        box.classList.remove('hidden');
+    }
+
+    async function saveCurrentAddress(presetLabel) {
+        const input = document.getElementById('save-address-label');
+        const message = document.getElementById('save-address-message');
+        const label = (presetLabel || input.value || '').trim();
+
+        if (!label) {
+            message.innerHTML = '<span class="text-yellow-400">اكتب اسمًا للموقع أولاً</span>';
+            return;
+        }
+
+        const lat = parseFloat(document.getElementById('location_lat').value);
+        const lng = parseFloat(document.getElementById('location_lng').value);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            message.innerHTML = '<span class="text-red-400">حدد الموقع على الخريطة أولاً</span>';
+            return;
+        }
+
+        message.innerHTML = '<span class="text-gray-400"><i class="fas fa-spinner fa-spin ml-1"></i>جاري الحفظ...</span>';
+        try {
+            const response = await fetch('/customer/api/saved-addresses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+                },
+                body: JSON.stringify({ label: label, latitude: lat, longitude: lng })
+            });
+            const data = await response.json();
+
+            if (!data.saved) {
+                message.innerHTML = `<span class="text-red-400"><i class="fas fa-times-circle ml-1"></i>${data.message || 'تعذر حفظ الموقع'}</span>`;
+                return;
+            }
+
+            savedAddresses = data.addresses || [];
+            input.value = '';
+            document.getElementById('saved_address_id').value = data.address.id;
+            renderSavedAddresses();
+            // Keep the box visible with the confirmation; it disappears on the
+            // next pin move because the spot is now a saved one.
+            document.getElementById('save-address-prompt').classList.add('hidden');
+            document.getElementById('save-address-form').classList.add('hidden');
+            message.innerHTML = `<span class="text-green-400"><i class="fas fa-check-circle ml-1"></i>${data.message}</span>`;
+        } catch (error) {
+            console.error('Failed to save address', error);
+            message.innerHTML = '<span class="text-red-400">تعذر حفظ الموقع، حاول مرة أخرى</span>';
+        }
+    }
+
     async function validateLocation(lat, lng) {
+        // Any new pin means the booking is no longer tied to the saved address.
+        document.getElementById('saved_address_id').value = '';
         const statusDiv = document.getElementById('coverageStatus');
         const iconSpan = document.getElementById('coverageIcon');
         const textSpan = document.getElementById('coverageText');
@@ -1602,6 +1881,7 @@
                 iconSpan.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
                 textSpan.textContent = ' لم يتم العثور على حي مطابق للموقع. يرجى اختيار المدينة والحي يدوياً.';
                 isWithinBoundary = false;
+                updateSaveAddressBox();
                 return;
             }
             statusDiv.className = 'mt-3 p-3 rounded-lg text-center font-bold bg-green-900/30 text-green-400 border border-green-600/30';
@@ -1629,6 +1909,7 @@
             statusDiv.classList.remove('hidden');
         }
         updateLocationFields(lat, lng);
+        updateSaveAddressBox();
     }
 
     // Initialize map on first click of city drop-down to be safe
@@ -1636,6 +1917,8 @@
     
     // Also initialize immediately
     setTimeout(initLocationMap, 500);
+
+    loadSavedAddresses();
 
     // Call showStep using existing showStep logic
     showStep(1);
